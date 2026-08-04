@@ -1,0 +1,391 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\AccountType;
+use App\Enums\Currency;
+use App\Enums\JournalStatus;
+use App\Models\Account;
+use App\Models\JournalLine;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class AccountService
+{
+    /**
+     * @param  array{search?: string|null, type?: string|null, currency?: string|null}  $filters
+     */
+    public function paginate(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $query = Account::query()
+            ->with('parent:id,code,name')
+            ->orderBy('code');
+
+        if (! empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($builder) use ($search): void {
+                $builder
+                    ->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+
+        if (! empty($filters['currency'])) {
+            $query->where('currency', $filters['currency']);
+        }
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * @param  array{
+     *     code: string,
+     *     name: string,
+     *     type: string,
+     *     currency: string,
+     *     parent_id?: int|null,
+     *     description?: string|null,
+     *     is_active?: bool
+     * }  $data
+     */
+    public function create(array $data): Account
+    {
+        return DB::transaction(function () use ($data): Account {
+            $this->assertParentCompatible($data);
+
+            return Account::query()->create([
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'type' => $data['type'],
+                'currency' => $data['currency'],
+                'parent_id' => $data['parent_id'] ?? null,
+                'description' => $data['description'] ?? null,
+                'is_active' => $data['is_active'] ?? true,
+                'is_system' => false,
+            ]);
+        });
+    }
+
+    /**
+     * @param  array{
+     *     code: string,
+     *     name: string,
+     *     type: string,
+     *     currency: string,
+     *     parent_id?: int|null,
+     *     description?: string|null,
+     *     is_active?: bool
+     * }  $data
+     */
+    public function update(Account $account, array $data): Account
+    {
+        return DB::transaction(function () use ($account, $data): Account {
+            if ($account->is_system) {
+                $data['code'] = $account->code;
+                $data['type'] = $account->type->value;
+                $data['currency'] = $account->currency->value;
+            }
+
+            $this->assertParentCompatible($data, $account->id);
+
+            $account->update([
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'type' => $data['type'],
+                'currency' => $data['currency'],
+                'parent_id' => $data['parent_id'] ?? null,
+                'description' => $data['description'] ?? null,
+                'is_active' => $data['is_active'] ?? $account->is_active,
+            ]);
+
+            return $account->fresh('parent:id,code,name');
+        });
+    }
+
+    public function delete(Account $account): void
+    {
+        if ($account->is_system) {
+            throw ValidationException::withMessages([
+                'account' => 'System accounts cannot be deleted.',
+            ]);
+        }
+
+        if ($account->journalLines()->exists()) {
+            throw ValidationException::withMessages([
+                'account' => 'Accounts with journal history cannot be deleted.',
+            ]);
+        }
+
+        if ($account->children()->exists()) {
+            throw ValidationException::withMessages([
+                'account' => 'Accounts with child accounts cannot be deleted.',
+            ]);
+        }
+
+        $account->delete();
+    }
+
+    /**
+     * Balance is always derived from posted journal lines.
+     */
+    public function balance(Account $account): string
+    {
+        return $this->formatAmount($this->signedBalance($account));
+    }
+
+    /**
+     * Posted ledger for one account with opening / running / closing balances.
+     *
+     * @param  array{date_from?: string|null, date_to?: string|null}  $filters
+     * @return array{
+     *     opening_balance: string,
+     *     closing_balance: string,
+     *     period_debit: string,
+     *     period_credit: string,
+     *     lines: LengthAwarePaginator
+     * }
+     */
+    public function ledger(Account $account, array $filters = [], int $perPage = 50): array
+    {
+        $dateFrom = $this->nullableDate($filters['date_from'] ?? null);
+        $dateTo = $this->nullableDate($filters['date_to'] ?? null);
+
+        $opening = $this->signedBalance($account, beforeDate: $dateFrom);
+
+        $page = max(1, (int) request()->integer('page', 1));
+        $offset = ($page - 1) * $perPage;
+
+        $priorTotals = $this->postedLineTotals(
+            $account,
+            dateFrom: $dateFrom,
+            dateTo: $dateTo,
+            limit: $offset
+        );
+
+        $running = $opening + $this->signedFromTotals($account, $priorTotals['debit'], $priorTotals['credit']);
+
+        $paginator = $this->postedLinesQuery($account, $dateFrom, $dateTo)
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(function (JournalLine $line) use ($account, &$running): array {
+                $debit = (float) $line->debit;
+                $credit = (float) $line->credit;
+                $running += $this->signedFromTotals($account, $debit, $credit);
+                $entry = $line->journalEntry;
+
+                return [
+                    'id' => $line->id,
+                    'entry_date' => $entry?->entry_date?->format('Y-m-d'),
+                    'voucher_number' => $entry?->voucher_number,
+                    'journal_entry_id' => $entry?->id,
+                    'description' => $entry?->description,
+                    'reference' => $entry?->reference,
+                    'memo' => $line->memo,
+                    'debit' => $this->formatAmount($debit),
+                    'credit' => $this->formatAmount($credit),
+                    'balance' => $this->formatAmount($running),
+                ];
+            });
+
+        $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo);
+        $closing = $opening + $this->signedFromTotals(
+            $account,
+            $periodTotals['debit'],
+            $periodTotals['credit']
+        );
+
+        return [
+            'opening_balance' => $this->formatAmount($opening),
+            'closing_balance' => $this->formatAmount($closing),
+            'period_debit' => $this->formatAmount($periodTotals['debit']),
+            'period_credit' => $this->formatAmount($periodTotals['credit']),
+            'lines' => $paginator,
+        ];
+    }
+
+    /**
+     * Signed account balance from posted lines only.
+     */
+    private function signedBalance(Account $account, ?string $beforeDate = null, ?string $dateTo = null): float
+    {
+        $totals = $this->postedLineTotals($account, dateTo: $dateTo, beforeDate: $beforeDate);
+
+        return $this->signedFromTotals($account, $totals['debit'], $totals['credit']);
+    }
+
+    /**
+     * @return array{debit: float, credit: float}
+     */
+    private function postedLineTotals(
+        Account $account,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $beforeDate = null,
+        ?int $limit = null
+    ): array {
+        $query = $this->postedLinesQuery($account, $dateFrom, $dateTo, $beforeDate);
+
+        if ($limit !== null) {
+            if ($limit <= 0) {
+                return ['debit' => 0.0, 'credit' => 0.0];
+            }
+
+            $ids = (clone $query)->limit($limit)->pluck('journal_lines.id');
+
+            if ($ids->isEmpty()) {
+                return ['debit' => 0.0, 'credit' => 0.0];
+            }
+
+            $totals = JournalLine::query()
+                ->whereIn('id', $ids)
+                ->selectRaw('COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(credit), 0) as total_credit')
+                ->first();
+        } else {
+            $totals = (clone $query)
+                ->reorder()
+                ->toBase()
+                ->selectRaw('COALESCE(SUM(journal_lines.debit), 0) as total_debit, COALESCE(SUM(journal_lines.credit), 0) as total_credit')
+                ->first();
+        }
+
+        return [
+            'debit' => (float) ($totals->total_debit ?? 0),
+            'credit' => (float) ($totals->total_credit ?? 0),
+        ];
+    }
+
+    private function postedLinesQuery(
+        Account $account,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $beforeDate = null
+    ): Builder {
+        return JournalLine::query()
+            ->select('journal_lines.*')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->where('journal_lines.account_id', $account->id)
+            ->whereNull('journal_lines.deleted_at')
+            ->whereNull('journal_entries.deleted_at')
+            ->where('journal_entries.status', JournalStatus::Posted->value)
+            ->when($beforeDate, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '<', $beforeDate))
+            ->when($dateFrom, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '>=', $dateFrom))
+            ->when($dateTo, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '<=', $dateTo))
+            ->orderBy('journal_entries.entry_date')
+            ->orderBy('journal_entries.id')
+            ->orderBy('journal_lines.id')
+            ->with(['journalEntry:id,voucher_number,entry_date,description,reference,currency,status']);
+    }
+
+    private function signedFromTotals(Account $account, float $debit, float $credit): float
+    {
+        return $account->type->isDebitNormal()
+            ? $debit - $credit
+            : $credit - $debit;
+    }
+
+    private function formatAmount(float $amount): string
+    {
+        return number_format($amount, 2, '.', '');
+    }
+
+    private function nullableDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * Seed default chart of accounts.
+     * Dubai (1300) and Ship Clearing (1500) use AED by design.
+     */
+    public function seedChartOfAccounts(): void
+    {
+        DB::transaction(function (): void {
+            $tree = [
+                ['code' => '1000', 'name' => 'Assets', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => null],
+                ['code' => '1100', 'name' => 'Cash', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => '1000'],
+                ['code' => '1200', 'name' => 'Bank', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => '1000'],
+                ['code' => '1300', 'name' => 'Dubai Account', 'type' => AccountType::Asset, 'currency' => Currency::AED, 'parent' => '1000'],
+                ['code' => '1400', 'name' => 'Iran Account', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => '1000'],
+                ['code' => '1500', 'name' => 'Ship Clearing', 'type' => AccountType::Asset, 'currency' => Currency::AED, 'parent' => '1000'],
+                ['code' => '1600', 'name' => 'Accounts Receivable', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => '1000'],
+                ['code' => '2000', 'name' => 'Liabilities', 'type' => AccountType::Liability, 'currency' => Currency::USD, 'parent' => null],
+                ['code' => '2100', 'name' => 'Accounts Payable', 'type' => AccountType::Liability, 'currency' => Currency::USD, 'parent' => '2000'],
+                ['code' => '3000', 'name' => 'Equity', 'type' => AccountType::Equity, 'currency' => Currency::USD, 'parent' => null],
+                ['code' => '4000', 'name' => 'Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => null],
+                ['code' => '4100', 'name' => 'Shipping Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => '4000'],
+                ['code' => '5000', 'name' => 'Expenses', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => null],
+                ['code' => '5100', 'name' => 'Voyage Expenses', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => '5000'],
+                ['code' => '5110', 'name' => 'Ship Expenses USD', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => '5000'],
+                ['code' => '5200', 'name' => 'Ship Expenses', 'type' => AccountType::Expense, 'currency' => Currency::AED, 'parent' => '5000'],
+                ['code' => '5300', 'name' => 'Captain Commission', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => '5000'],
+                ['code' => '5310', 'name' => 'Captain Commission AED', 'type' => AccountType::Expense, 'currency' => Currency::AED, 'parent' => '5000'],
+            ];
+
+            $ids = [];
+
+            foreach ($tree as $item) {
+                $parentId = $item['parent'] ? ($ids[$item['parent']] ?? null) : null;
+
+                $account = Account::query()->updateOrCreate(
+                    ['code' => $item['code']],
+                    [
+                        'name' => $item['name'],
+                        'type' => $item['type']->value,
+                        'currency' => $item['currency']->value,
+                        'parent_id' => $parentId,
+                        'is_system' => true,
+                        'is_active' => true,
+                    ]
+                );
+
+                $ids[$item['code']] = $account->id;
+            }
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertParentCompatible(array $data, ?int $ignoreId = null): void
+    {
+        if (empty($data['parent_id'])) {
+            return;
+        }
+
+        $parent = Account::query()->find($data['parent_id']);
+
+        if (! $parent) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'Parent account not found.',
+            ]);
+        }
+
+        if ($ignoreId && (int) $data['parent_id'] === $ignoreId) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'An account cannot be its own parent.',
+            ]);
+        }
+
+        if ($parent->type->value !== $data['type']) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'Parent account type must match the account type.',
+            ]);
+        }
+
+        if ($parent->currency->value !== $data['currency']) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'Parent account currency must match the account currency.',
+            ]);
+        }
+    }
+}

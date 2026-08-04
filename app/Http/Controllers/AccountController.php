@@ -1,0 +1,188 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\AccountType;
+use App\Enums\Currency;
+use App\Http\Requests\Accounts\AccountLedgerRequest;
+use App\Http\Requests\Accounts\StoreAccountRequest;
+use App\Http\Requests\Accounts\UpdateAccountRequest;
+use App\Models\Account;
+use App\Services\AccountService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class AccountController extends Controller
+{
+    public function __construct(
+        private readonly AccountService $accountService
+    ) {}
+
+    public function index(Request $request): Response
+    {
+        Gate::authorize('viewAny', Account::class);
+
+        $filters = [
+            'search' => $request->string('search')->toString(),
+            'type' => $request->string('type')->toString(),
+            'currency' => $request->string('currency')->toString(),
+        ];
+
+        $accounts = $this->accountService
+            ->paginate($filters)
+            ->through(fn (Account $account) => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type->value,
+                'type_label' => $account->type->label(),
+                'currency' => $account->currency->value,
+                'parent' => $account->parent ? [
+                    'id' => $account->parent->id,
+                    'code' => $account->parent->code,
+                    'name' => $account->parent->name,
+                ] : null,
+                'is_system' => $account->is_system,
+                'is_active' => $account->is_active,
+                'balance' => $this->accountService->balance($account),
+            ]);
+
+        return Inertia::render('Accounts/Index', [
+            'accounts' => $accounts,
+            'filters' => $filters,
+            'types' => collect(AccountType::cases())->map(fn (AccountType $type) => [
+                'value' => $type->value,
+                'label' => $type->label(),
+            ]),
+            'currencies' => collect(Currency::cases())->map(fn (Currency $currency) => [
+                'value' => $currency->value,
+                'label' => $currency->label(),
+            ]),
+            'canManage' => $request->user()?->can('accounting.manage') ?? false,
+        ]);
+    }
+
+    public function create(): Response
+    {
+        Gate::authorize('create', Account::class);
+
+        return Inertia::render('Accounts/Create', $this->formOptions());
+    }
+
+    public function store(StoreAccountRequest $request): RedirectResponse
+    {
+        Gate::authorize('create', Account::class);
+
+        $this->accountService->create($request->validated());
+
+        return redirect()
+            ->route('accounts.index')
+            ->with('success', 'Account created successfully.');
+    }
+
+    public function show(AccountLedgerRequest $request, Account $account): Response
+    {
+        Gate::authorize('view', $account);
+
+        $filters = [
+            'date_from' => $request->validated('date_from'),
+            'date_to' => $request->validated('date_to'),
+        ];
+
+        $ledger = $this->accountService->ledger($account, $filters);
+
+        return Inertia::render('Accounts/Show', [
+            'account' => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type->value,
+                'type_label' => $account->type->label(),
+                'currency' => $account->currency->value,
+                'is_system' => $account->is_system,
+                'is_active' => $account->is_active,
+                'description' => $account->description,
+                'balance' => $this->accountService->balance($account),
+            ],
+            'filters' => $filters,
+            'opening_balance' => $ledger['opening_balance'],
+            'closing_balance' => $ledger['closing_balance'],
+            'period_debit' => $ledger['period_debit'],
+            'period_credit' => $ledger['period_credit'],
+            'lines' => $ledger['lines'],
+            'canManage' => $request->user()?->can('accounting.manage') ?? false,
+        ]);
+    }
+
+    public function edit(Account $account): Response
+    {
+        Gate::authorize('update', $account);
+
+        return Inertia::render('Accounts/Edit', [
+            'account' => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type->value,
+                'currency' => $account->currency->value,
+                'parent_id' => $account->parent_id,
+                'description' => $account->description,
+                'is_active' => $account->is_active,
+                'is_system' => $account->is_system,
+            ],
+            ...$this->formOptions(),
+        ]);
+    }
+
+    public function update(UpdateAccountRequest $request, Account $account): RedirectResponse
+    {
+        Gate::authorize('update', $account);
+
+        $this->accountService->update($account, $request->validated());
+
+        return redirect()
+            ->route('accounts.index')
+            ->with('success', 'Account updated successfully.');
+    }
+
+    public function destroy(Account $account): RedirectResponse
+    {
+        Gate::authorize('delete', $account);
+
+        $this->accountService->delete($account);
+
+        return redirect()
+            ->route('accounts.index')
+            ->with('success', 'Account deleted successfully.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formOptions(): array
+    {
+        return [
+            'types' => collect(AccountType::cases())->map(fn (AccountType $type) => [
+                'value' => $type->value,
+                'label' => $type->label(),
+            ]),
+            'currencies' => collect(Currency::cases())->map(fn (Currency $currency) => [
+                'value' => $currency->value,
+                'label' => $currency->label(),
+            ]),
+            'parents' => Account::query()
+                ->where('is_active', true)
+                ->orderBy('code')
+                ->get(['id', 'code', 'name', 'type', 'currency'])
+                ->map(fn (Account $account) => [
+                    'id' => $account->id,
+                    'label' => "{$account->code} — {$account->name}",
+                    'type' => $account->type->value,
+                    'currency' => $account->currency->value,
+                ]),
+        ];
+    }
+}
