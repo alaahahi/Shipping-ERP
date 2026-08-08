@@ -73,7 +73,11 @@ const submit = () => {
 
         <PageHeader :title="t('money_vouchers.edit')" :subtitle="voucher.voucher_number" />
 
-        <form class="erp-card p-4" @submit.prevent="submit">
+        <form
+            class="erp-card erp-voucher-panel p-4"
+            :class="isReceipt ? 'is-receipt' : 'is-payment'"
+            @submit.prevent="submit"
+        >
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-erp-label">{{ t('common.date') }}</label>

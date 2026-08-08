@@ -87,7 +87,13 @@
     "recent_voyages": "أحدث الرحلات",
     "quick_links": "اختصارات سريعة",
     "no_recent": "لا توجد رحلات بعد.",
-    "month_overview": "ملخص الشهر الحالي"
+    "month_overview": "ملخص الشهر الحالي",
+    "company_debts": "ديون الشركات",
+    "company_debts_help": "اضغط البطاقة لفتح حساب الشركة. اللون حسب حجم الدين مقارنة بأعلى رصيد.",
+    "company_debts_total": "المجموع",
+    "company_debts_none": "لا توجد ذمم مدينة مفتوحة على الشركات.",
+    "debt_high": "دين مرتفع",
+    "debt_low": "دين منخفض"
   },
   "common": {
     "search": "بحث",

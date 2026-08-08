@@ -91,7 +91,12 @@ const submit = () => {
 
         <PageHeader :title="t('money_vouchers.add')" :subtitle="t('money_vouchers.form_help')" />
 
-        <form class="erp-card p-4" @submit.prevent="submit">
+        <form
+            :key="form.type"
+            class="erp-card erp-voucher-panel p-4"
+            :class="isReceipt ? 'is-receipt' : 'is-payment'"
+            @submit.prevent="submit"
+        >
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-erp-label">{{ t('money_vouchers.type') }}</label>

@@ -89,6 +89,78 @@ class CompanyLedgerService
     }
 
     /**
+     * Positive AR balances for dashboard debt cards (USD). One grouped query.
+     *
+     * @return array{total: string, currency: string, cards: list<array<string, mixed>>}
+     */
+    public function debtorCards(): array
+    {
+        try {
+            $accountIds = $this->companyReceivableAccounts->receivableAccountIds();
+        } catch (\Throwable) {
+            return [
+                'total' => '0.00',
+                'currency' => Currency::USD->value,
+                'cards' => [],
+            ];
+        }
+
+        $rows = JournalLine::query()
+            ->selectRaw('company_id, ROUND(SUM(debit - credit), 2) as balance')
+            ->whereNotNull('company_id')
+            ->whereIn('account_id', $accountIds)
+            ->whereHas(
+                'journalEntry',
+                fn ($entry) => $entry
+                    ->where('status', JournalStatus::Posted->value)
+                    ->where('currency', Currency::USD->value)
+            )
+            ->groupBy('company_id')
+            ->havingRaw('SUM(debit - credit) > 0.005')
+            ->orderByDesc('balance')
+            ->get();
+
+        $companies = Company::query()
+            ->whereIn('id', $rows->pluck('company_id'))
+            ->get()
+            ->keyBy('id');
+
+        $max = max((float) ($rows->max('balance') ?: 0), 0.01);
+        $total = 0.0;
+        $cards = [];
+
+        foreach ($rows as $row) {
+            $company = $companies->get($row->company_id);
+            if (! $company) {
+                continue;
+            }
+
+            $balance = round((float) $row->balance, 2);
+            $total = round($total + $balance, 2);
+            $ratio = $balance / $max;
+
+            $cards[] = [
+                'id' => $company->id,
+                'name' => $company->name,
+                'balance' => number_format($balance, 2, '.', ''),
+                'currency' => Currency::USD->value,
+                'tone' => match (true) {
+                    $ratio >= 0.75 => 'critical',
+                    $ratio >= 0.50 => 'high',
+                    $ratio >= 0.25 => 'mid',
+                    default => 'low',
+                },
+            ];
+        }
+
+        return [
+            'total' => number_format($total, 2, '.', ''),
+            'currency' => Currency::USD->value,
+            'cards' => $cards,
+        ];
+    }
+
+    /**
      * Movements on a voyage's company AR (simple voyage account view).
      *
      * @return list<array<string, mixed>>

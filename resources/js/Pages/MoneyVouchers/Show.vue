@@ -68,7 +68,10 @@ const postVoucher = (id) => {
 
         <div class="row g-3">
             <div class="col-md-8">
-                <div class="erp-card p-4">
+                <div
+                    class="erp-card erp-voucher-panel p-4"
+                    :class="voucher.type === 'receipt' ? 'is-receipt' : 'is-payment'"
+                >
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="text-secondary small">{{ t('common.date') }}</div>

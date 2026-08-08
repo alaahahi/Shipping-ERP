@@ -97,7 +97,11 @@ const destroy = (voucher) => {
                         <tr v-if="vouchers.data.length === 0">
                             <td colspan="7"><EmptyState icon="$">{{ t('money_vouchers.none') }}</EmptyState></td>
                         </tr>
-                        <tr v-for="voucher in vouchers.data" :key="voucher.id">
+                        <tr
+                            v-for="voucher in vouchers.data"
+                            :key="voucher.id"
+                            :class="voucher.type === 'receipt' ? 'is-receipt' : 'is-payment'"
+                        >
                             <td class="ps-4">
                                 <Link :href="route('money-vouchers.show', voucher.id)" class="fw-semibold text-decoration-none">
                                     {{ voucher.voucher_number }}

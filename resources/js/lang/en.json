@@ -87,7 +87,13 @@
     "recent_voyages": "Recent voyages",
     "quick_links": "Quick links",
     "no_recent": "No voyages yet.",
-    "month_overview": "This month overview"
+    "month_overview": "This month overview",
+    "company_debts": "Company receivables",
+    "company_debts_help": "Click a card to open the company ledger. Color scales with debt vs the largest balance.",
+    "company_debts_total": "Total",
+    "company_debts_none": "No open company receivables.",
+    "debt_high": "Higher debt",
+    "debt_low": "Lower debt"
   },
   "common": {
     "search": "Search",

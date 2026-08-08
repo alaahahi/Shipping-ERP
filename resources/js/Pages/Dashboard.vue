@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
+import MoneyAmount from '@/Components/MoneyAmount.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -10,6 +11,7 @@ import { usePermissions } from '@/composables/usePermissions';
 defineProps({
     stats: { type: Object, default: () => ({}) },
     monthOverview: { type: Object, default: null },
+    companyDebts: { type: Object, default: null },
     recentVoyages: { type: Array, default: () => [] },
 });
 
@@ -101,6 +103,48 @@ const userName = computed(() => page.props.auth?.user?.name ?? '');
                 <div class="erp-stat">
                     <div class="erp-stat-label">{{ t('voyage_settlements.profit_usd') }}</div>
                     <p class="erp-stat-value" style="font-size: 1.15rem">{{ monthOverview.profit_usd }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="can('voyages.view') && companyDebts" class="mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+                <div>
+                    <h3 class="erp-panel-title mb-1">{{ t('dashboard.company_debts') }}</h3>
+                    <p class="small text-secondary mb-0">{{ t('dashboard.company_debts_help') }}</p>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="erp-debt-legend small text-secondary">
+                        <span class="erp-debt-swatch is-critical"></span>{{ t('dashboard.debt_high') }}
+                        <span class="erp-debt-swatch is-high"></span>
+                        <span class="erp-debt-swatch is-mid"></span>
+                        <span class="erp-debt-swatch is-low"></span>{{ t('dashboard.debt_low') }}
+                    </div>
+                    <div class="fw-semibold">
+                        {{ t('dashboard.company_debts_total') }}:
+                        <MoneyAmount :value="companyDebts.total" :currency="companyDebts.currency" />
+                    </div>
+                </div>
+            </div>
+            <div v-if="!companyDebts.cards?.length">
+                <EmptyState icon="$">{{ t('dashboard.company_debts_none') }}</EmptyState>
+            </div>
+            <div v-else class="row g-2 g-md-3">
+                <div
+                    v-for="card in companyDebts.cards"
+                    :key="card.id"
+                    class="col-6 col-md-4 col-lg-3 col-xl-2"
+                >
+                    <Link
+                        :href="route('companies.show', card.id)"
+                        class="erp-debt-card"
+                        :class="`is-${card.tone}`"
+                    >
+                        <div class="erp-debt-card-name">{{ card.name }}</div>
+                        <div class="erp-debt-card-amount">
+                            $<MoneyAmount :value="card.balance" />
+                        </div>
+                    </Link>
                 </div>
             </div>
         </div>
