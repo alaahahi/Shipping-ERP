@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\Permission;
 use App\Enums\SettingKey;
+use App\Jobs\SendWhatsappNotification;
 use App\Models\WhatsappNotification;
 use App\Services\SettingService;
 use App\Services\WhatsappNotificationService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -41,7 +43,14 @@ class WhatsappNotificationController extends Controller
         }
 
         return Inertia::render('WhatsappNotifications/Index', [
-            'notifications' => $query->paginate(25)->withQueryString(),
+            'notifications' => $query->paginate(25)->withQueryString()->through(fn (WhatsappNotification $row) => [
+                'id' => $row->id,
+                'company' => $row->company,
+                'phone' => $row->phone,
+                'type' => $row->type,
+                'status' => $row->status,
+                'created_at' => ApplicationTimezone::formatDateTime($row->created_at),
+            ]),
             'filters' => [
                 'status' => $request->string('status')->toString(),
                 'company_id' => $request->integer('company_id'),
@@ -68,7 +77,7 @@ class WhatsappNotificationController extends Controller
         $notification->failed_at = null;
         $notification->save();
 
-        \App\Jobs\SendWhatsappNotification::dispatch($notification)->onQueue('whatsapp');
+        SendWhatsappNotification::dispatch($notification)->onQueue('whatsapp');
 
         return back()->with('success', 'Notification queued for retry.');
     }

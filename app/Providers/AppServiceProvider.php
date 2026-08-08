@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\Permission;
 use App\Policies\RolePolicy;
+use App\Support\ApplicationTimezone;
 use App\Support\ViteBuildDirectory;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
@@ -26,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureViteForSharedHosting();
+
+        ApplicationTimezone::apply();
 
         Vite::prefetch(concurrency: 3);
 

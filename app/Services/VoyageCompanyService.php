@@ -149,7 +149,7 @@ class VoyageCompanyService
             ]);
         }
 
-        return Company::query()->create([
+        return $this->companyService->create([
             'name' => $name,
             'contact_name' => $data['contact_name'] ?? null,
             'contact_phone' => $data['contact_phone'] ?? null,

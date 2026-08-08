@@ -4,6 +4,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import { formatDateTime } from '@/utils/formatDateTime';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -119,7 +120,7 @@ const retry = (id) => {
                             </td>
                         </tr>
                         <tr v-for="row in notifications.data" :key="row.id">
-                            <td class="ps-4 small text-secondary">{{ row.created_at }}</td>
+                            <td class="ps-4 small text-secondary">{{ formatDateTime(row.created_at, page.props.appSettings?.timezone) }}</td>
                             <td class="fw-semibold">{{ row.company?.name ?? '—' }}</td>
                             <td class="font-monospace small">{{ row.phone }}</td>
                             <td class="small">{{ statusLabel(row.type) }}</td>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -20,6 +21,7 @@ class Company extends Model
         'address',
         'notes',
         'is_active',
+        'ar_account_id',
     ];
 
     protected function casts(): array
@@ -33,6 +35,16 @@ class Company extends Model
     public function whatsappNumber(): ?string
     {
         return $this->whatsapp_phone ?: $this->contact_phone;
+    }
+
+    public function arAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'ar_account_id');
+    }
+
+    public function directCharges(): HasMany
+    {
+        return $this->hasMany(CompanyDirectCharge::class);
     }
 
     public function whatsappNotifications(): HasMany

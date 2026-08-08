@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\AppLocale;
 use App\Enums\SettingKey;
 use App\Services\SettingService;
+use App\Support\ApplicationTimezone;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -28,6 +29,8 @@ class SetAppLocale
         }
 
         App::setLocale($locale);
+
+        ApplicationTimezone::apply($this->settingService->get(SettingKey::AppTimezone));
 
         return $next($request);
     }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SettingKey;
 use App\Models\Setting;
+use App\Support\ApplicationTimezone;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -68,6 +69,10 @@ class SettingService
         });
 
         $this->forgetCache();
+
+        if (array_key_exists(SettingKey::AppTimezone->value, $values)) {
+            ApplicationTimezone::apply((string) ($values[SettingKey::AppTimezone->value] ?? ''));
+        }
     }
 
     public function seedDefaults(): void

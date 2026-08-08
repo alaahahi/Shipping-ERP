@@ -17,7 +17,8 @@ class LandTripPostingService
 
     public function __construct(
         private readonly JournalService $journalService,
-        private readonly NotificationDispatchService $notificationDispatchService
+        private readonly NotificationDispatchService $notificationDispatchService,
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
     ) {}
 
     public function post(LandTrip $trip, User $actor): LandTrip
@@ -50,7 +51,14 @@ class LandTripPostingService
             ]);
         }
 
-        $receivable = $this->resolveExpenseAccountByCode('1600', Currency::USD);
+        $trip->loadMissing('company');
+        if (! $trip->company) {
+            throw ValidationException::withMessages([
+                'company_id' => 'A shipping company is required before posting freight.',
+            ]);
+        }
+
+        $receivable = $this->companyReceivableAccounts->resolveFor($trip->company);
         $revenue = $this->resolveExpenseAccountByCode('4200', Currency::USD);
 
         $description = sprintf(

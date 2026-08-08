@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CompanyDirectChargeController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DubaiAccountController;
@@ -71,6 +72,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('ships', ShipController::class);
     Route::resource('companies', CompanyController::class);
+    Route::post('/companies/{company}/direct-charges', [CompanyDirectChargeController::class, 'store'])
+        ->name('companies.direct-charges.store');
 
     Route::resource('land-trips', LandTripController::class);
     Route::post('/land-trips/{land_trip}/cars', [LandTripController::class, 'syncCars'])

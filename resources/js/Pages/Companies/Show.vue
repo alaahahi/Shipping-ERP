@@ -1,17 +1,20 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import CompanyDirectChargeModal from '@/Components/CompanyDirectChargeModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     company: { type: Object, required: true },
     ledger: { type: Object, required: true },
+    creditAccounts: { type: Array, default: () => [] },
+    defaultCreditAccountId: { type: Number, default: null },
     canManage: { type: Boolean, default: false },
     canCollect: { type: Boolean, default: false },
 });
@@ -19,6 +22,7 @@ const props = defineProps({
 const page = usePage();
 const { t } = useI18n();
 const success = computed(() => page.props.flash?.success);
+const showDirectCharge = ref(false);
 
 const openBalance = computed(() => Number(props.ledger.open_balance) || 0);
 
@@ -56,6 +60,14 @@ const balanceHint = computed(() => {
                 <Link v-if="canManage" :href="route('companies.edit', company.id)" class="btn btn-erp-ghost">
                     {{ t('common.edit') }}
                 </Link>
+                <button
+                    v-if="canCollect"
+                    type="button"
+                    class="btn btn-erp-ghost"
+                    @click="showDirectCharge = true"
+                >
+                    {{ t('companies.direct_charge') }}
+                </button>
                 <Link
                     v-if="canCollect"
                     :href="route('money-vouchers.create', {
@@ -70,6 +82,15 @@ const balanceHint = computed(() => {
                 </Link>
             </template>
         </PageHeader>
+
+        <CompanyDirectChargeModal
+            :show="showDirectCharge"
+            :company-id="company.id"
+            :currency="ledger.currency"
+            :credit-accounts="creditAccounts"
+            :default-credit-account-id="defaultCreditAccountId"
+            @close="showDirectCharge = false"
+        />
 
         <div class="row g-3 mb-3">
             <div class="col-md-3">
@@ -117,9 +138,18 @@ const balanceHint = computed(() => {
         </div>
 
         <div class="erp-card p-0 overflow-hidden">
-            <div class="p-3 border-bottom">
-                <h3 class="erp-panel-title mb-0">{{ t('companies.statement') }}</h3>
-                <p class="small text-secondary mb-0">{{ t('companies.statement_help') }}</p>
+            <div class="p-3 border-bottom d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <h3 class="erp-panel-title mb-0">{{ t('companies.statement') }}</h3>
+                    <p class="small text-secondary mb-0">{{ t('companies.statement_help') }}</p>
+                </div>
+                <Link
+                    v-if="company.ar_account"
+                    :href="route('accounts.show', company.ar_account.id)"
+                    class="small text-decoration-none fw-semibold"
+                >
+                    {{ t('companies.ar_account') }}: {{ company.ar_account.code }}
+                </Link>
             </div>
 
             <div class="table-responsive">

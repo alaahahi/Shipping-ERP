@@ -7,6 +7,7 @@ use App\Models\Ship;
 use App\Services\ShipExpenseService;
 use App\Services\ShipPartnerContributionService;
 use App\Services\ShipPartnerSettlementService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -43,7 +44,7 @@ class ShipExpensePrintController extends Controller
                 'value' => $item->value,
                 'label' => $item->value,
             ])->all(),
-            'printedAt' => now()->format('Y-m-d H:i'),
+            'printedAt' => ApplicationTimezone::formatNowLabel(),
             'ownerships' => $ship->ownerships
                 ->sortByDesc('share_percent')
                 ->values()

@@ -90,15 +90,21 @@ const destroy = (account) => {
                             </td>
                         </tr>
                         <tr v-for="account in accounts.data" :key="account.id">
-                            <td class="ps-4 fw-semibold">
+                            <td
+                                class="ps-4 fw-semibold"
+                                :style="account.parent ? { paddingInlineStart: '2.25rem' } : {}"
+                            >
                                 <Link :href="route('accounts.show', account.id)" class="text-decoration-none">
                                     {{ account.code }}
                                 </Link>
                             </td>
-                            <td>
+                            <td :style="account.parent ? { paddingInlineStart: '0.75rem' } : {}">
                                 <Link :href="route('accounts.show', account.id)" class="text-decoration-none text-body">
                                     {{ account.name }}
                                 </Link>
+                                <div v-if="account.parent" class="small text-secondary">
+                                    {{ account.parent.code }} — {{ account.parent.name }}
+                                </div>
                                 <StatusBadge
                                     v-if="account.is_system"
                                     class="ms-1"

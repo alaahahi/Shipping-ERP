@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ApplicationTimezone;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -106,7 +107,7 @@ class ReportExportService
             'rows' => $rows,
             'filters' => $filters,
             'totals' => $totals,
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'generated_at' => ApplicationTimezone::formatNowLabel(),
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download('voyage-report-'.now()->format('Ymd-His').'.pdf');

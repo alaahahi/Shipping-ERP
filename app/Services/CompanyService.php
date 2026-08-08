@@ -4,9 +4,14 @@ namespace App\Services;
 
 use App\Models\Company;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class CompanyService
 {
+    public function __construct(
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
+    ) {}
+
     /**
      * @param  array{search?: string|null, active?: string|null}  $filters
      */
@@ -49,17 +54,23 @@ class CompanyService
      */
     public function create(array $data): Company
     {
-        return Company::query()->create([
-            'name' => trim($data['name']),
-            'contact_name' => $data['contact_name'] ?? null,
-            'contact_phone' => $data['contact_phone'] ?? null,
-            'whatsapp_phone' => $data['whatsapp_phone'] ?? null,
-            'notify_whatsapp' => $data['notify_whatsapp'] ?? false,
-            'email' => $data['email'] ?? null,
-            'address' => $data['address'] ?? null,
-            'notes' => $data['notes'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
-        ]);
+        return DB::transaction(function () use ($data): Company {
+            $company = Company::query()->create([
+                'name' => trim($data['name']),
+                'contact_name' => $data['contact_name'] ?? null,
+                'contact_phone' => $data['contact_phone'] ?? null,
+                'whatsapp_phone' => $data['whatsapp_phone'] ?? null,
+                'notify_whatsapp' => $data['notify_whatsapp'] ?? false,
+                'email' => $data['email'] ?? null,
+                'address' => $data['address'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'is_active' => $data['is_active'] ?? true,
+            ]);
+
+            $this->companyReceivableAccounts->ensureFor($company);
+
+            return $company->fresh('arAccount');
+        });
     }
 
     /**
@@ -77,25 +88,29 @@ class CompanyService
      */
     public function update(Company $company, array $data): Company
     {
-        $company->update([
-            'name' => trim($data['name']),
-            'contact_name' => $data['contact_name'] ?? null,
-            'contact_phone' => $data['contact_phone'] ?? null,
-            'whatsapp_phone' => $data['whatsapp_phone'] ?? null,
-            'notify_whatsapp' => $data['notify_whatsapp'] ?? $company->notify_whatsapp,
-            'email' => $data['email'] ?? null,
-            'address' => $data['address'] ?? null,
-            'notes' => $data['notes'] ?? null,
-            'is_active' => $data['is_active'] ?? $company->is_active,
-        ]);
+        return DB::transaction(function () use ($company, $data): Company {
+            $company->update([
+                'name' => trim($data['name']),
+                'contact_name' => $data['contact_name'] ?? null,
+                'contact_phone' => $data['contact_phone'] ?? null,
+                'whatsapp_phone' => $data['whatsapp_phone'] ?? null,
+                'notify_whatsapp' => $data['notify_whatsapp'] ?? $company->notify_whatsapp,
+                'email' => $data['email'] ?? null,
+                'address' => $data['address'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'is_active' => $data['is_active'] ?? $company->is_active,
+            ]);
 
-        $company->voyageCompanies()->update([
-            'company_name' => $company->name,
-            'contact_name' => $company->contact_name,
-            'contact_phone' => $company->contact_phone,
-        ]);
+            $company->voyageCompanies()->update([
+                'company_name' => $company->name,
+                'contact_name' => $company->contact_name,
+                'contact_phone' => $company->contact_phone,
+            ]);
 
-        return $company->fresh();
+            $this->companyReceivableAccounts->ensureFor($company->fresh() ?? $company);
+
+            return $company->fresh('arAccount');
+        });
     }
 
     /**
@@ -124,6 +139,8 @@ class CompanyService
      */
     public function transform(Company $company): array
     {
+        $company->loadMissing('arAccount:id,code,name');
+
         return [
             'id' => $company->id,
             'name' => $company->name,
@@ -135,6 +152,11 @@ class CompanyService
             'address' => $company->address,
             'notes' => $company->notes,
             'is_active' => $company->is_active,
+            'ar_account' => $company->arAccount ? [
+                'id' => $company->arAccount->id,
+                'code' => $company->arAccount->code,
+                'name' => $company->arAccount->name,
+            ] : null,
             'voyages_count' => $company->voyage_companies_count
                 ?? $company->voyageCompanies()->count(),
         ];

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Companies\StoreCompanyRequest;
 use App\Http\Requests\Companies\UpdateCompanyRequest;
 use App\Models\Company;
+use App\Services\CompanyDirectChargeService;
 use App\Services\CompanyLedgerService;
 use App\Services\CompanyService;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +18,8 @@ class CompanyController extends Controller
 {
     public function __construct(
         private readonly CompanyService $companyService,
-        private readonly CompanyLedgerService $companyLedgerService
+        private readonly CompanyLedgerService $companyLedgerService,
+        private readonly CompanyDirectChargeService $companyDirectChargeService
     ) {}
 
     public function index(Request $request): Response
@@ -67,6 +69,8 @@ class CompanyController extends Controller
         return Inertia::render('Companies/Show', [
             'company' => $this->companyService->transform($company),
             'ledger' => $ledger,
+            'creditAccounts' => $this->companyDirectChargeService->creditAccountOptions(),
+            'defaultCreditAccountId' => $this->companyDirectChargeService->defaultCreditAccountId(),
             'canManage' => request()->user()?->can('voyages.manage') ?? false,
             'canCollect' => request()->user()?->can('accounting.manage') ?? false,
         ]);

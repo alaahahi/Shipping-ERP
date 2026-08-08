@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Voyage;
 use App\Notifications\AccountingPostedNotification;
 use App\Services\Concerns\ResolvesExpensePaymentAccounts;
+use App\Support\ApplicationTimezone;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,7 +24,8 @@ class MoneyVoucherService
     public function __construct(
         private readonly JournalService $journalService,
         private readonly NotificationDispatchService $notificationDispatchService,
-        private readonly CompanyWhatsappNotificationService $whatsappNotificationService
+        private readonly CompanyWhatsappNotificationService $whatsappNotificationService,
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
     ) {}
 
     /**
@@ -218,14 +220,15 @@ class MoneyVoucherService
             ]);
         }
 
-        $clearingCode = $voucher->type === MoneyVoucherType::Receipt ? '1600' : '2100';
-        $clearingAccount = $this->resolveExpenseAccountByCode($clearingCode, Currency::USD);
-
-        if ($voucher->type === MoneyVoucherType::Receipt && ! $voucher->company_id) {
+        if ($voucher->type === MoneyVoucherType::Receipt && ! $voucher->company) {
             throw ValidationException::withMessages([
                 'company_id' => 'Receipt vouchers must be linked to a shipping company.',
             ]);
         }
+
+        $clearingAccount = $voucher->type === MoneyVoucherType::Receipt
+            ? $this->companyReceivableAccounts->resolveFor($voucher->company)
+            : $this->resolveExpenseAccountByCode('2100', Currency::USD);
 
         $partyName = $voucher->company?->name
             ?: ($voucher->counterparty ?: 'Counterparty');
@@ -418,7 +421,7 @@ class MoneyVoucherService
             'journal_voucher' => $voucher->journalEntry?->voucher_number,
             'created_by_name' => $voucher->creator?->name,
             'posted_by_name' => $voucher->poster?->name,
-            'posted_at' => $voucher->posted_at?->format('Y-m-d H:i'),
+            'posted_at' => ApplicationTimezone::formatDateTime($voucher->posted_at),
         ];
     }
 

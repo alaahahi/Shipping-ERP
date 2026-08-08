@@ -4,15 +4,18 @@ namespace App\Services;
 
 use App\Enums\Currency;
 use App\Enums\JournalStatus;
-use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalLine;
 use App\Models\Voyage;
 
 class CompanyLedgerService
 {
+    public function __construct(
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
+    ) {}
+
     /**
-     * Company AR statement derived from posted journal lines on account 1600.
+     * Company AR statement from posted lines on 1600 and the company's subsidiary AR account.
      *
      * @return array{
      *     currency: string,
@@ -24,7 +27,7 @@ class CompanyLedgerService
      */
     public function statement(Company $company, ?int $voyageId = null): array
     {
-        $arAccount = $this->receivableAccount();
+        $accountIds = $this->companyReceivableAccounts->receivableAccountIds($company);
 
         $query = JournalLine::query()
             ->with([
@@ -32,7 +35,7 @@ class CompanyLedgerService
                 'voyage:id,voyage_number',
             ])
             ->where('company_id', $company->id)
-            ->where('account_id', $arAccount->id)
+            ->whereIn('account_id', $accountIds)
             ->whereHas(
                 'journalEntry',
                 fn ($entry) => $entry
@@ -92,7 +95,7 @@ class CompanyLedgerService
      */
     public function voyageMovements(Voyage $voyage): array
     {
-        $arAccount = $this->receivableAccount();
+        $accountIds = $this->companyReceivableAccounts->receivableAccountIds();
 
         $lines = JournalLine::query()
             ->with([
@@ -100,7 +103,7 @@ class CompanyLedgerService
                 'company:id,name',
             ])
             ->where('voyage_id', $voyage->id)
-            ->where('account_id', $arAccount->id)
+            ->whereIn('account_id', $accountIds)
             ->whereNotNull('company_id')
             ->whereHas(
                 'journalEntry',
@@ -130,13 +133,5 @@ class CompanyLedgerService
                 'kind' => $debit > 0 ? 'charge' : 'receipt',
             ];
         })->all();
-    }
-
-    private function receivableAccount(): Account
-    {
-        return Account::query()
-            ->where('code', '1600')
-            ->where('currency', Currency::USD->value)
-            ->firstOrFail();
     }
 }

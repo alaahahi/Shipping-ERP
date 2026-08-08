@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\Currency;
 use App\Enums\Permission;
+use App\Models\Company;
 use App\Models\User;
 use App\Models\Voyage;
 use App\Notifications\AccountingPostedNotification;
@@ -19,11 +20,12 @@ class VoyageSettlementPostingService
         private readonly JournalService $journalService,
         private readonly VoyageSettlementService $voyageSettlementService,
         private readonly NotificationDispatchService $notificationDispatchService,
-        private readonly CompanyWhatsappNotificationService $whatsappNotificationService
+        private readonly CompanyWhatsappNotificationService $whatsappNotificationService,
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
     ) {}
 
     /**
-     * Recognize voyage shipping revenue: Dr AR 1600 / Cr Shipping Revenue 4100 (USD).
+     * Recognize voyage shipping revenue: Dr company AR (child of 1600) / Cr Shipping Revenue 4100 (USD).
      */
     public function postRevenue(Voyage $voyage, User $actor): Voyage
     {
@@ -61,8 +63,11 @@ class VoyageSettlementPostingService
             ]);
         }
 
-        $receivable = $this->resolveExpenseAccountByCode('1600', Currency::USD);
         $revenue = $this->resolveExpenseAccountByCode('4100', Currency::USD);
+        $companies = Company::query()
+            ->whereIn('id', $companyRows->pluck('master_company_id')->map(fn ($id) => (int) $id)->unique()->all())
+            ->get()
+            ->keyBy('id');
 
         $description = sprintf(
             'Shipping revenue — voyage %s%s',
@@ -74,27 +79,38 @@ class VoyageSettlementPostingService
             $voyage,
             $actor,
             $amount,
-            $receivable,
             $revenue,
             $description,
-            $companyRows
+            $companyRows,
+            $companies
         ): Voyage {
             if ($voyage->revenue_journal_entry_id) {
                 $voyage->update(['revenue_journal_entry_id' => null]);
             }
 
-            $lines = $companyRows->map(fn (array $row) => [
-                'account_id' => $receivable->id,
-                'company_id' => (int) $row['master_company_id'],
-                'voyage_id' => $voyage->id,
-                'debit' => round((float) $row['due_usd'], 2),
-                'credit' => 0,
-                'memo' => sprintf(
-                    'AR — %s · voyage %s',
-                    $row['company_name'] ?? 'Company',
-                    $voyage->voyage_number
-                ),
-            ])->all();
+            $lines = $companyRows->map(function (array $row) use ($voyage, $companies): array {
+                $company = $companies->get((int) $row['master_company_id']);
+                if (! $company) {
+                    throw ValidationException::withMessages([
+                        'revenue' => 'Every voyage company must be linked to a master company before posting revenue.',
+                    ]);
+                }
+
+                $receivable = $this->companyReceivableAccounts->resolveFor($company);
+
+                return [
+                    'account_id' => $receivable->id,
+                    'company_id' => $company->id,
+                    'voyage_id' => $voyage->id,
+                    'debit' => round((float) $row['due_usd'], 2),
+                    'credit' => 0,
+                    'memo' => sprintf(
+                        'AR — %s · voyage %s',
+                        $row['company_name'] ?? $company->name,
+                        $voyage->voyage_number
+                    ),
+                ];
+            })->all();
 
             $lines[] = [
                 'account_id' => $revenue->id,

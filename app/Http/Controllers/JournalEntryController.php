@@ -9,6 +9,7 @@ use App\Http\Requests\Journals\UpdateJournalEntryRequest;
 use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Services\JournalService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -202,9 +203,9 @@ class JournalEntryController extends Controller
             'status_label' => $entry->status->label(),
             'created_by' => $entry->creator?->name,
             'posted_by' => $entry->poster?->name,
-            'posted_at' => $entry->posted_at?->toDateTimeString(),
+            'posted_at' => ApplicationTimezone::formatDateTime($entry->posted_at),
             'voided_by' => $entry->voider?->name,
-            'voided_at' => $entry->voided_at?->toDateTimeString(),
+            'voided_at' => ApplicationTimezone::formatDateTime($entry->voided_at),
             'void_reason' => $entry->void_reason,
             'total_debit' => number_format((float) $entry->lines->sum('debit'), 2, '.', ''),
             'total_credit' => number_format((float) $entry->lines->sum('credit'), 2, '.', ''),

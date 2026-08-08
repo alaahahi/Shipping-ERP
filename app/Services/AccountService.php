@@ -14,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class AccountService
 {
+    public function __construct(
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts
+    ) {}
+
     /**
      * @param  array{search?: string|null, type?: string|null, currency?: string|null}  $filters
      */
@@ -86,10 +90,16 @@ class AccountService
     public function update(Account $account, array $data): Account
     {
         return DB::transaction(function () use ($account, $data): Account {
-            if ($account->is_system) {
+            $isCompanyAr = $this->companyReceivableAccounts->isCompanyReceivable($account);
+
+            if ($account->is_system || $isCompanyAr) {
                 $data['code'] = $account->code;
                 $data['type'] = $account->type->value;
                 $data['currency'] = $account->currency->value;
+            }
+
+            if ($isCompanyAr) {
+                $data['parent_id'] = $account->parent_id;
             }
 
             $this->assertParentCompatible($data, $account->id);
@@ -125,6 +135,12 @@ class AccountService
         if ($account->children()->exists()) {
             throw ValidationException::withMessages([
                 'account' => 'Accounts with child accounts cannot be deleted.',
+            ]);
+        }
+
+        if ($this->companyReceivableAccounts->isCompanyReceivable($account)) {
+            throw ValidationException::withMessages([
+                'account' => 'Company receivable accounts cannot be deleted while linked to a company.',
             ]);
         }
 
