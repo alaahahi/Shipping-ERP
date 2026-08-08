@@ -112,6 +112,17 @@ const markAllRead = () => {
                     {{ t('nav.voyages') }}
                 </Link>
 
+                <Link
+                    v-if="can('land_trips.view')"
+                    :href="route('land-trips.index')"
+                    class="erp-nav-link"
+                    :class="{ active: route().current('land-trips.*') }"
+                    @click="appStore.closeSidebar"
+                >
+                    <span aria-hidden="true">▤</span>
+                    {{ t('nav.land_trips') }}
+                </Link>
+
                 <div class="erp-nav-section">{{ t('nav.finance') }}</div>
 
                 <Link

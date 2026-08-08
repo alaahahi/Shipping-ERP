@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LandTripController;
 use App\Http\Controllers\DubaiAccountController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\MoneyVoucherController;
@@ -50,6 +52,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
     Route::put('/settings', [SettingController::class, 'update'])->name('settings.update');
+    Route::post('/settings/countries', [CountryController::class, 'store'])->name('settings.countries.store');
+    Route::put('/settings/countries/{country}', [CountryController::class, 'update'])->name('settings.countries.update');
+    Route::delete('/settings/countries/{country}', [CountryController::class, 'destroy'])->name('settings.countries.destroy');
+    Route::post('/settings/system/migrate', [SettingController::class, 'migrate'])->name('settings.system.migrate');
+    Route::get('/settings/system/logs/download', [SettingController::class, 'downloadLogs'])->name('settings.system.logs.download');
 
     Route::get('/whatsapp-notifications', [WhatsappNotificationController::class, 'index'])
         ->name('whatsapp-notifications.index');
@@ -62,6 +69,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('ships', ShipController::class);
     Route::resource('companies', CompanyController::class);
+
+    Route::resource('land-trips', LandTripController::class);
+    Route::post('/land-trips/{land_trip}/cars', [LandTripController::class, 'syncCars'])
+        ->name('land-trips.cars.sync');
+    Route::post('/land-trips/{land_trip}/transition', [LandTripController::class, 'transition'])
+        ->name('land-trips.transition');
+    Route::post('/land-trips/{land_trip}/post', [LandTripController::class, 'post'])
+        ->name('land-trips.post');
 
     Route::resource('dubai-accounts', DubaiAccountController::class);
     Route::post('/dubai-accounts/{dubai_account}/entries', [DubaiAccountController::class, 'storeEntry'])

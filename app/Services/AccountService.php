@@ -323,6 +323,7 @@ class AccountService
                 ['code' => '3000', 'name' => 'Equity', 'type' => AccountType::Equity, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '4000', 'name' => 'Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '4100', 'name' => 'Shipping Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => '4000'],
+                ['code' => '4200', 'name' => 'Land Transit Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => '4000'],
                 ['code' => '5000', 'name' => 'Expenses', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '5100', 'name' => 'Voyage Expenses', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => '5000'],
                 ['code' => '5110', 'name' => 'Ship Expenses USD', 'type' => AccountType::Expense, 'currency' => Currency::USD, 'parent' => '5000'],

@@ -1062,3 +1062,48 @@ a:hover {
     padding-top: 0.95rem;
     padding-bottom: 0.95rem;
 }
+
+.erp-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+    overflow: auto;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.erp-modal-dialog {
+    width: min(1100px, 100%);
+    margin: auto;
+}
+
+.erp-settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.erp-settings-tabs .btn {
+    min-height: 40px;
+}
+
+.erp-log-viewer {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    max-height: 420px;
+    overflow: auto;
+    background: var(--erp-surface-muted, #0f172a);
+    color: #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.erp-log-line.is-error { color: #fca5a5; }
+.erp-log-line.is-warning { color: #fcd34d; }
+.erp-log-line.is-info { color: #93c5fd; }
