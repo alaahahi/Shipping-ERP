@@ -13,10 +13,11 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
+# Track Vite production output (public/build + root /build mirror) for cPanel git deploys.
+# Ignore only Vite HMR files.
+/hot
 /public/hot
 /public/storage
-/build
 /storage/*.key
 /storage/pail
 /vendor
