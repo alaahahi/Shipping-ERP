@@ -6,6 +6,7 @@ import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -129,6 +130,13 @@ const paymentImportForm = useForm({
     owner_id: defaultPayerId(),
     currency: 'USD',
 });
+
+const expensePreviewing = ref(false);
+const paymentPreviewing = ref(false);
+const expensePreviewNote = ref('');
+const paymentPreviewNote = ref('');
+const expenseListPanel = ref(null);
+const paymentListPanel = ref(null);
 
 const partnerSummary = computed(() => props.partnerSummaries[ledgerCurrency.value] || null);
 const filteredExpenses = computed(() => props.expenses.filter((row) => row.currency === ledgerCurrency.value));
@@ -353,6 +361,7 @@ const submitExpenseList = () => {
             onSuccess: () => {
                 expenseListForm.reset();
                 expenseListForm.rows = [emptyExpenseRow(), emptyExpenseRow(), emptyExpenseRow()];
+                expensePreviewNote.value = '';
             },
         });
 };
@@ -365,36 +374,94 @@ const submitPaymentList = () => {
             onSuccess: () => {
                 paymentListForm.reset();
                 paymentListForm.rows = [emptyPaymentRow(), emptyPaymentRow()];
+                paymentPreviewNote.value = '';
             },
         });
 };
 
 const onExpenseFile = (event) => {
     expenseImportForm.file = event.target.files?.[0] ?? null;
+    expensePreviewNote.value = '';
 };
 
 const onPaymentFile = (event) => {
     paymentImportForm.file = event.target.files?.[0] ?? null;
+    paymentPreviewNote.value = '';
 };
 
-const submitExpenseImport = () => {
-    expenseImportForm.post(route('ships.expenses.import', props.ship.id), {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => expenseImportForm.reset(),
+const applyAxiosErrors = (form, error) => {
+    const errors = error.response?.data?.errors || {};
+    form.clearErrors();
+    Object.entries(errors).forEach(([key, messages]) => {
+        form.setError(key, Array.isArray(messages) ? messages[0] : String(messages));
     });
+    if (Object.keys(errors).length === 0) {
+        form.setError('file', error.response?.data?.message || t('ship_expenses.import_failed'));
+    }
 };
 
-const submitPaymentImport = () => {
-    paymentImportForm.post(route('ships.contributions.import', props.ship.id), {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            paymentImportForm.reset();
-            paymentImportForm.owner_id = defaultPayerId();
-            paymentImportForm.currency = ledgerCurrency.value;
-        },
-    });
+const submitExpenseImport = async () => {
+    if (!expenseImportForm.file) return;
+    expensePreviewing.value = true;
+    expensePreviewNote.value = '';
+    expenseImportForm.clearErrors();
+    try {
+        const body = new FormData();
+        body.append('file', expenseImportForm.file);
+        body.append('currency', expenseImportForm.currency || 'USD');
+        if (expenseImportForm.paid_by_owner_id) {
+            body.append('paid_by_owner_id', String(expenseImportForm.paid_by_owner_id));
+        }
+        const { data } = await axios.post(route('ships.expenses.import', props.ship.id), body);
+        const rows = (data.rows || []).map((row) => ({
+            ...emptyExpenseRow(),
+            ...row,
+            amount: Number(row.amount) || null,
+            paid_by_owner_id: row.paid_by_owner_id ?? defaultSpenderId(),
+        }));
+        expenseListForm.rows = rows.length ? rows : [emptyExpenseRow()];
+        expenseListForm.clearErrors();
+        expensePreviewNote.value = t('ship_expenses.import_filled', {
+            count: rows.length,
+            skipped: Number(data.skipped || 0),
+        });
+        expenseListPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+        applyAxiosErrors(expenseImportForm, error);
+    } finally {
+        expensePreviewing.value = false;
+    }
+};
+
+const submitPaymentImport = async () => {
+    if (!paymentImportForm.file) return;
+    paymentPreviewing.value = true;
+    paymentPreviewNote.value = '';
+    paymentImportForm.clearErrors();
+    try {
+        const body = new FormData();
+        body.append('file', paymentImportForm.file);
+        body.append('owner_id', String(paymentImportForm.owner_id || ''));
+        body.append('currency', paymentImportForm.currency || 'USD');
+        const { data } = await axios.post(route('ships.contributions.import', props.ship.id), body);
+        const rows = (data.rows || []).map((row) => ({
+            ...emptyPaymentRow(),
+            ...row,
+            amount: Number(row.amount) || null,
+            owner_id: row.owner_id ?? paymentImportForm.owner_id ?? defaultPayerId(),
+        }));
+        paymentListForm.rows = rows.length ? rows : [emptyPaymentRow()];
+        paymentListForm.clearErrors();
+        paymentPreviewNote.value = t('ship_partners.import_filled', {
+            count: rows.length,
+            skipped: Number(data.skipped || 0),
+        });
+        paymentListPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+        applyAxiosErrors(paymentImportForm, error);
+    } finally {
+        paymentPreviewing.value = false;
+    }
 };
 </script>
 
@@ -995,8 +1062,9 @@ const submitPaymentImport = () => {
                             </div>
                         </form>
 
-                        <form class="erp-form-panel mb-3" @submit.prevent="submitExpenseList">
+                        <form ref="expenseListPanel" class="erp-form-panel mb-3" @submit.prevent="submitExpenseList">
                             <h4 class="h6 mb-2">{{ t('ship_expenses.list_add') }}</h4>
+                            <p v-if="expensePreviewNote" class="small text-success mb-2">{{ expensePreviewNote }}</p>
                             <div v-for="(row, index) in expenseListForm.rows" :key="index" class="row g-2 mb-2">
                                 <div class="col-md-2">
                                     <input v-model="row.expense_date" type="date" class="form-control form-erp-control" />
@@ -1053,8 +1121,8 @@ const submitPaymentImport = () => {
                                 </div>
                             </div>
                             <div class="erp-form-actions">
-                                <button type="submit" class="btn btn-erp" :disabled="expenseImportForm.processing || !expenseImportForm.file">
-                                    {{ expenseImportForm.processing ? t('common.saving') : t('ship_expenses.import_excel') }}
+                                <button type="submit" class="btn btn-erp" :disabled="expensePreviewing || !expenseImportForm.file">
+                                    {{ expensePreviewing ? t('ship_expenses.import_reading') : t('ship_expenses.import_excel') }}
                                 </button>
                             </div>
                         </form>
@@ -1101,8 +1169,9 @@ const submitPaymentImport = () => {
                             </div>
                         </form>
 
-                        <form class="erp-form-panel mb-3" @submit.prevent="submitPaymentList">
+                        <form ref="paymentListPanel" class="erp-form-panel mb-3" @submit.prevent="submitPaymentList">
                             <h4 class="h6 mb-2">{{ t('ship_partners.list_add') }}</h4>
+                            <p v-if="paymentPreviewNote" class="small text-success mb-2">{{ paymentPreviewNote }}</p>
                             <div v-for="(row, index) in paymentListForm.rows" :key="index" class="row g-2 mb-2">
                                 <div class="col-md-4">
                                     <input v-model="row.contribution_date" type="date" class="form-control form-erp-control" />
@@ -1143,8 +1212,8 @@ const submitPaymentImport = () => {
                                 </div>
                             </div>
                             <div class="erp-form-actions">
-                                <button type="submit" class="btn btn-erp" :disabled="paymentImportForm.processing || !paymentImportForm.file">
-                                    {{ paymentImportForm.processing ? t('common.saving') : t('ship_partners.import_excel') }}
+                                <button type="submit" class="btn btn-erp" :disabled="paymentPreviewing || !paymentImportForm.file">
+                                    {{ paymentPreviewing ? t('ship_expenses.import_reading') : t('ship_partners.import_excel') }}
                                 </button>
                             </div>
                         </form>

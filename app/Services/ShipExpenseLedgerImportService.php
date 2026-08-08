@@ -5,112 +5,88 @@ namespace App\Services;
 use App\Enums\ShipExpenseType;
 use App\Models\Ship;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ShipExpenseLedgerImportService
 {
-    public function __construct(
-        private readonly ShipExpenseService $shipExpenseService,
-        private readonly ShipPartnerContributionService $contributionService
-    ) {}
 
     /**
-     * @return array{imported: int, skipped: int, errors: list<string>}
+     * Parse Excel into list-entry rows. Nothing is saved until the user confirms the list.
+     *
+     * @return array{rows: list<array<string, mixed>>, skipped: int}
      */
-    public function importExpenses(
-        Ship $ship,
-        UploadedFile $file,
-        string $currency = 'USD',
-        ?int $createdBy = null,
-        ?int $paidByOwnerId = null
-    ): array {
-        $rows = $this->loadRows($file);
+    public function previewExpenses(Ship $ship, UploadedFile $file, string $currency = 'USD', ?int $paidByOwnerId = null): array
+    {
+        $parsed = $this->loadRows($file);
         $ownersByName = $this->ownerNameMap($ship);
+        $rows = [];
+        $skipped = 0;
 
-        return DB::transaction(function () use ($ship, $rows, $currency, $createdBy, $paidByOwnerId, $ownersByName): array {
-            $imported = 0;
-            $skipped = 0;
-            $errors = [];
-
-            foreach ($rows as $index => $payload) {
-                if ($payload === null) {
-                    $skipped++;
-                    continue;
-                }
-
-                try {
-                    $rowPayer = $this->matchOwnerId($payload['payer'] ?? null, $ownersByName) ?? $paidByOwnerId;
-                    $this->shipExpenseService->create($ship, [
-                        'expense_type' => $this->inferExpenseType((string) ($payload['description'] ?? '')),
-                        'amount' => $payload['amount'],
-                        'currency' => $currency,
-                        'expense_date' => $payload['date'],
-                        'vendor' => $payload['description'] ?? null,
-                        'reference' => $payload['reference'] ?? null,
-                        'notes' => null,
-                        'created_by' => $createdBy,
-                        'paid_by_owner_id' => $rowPayer,
-                    ]);
-                    $imported++;
-                } catch (\Throwable $exception) {
-                    $errors[] = 'Row '.($index + 1).': '.$exception->getMessage();
-                    if (count($errors) >= 25) {
-                        break;
-                    }
-                }
+        foreach ($parsed as $payload) {
+            if ($payload === null) {
+                $skipped++;
+                continue;
             }
 
-            return compact('imported', 'skipped', 'errors');
-        });
+            $rows[] = [
+                'expense_type' => $this->inferExpenseType((string) ($payload['description'] ?? '')),
+                'amount' => $payload['amount'],
+                'currency' => $currency,
+                'expense_date' => $payload['date'],
+                'vendor' => $payload['description'] ?? '',
+                'reference' => $payload['reference'] ?? '',
+                'paid_by_owner_id' => $this->matchOwnerId($payload['payer'] ?? null, $ownersByName) ?? $paidByOwnerId,
+            ];
+        }
+
+        if ($rows === []) {
+            throw ValidationException::withMessages([
+                'file' => 'No valid expense rows found (need a date and amount).',
+            ]);
+        }
+
+        return ['rows' => $rows, 'skipped' => $skipped];
     }
 
     /**
-     * @return array{imported: int, skipped: int, errors: list<string>}
+     * @return array{rows: list<array<string, mixed>>, skipped: int}
      */
-    public function importContributions(
+    public function previewContributions(
         Ship $ship,
         UploadedFile $file,
         int $ownerId,
-        string $currency = 'USD',
-        ?int $createdBy = null
+        string $currency = 'USD'
     ): array {
-        $rows = $this->loadRows($file);
+        $this->assertOwnerOnShip($ship, $ownerId);
+        $parsed = $this->loadRows($file);
+        $rows = [];
+        $skipped = 0;
 
-        return DB::transaction(function () use ($ship, $rows, $ownerId, $currency, $createdBy): array {
-            $imported = 0;
-            $skipped = 0;
-            $errors = [];
-
-            foreach ($rows as $index => $payload) {
-                if ($payload === null) {
-                    $skipped++;
-                    continue;
-                }
-
-                try {
-                    $this->contributionService->create($ship, [
-                        'owner_id' => $ownerId,
-                        'contribution_date' => $payload['date'],
-                        'amount' => $payload['amount'],
-                        'currency' => $currency,
-                        'description' => $payload['description'] ?? null,
-                        'reference' => $payload['reference'] ?? null,
-                        'created_by' => $createdBy,
-                    ]);
-                    $imported++;
-                } catch (\Throwable $exception) {
-                    $errors[] = 'Row '.($index + 1).': '.$exception->getMessage();
-                    if (count($errors) >= 25) {
-                        break;
-                    }
-                }
+        foreach ($parsed as $payload) {
+            if ($payload === null) {
+                $skipped++;
+                continue;
             }
 
-            return compact('imported', 'skipped', 'errors');
-        });
+            $rows[] = [
+                'owner_id' => $ownerId,
+                'contribution_date' => $payload['date'],
+                'amount' => $payload['amount'],
+                'currency' => $currency,
+                'description' => $payload['description'] ?? '',
+                'reference' => $payload['reference'] ?? '',
+            ];
+        }
+
+        if ($rows === []) {
+            throw ValidationException::withMessages([
+                'file' => 'No valid payment rows found (need a date and amount).',
+            ]);
+        }
+
+        return ['rows' => $rows, 'skipped' => $skipped];
     }
 
     /**
@@ -342,5 +318,14 @@ class ShipExpenseLedgerImportService
         }
 
         return round((float) $value, 2);
+    }
+
+    private function assertOwnerOnShip(Ship $ship, int $ownerId): void
+    {
+        if (! $ship->ownerships()->where('owner_id', $ownerId)->exists()) {
+            throw ValidationException::withMessages([
+                'owner_id' => 'Selected partner is not an owner of this ship.',
+            ]);
+        }
     }
 }

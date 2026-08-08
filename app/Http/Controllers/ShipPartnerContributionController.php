@@ -12,6 +12,7 @@ use App\Models\ShipPartnerContribution;
 use App\Services\ShipExpenseLedgerImportService;
 use App\Services\ShipPartnerContributionPostingService;
 use App\Services\ShipPartnerContributionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -39,22 +40,17 @@ class ShipPartnerContributionController extends Controller
         return $this->back($ship, "{$count} partner payments added.");
     }
 
-    public function import(ImportShipPartnerContributionRequest $request, Ship $ship): RedirectResponse
+    public function import(ImportShipPartnerContributionRequest $request, Ship $ship): JsonResponse
     {
         Gate::authorize('create', [ShipPartnerContribution::class, $ship]);
-        $result = $this->ledgerImportService->importContributions(
+        $validated = $request->validated();
+
+        return response()->json($this->ledgerImportService->previewContributions(
             $ship,
             $request->file('file'),
-            (int) $request->validated('owner_id'),
-            $request->validated('currency'),
-            $request->user()?->id
-        );
-
-        return $this->back(
-            $ship,
-            "Payment import: {$result['imported']} imported, {$result['skipped']} skipped."
-            .($result['errors'] !== [] ? ' Some rows failed.' : '')
-        );
+            (int) $validated['owner_id'],
+            $validated['currency']
+        ));
     }
 
     public function update(

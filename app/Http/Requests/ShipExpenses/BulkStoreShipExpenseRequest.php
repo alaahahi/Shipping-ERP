@@ -20,7 +20,7 @@ class BulkStoreShipExpenseRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rows' => ['required', 'array', 'min:1', 'max:200'],
+            'rows' => ['required', 'array', 'min:1', 'max:500'],
             'rows.*.expense_type' => ['required', Rule::enum(ShipExpenseType::class)],
             'rows.*.amount' => ['required', 'numeric', 'min:0.01'],
             'rows.*.currency' => ['required', Rule::enum(Currency::class)],

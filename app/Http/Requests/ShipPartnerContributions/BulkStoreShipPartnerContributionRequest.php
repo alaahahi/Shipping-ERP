@@ -19,7 +19,7 @@ class BulkStoreShipPartnerContributionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rows' => ['required', 'array', 'min:1', 'max:200'],
+            'rows' => ['required', 'array', 'min:1', 'max:500'],
             'rows.*.owner_id' => ['required', 'integer', 'exists:owners,id'],
             'rows.*.contribution_date' => ['required', 'date'],
             'rows.*.amount' => ['required', 'numeric', 'min:0.01'],

@@ -12,6 +12,7 @@ use App\Models\ShipExpense;
 use App\Services\ShipExpenseLedgerImportService;
 use App\Services\ShipExpensePostingService;
 use App\Services\ShipExpenseService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -39,24 +40,17 @@ class ShipExpenseController extends Controller
         return $this->backToExpenses($ship, "{$count} ship expenses added.");
     }
 
-    public function import(ImportShipExpenseLedgerRequest $request, Ship $ship): RedirectResponse
+    public function import(ImportShipExpenseLedgerRequest $request, Ship $ship): JsonResponse
     {
         Gate::authorize('create', [ShipExpense::class, $ship]);
-        $result = $this->ledgerImportService->importExpenses(
+        $validated = $request->validated();
+
+        return response()->json($this->ledgerImportService->previewExpenses(
             $ship,
             $request->file('file'),
-            $request->validated('currency'),
-            $request->user()?->id,
-            isset($request->validated()['paid_by_owner_id'])
-                ? (int) $request->validated('paid_by_owner_id')
-                : null
-        );
-
-        return $this->backToExpenses(
-            $ship,
-            "Expense import: {$result['imported']} imported, {$result['skipped']} skipped."
-            .($result['errors'] !== [] ? ' Some rows failed.' : '')
-        );
+            $validated['currency'],
+            isset($validated['paid_by_owner_id']) ? (int) $validated['paid_by_owner_id'] : null
+        ));
     }
 
     public function update(UpdateShipExpenseRequest $request, Ship $ship, ShipExpense $expense): RedirectResponse
