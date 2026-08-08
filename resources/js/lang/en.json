@@ -463,7 +463,15 @@
     "balance_settled": "Balance settled",
     "whatsapp_phone": "WhatsApp number",
     "whatsapp_phone_help": "If empty, contact phone is used",
-    "notify_whatsapp": "Notify on WhatsApp"
+    "notify_whatsapp": "Notify on WhatsApp",
+    "payments_tab": "Payments",
+    "payments_help": "Receipt vouchers for this company, including voyage allocations.",
+    "no_payments": "No payments recorded yet.",
+    "cars_tab": "Cars",
+    "cars_help": "This company's cars across all voyages. Search by chassis number or car name/description.",
+    "cars_search": "Search chassis or car name…",
+    "car_name": "Car name / description",
+    "no_cars": "No cars linked to this company."
   },
   "dubai_accounts": {
     "title": "Dubai accounts",

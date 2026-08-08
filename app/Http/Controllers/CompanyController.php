@@ -7,6 +7,7 @@ use App\Http\Requests\Companies\UpdateCompanyRequest;
 use App\Models\Company;
 use App\Services\CompanyDirectChargeService;
 use App\Services\CompanyLedgerService;
+use App\Services\CompanyProfileService;
 use App\Services\CompanyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class CompanyController extends Controller
     public function __construct(
         private readonly CompanyService $companyService,
         private readonly CompanyLedgerService $companyLedgerService,
+        private readonly CompanyProfileService $companyProfileService,
         private readonly CompanyDirectChargeService $companyDirectChargeService
     ) {}
 
@@ -60,19 +62,25 @@ class CompanyController extends Controller
             ->with('success', "Company «{$company->name}» created.");
     }
 
-    public function show(Company $company): Response
+    public function show(Request $request, Company $company): Response
     {
         Gate::authorize('view', $company);
 
-        $ledger = $this->companyLedgerService->statement($company);
+        $filters = [
+            'tab' => $request->string('tab')->toString() ?: 'statement',
+            'car_search' => $request->string('car_search')->toString(),
+        ];
 
         return Inertia::render('Companies/Show', [
             'company' => $this->companyService->transform($company),
-            'ledger' => $ledger,
+            'ledger' => $this->companyLedgerService->statement($company),
+            'payments' => $this->companyProfileService->receiptVouchers($company),
+            'cars' => $this->companyProfileService->paginateCars($company, $filters['car_search']),
+            'filters' => $filters,
             'creditAccounts' => $this->companyDirectChargeService->creditAccountOptions(),
             'defaultCreditAccountId' => $this->companyDirectChargeService->defaultCreditAccountId(),
-            'canManage' => request()->user()?->can('voyages.manage') ?? false,
-            'canCollect' => request()->user()?->can('accounting.manage') ?? false,
+            'canManage' => $request->user()?->can('voyages.manage') ?? false,
+            'canCollect' => $request->user()?->can('accounting.manage') ?? false,
         ]);
     }
 
