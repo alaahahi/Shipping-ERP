@@ -226,10 +226,6 @@ const markAllRead = () => {
                     {{ t('nav.whatsapp') }}
                 </Link>
             </nav>
-
-            <div class="px-2 small flex-shrink-0" style="color: var(--erp-sidebar-muted)">
-                {{ t('nav.phase') }}
-            </div>
         </aside>
 
         <div class="erp-main">
