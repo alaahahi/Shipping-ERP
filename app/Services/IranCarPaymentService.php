@@ -40,6 +40,12 @@ class IranCarPaymentService
                 ]);
             }
 
+            if (! $locked->isSold()) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Move the car to sold before collecting payments.',
+                ]);
+            }
+
             $amount = round((float) $data['amount'], 2);
             if ($amount <= 0) {
                 throw ValidationException::withMessages([

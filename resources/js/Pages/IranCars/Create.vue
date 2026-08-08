@@ -37,7 +37,7 @@ const submit = () => form.post(route('iran-cars.store'));
             </Link>
         </div>
 
-        <PageHeader :title="t('iran_cars.add')" :subtitle="t('iran_cars.form_help')" />
+        <PageHeader :title="t('iran_cars.add')" :subtitle="t('iran_cars.form_help_unsold')" />
 
         <form class="erp-form-panel" @submit.prevent="submit">
             <div class="row g-3">
@@ -76,7 +76,7 @@ const submit = () => form.post(route('iran-cars.store'));
                     <InputError :message="form.errors.vin" />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-erp-label">{{ t('iran_cars.total') }}</label>
+                    <label class="form-erp-label">{{ t('iran_cars.list_price') }}</label>
                     <input v-model="form.total_amount" type="number" min="0" step="0.01" class="form-control form-erp-control" />
                     <InputError :message="form.errors.total_amount" />
                 </div>

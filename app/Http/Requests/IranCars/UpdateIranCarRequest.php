@@ -38,6 +38,7 @@ class UpdateIranCarRequest extends FormRequest
             'year' => ['nullable', 'integer', 'min:1980', 'max:2100'],
             'color' => ['nullable', 'string', 'max:80'],
             'total_amount' => ['nullable', 'numeric', 'min:0'],
+            'sale_price' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

@@ -20,7 +20,9 @@ const page = usePage();
 const { t } = useI18n();
 const success = computed(() => page.props.flash?.success);
 const remaining = computed(() => Number(props.car.remaining_amount) || 0);
-const canPay = computed(() => props.canManage && props.car.status !== 'cancelled' && remaining.value > 0.009);
+const isSold = computed(() => Boolean(props.car.is_sold));
+const canPay = computed(() => props.canManage && isSold.value && props.car.status !== 'cancelled' && remaining.value > 0.009);
+const indexUrl = computed(() => route('iran-cars.index', { sale_state: isSold.value ? 'sold' : 'unsold' }));
 
 const paymentForm = useForm({
     payment_date: new Date().toISOString().slice(0, 10),
@@ -30,8 +32,18 @@ const paymentForm = useForm({
     notes: '',
 });
 
+const sellForm = useForm({
+    sale_price: props.car.total_amount || '',
+    sold_at: new Date().toISOString().slice(0, 10),
+    notes: '',
+});
+
 const submitPayment = () => {
     paymentForm.post(route('iran-cars.payments.store', props.car.id), { preserveScroll: true });
+};
+
+const submitSell = () => {
+    sellForm.post(route('iran-cars.sell', props.car.id), { preserveScroll: true });
 };
 
 const destroyPayment = (payment) => {
@@ -50,14 +62,20 @@ const destroyPayment = (payment) => {
         <FlashMessage :message="success" />
 
         <div class="mb-3">
-            <Link :href="route('iran-cars.index')" class="text-decoration-none small fw-semibold">
+            <Link :href="indexUrl" class="text-decoration-none small fw-semibold">
                 ← {{ t('iran_cars.back') }}
             </Link>
         </div>
 
         <PageHeader :kicker="car.border_label" :title="car.model_name" :subtitle="car.vin">
             <template #actions>
-                <StatusBadge :tone="car.status_tone" :label="car.status_label" />
+                <StatusBadge
+                    :tone="isSold ? car.status_tone : car.sale_state_tone"
+                    :label="isSold ? car.status_label : t('iran_cars.unsold')"
+                />
+                <Link :href="route('iran-cars.car.print', car.id)" class="btn btn-erp-ghost">
+                    {{ t('iran_cars.print_payments') }}
+                </Link>
                 <Link v-if="canManage" :href="route('iran-cars.edit', car.id)" class="btn btn-erp-ghost">
                     {{ t('common.edit') }}
                 </Link>
@@ -67,25 +85,36 @@ const destroyPayment = (payment) => {
         <div class="row g-3 mb-3">
             <div class="col-md-3">
                 <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('iran_cars.remaining') }}</div>
+                    <div class="erp-stat-label">{{ isSold ? t('iran_cars.remaining') : t('iran_cars.list_price') }}</div>
                     <p class="erp-stat-value">
-                        <MoneyAmount :value="car.remaining_amount" :currency="car.currency" show-zero />
+                        <MoneyAmount
+                            :value="isSold ? car.remaining_amount : car.total_amount"
+                            :currency="car.currency"
+                            show-zero
+                        />
                     </p>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('iran_cars.total') }}</div>
+                    <div class="erp-stat-label">{{ isSold ? t('iran_cars.sale_price') : t('iran_cars.company') }}</div>
                     <p class="erp-stat-value" style="font-size: 1.1rem">
-                        <MoneyAmount :value="car.total_amount" :currency="car.currency" show-zero />
+                        <template v-if="isSold">
+                            <MoneyAmount :value="car.sale_price" :currency="car.currency" show-zero />
+                        </template>
+                        <template v-else>{{ car.company_name }}</template>
                     </p>
+                    <div v-if="isSold && car.sold_at" class="erp-stat-hint">{{ t('iran_cars.sold_at') }}: {{ car.sold_at }}</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('iran_cars.paid') }}</div>
+                    <div class="erp-stat-label">{{ isSold ? t('iran_cars.paid') : t('iran_cars.year') }}</div>
                     <p class="erp-stat-value" style="font-size: 1.1rem">
-                        <MoneyAmount :value="car.paid_amount" :currency="car.currency" show-zero />
+                        <template v-if="isSold">
+                            <MoneyAmount :value="car.paid_amount" :currency="car.currency" show-zero />
+                        </template>
+                        <template v-else>{{ [car.year, car.color].filter(Boolean).join(' · ') || '—' }}</template>
                     </p>
                 </div>
             </div>
@@ -101,6 +130,32 @@ const destroyPayment = (payment) => {
         <div v-if="car.invoice_journal_id" class="small mb-3">
             {{ t('iran_cars.invoice_journal') }}:
             <Link :href="route('journals.show', car.invoice_journal_id)">{{ car.invoice_voucher }}</Link>
+        </div>
+
+        <div v-if="canManage && !isSold" class="erp-form-panel mb-3">
+            <h3 class="erp-panel-title">{{ t('iran_cars.move_to_sold') }}</h3>
+            <p class="small text-secondary mb-3">{{ t('iran_cars.sell_help') }}</p>
+            <form class="row g-3" @submit.prevent="submitSell">
+                <div class="col-md-4">
+                    <label class="form-erp-label">{{ t('iran_cars.sale_price') }}</label>
+                    <input v-model="sellForm.sale_price" type="number" min="0" step="0.01" class="form-control form-erp-control" required />
+                    <InputError :message="sellForm.errors.sale_price" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-erp-label">{{ t('iran_cars.sold_at') }}</label>
+                    <input v-model="sellForm.sold_at" type="date" class="form-control form-erp-control" required />
+                    <InputError :message="sellForm.errors.sold_at" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-erp w-100" :disabled="sellForm.processing">
+                        {{ sellForm.processing ? t('common.saving') : t('iran_cars.confirm_sale') }}
+                    </button>
+                </div>
+                <div class="col-12">
+                    <label class="form-erp-label">{{ t('common.notes') }}</label>
+                    <input v-model="sellForm.notes" class="form-control form-erp-control" />
+                </div>
+            </form>
         </div>
 
         <div v-if="canPay" class="erp-form-panel mb-3">
@@ -139,9 +194,12 @@ const destroyPayment = (payment) => {
             </form>
         </div>
 
-        <div class="erp-card p-0 overflow-hidden">
-            <div class="p-3 border-bottom">
+        <div v-if="isSold" class="erp-card p-0 overflow-hidden">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
                 <h3 class="erp-panel-title mb-0">{{ t('iran_cars.payments') }}</h3>
+                <Link :href="route('iran-cars.car.print', car.id)" class="btn btn-sm btn-erp-ghost">
+                    {{ t('common.print') }}
+                </Link>
             </div>
             <div class="table-responsive">
                 <table class="table erp-table align-middle mb-0">

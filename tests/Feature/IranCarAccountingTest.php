@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\IranBorder;
+use App\Enums\IranCarSaleState;
 use App\Enums\IranCarStatus;
 use App\Enums\JournalStatus;
 use App\Enums\Permission;
@@ -28,11 +29,10 @@ class IranCarAccountingTest extends TestCase
         $this->seed(ChartOfAccountsSeeder::class);
     }
 
-    public function test_creating_a_car_posts_debit_to_1660_child_and_credit_to_4300(): void
+    public function test_creating_an_unsold_car_does_not_post_a_journal(): void
     {
         $user = $this->iranCarsUser();
         $company = $this->makeCompany();
-        $revenue = Account::query()->where('code', '4300')->firstOrFail();
 
         $this->actingAs($user)
             ->post(route('iran-cars.store'), [
@@ -48,6 +48,28 @@ class IranCarAccountingTest extends TestCase
 
         $car = IranCar::query()->firstOrFail();
         $this->assertSame('LBECNAFD5TZ567932', $car->vin);
+        $this->assertSame(IranCarSaleState::Unsold, $car->sale_state);
+        $this->assertNull($car->invoice_journal_id);
+        $this->assertSame(0.0, $car->remainingAmount());
+        $this->assertNull($company->fresh()->iran_ar_account_id);
+    }
+
+    public function test_marking_sold_posts_debit_to_1660_child_and_credit_to_4300(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $revenue = Account::query()->where('code', '4300')->firstOrFail();
+        $car = $this->createUnsoldCar($user, $company, 1200);
+
+        $this->actingAs($user)
+            ->post(route('iran-cars.sell', $car), [
+                'sale_price' => 1500.50,
+                'sold_at' => '2026-08-08',
+            ])
+            ->assertRedirect(route('iran-cars.show', $car));
+
+        $car = $car->fresh();
+        $this->assertSame(IranCarSaleState::Sold, $car->sale_state);
         $this->assertNotNull($car->invoice_journal_id);
         $this->assertNotNull($company->fresh()->iran_ar_account_id);
         $this->assertNotSame($company->ar_account_id, $company->fresh()->iran_ar_account_id);
@@ -68,8 +90,27 @@ class IranCarAccountingTest extends TestCase
         $this->assertSame($iranAr->id, $debit?->account_id);
         $this->assertSame($company->id, $debit?->company_id);
         $this->assertSame($revenue->id, $credit?->account_id);
-        $this->assertNotSame($company->ar_account_id, $debit?->account_id);
         $this->assertEquals(1500.50, $car->remainingAmount());
+    }
+
+    public function test_payment_is_rejected_on_unsold_cars(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $car = $this->createUnsoldCar($user, $company, 1000);
+
+        $this->actingAs($user)
+            ->from(route('iran-cars.show', $car))
+            ->post(route('iran-cars.payments.store', $car), [
+                'payment_date' => '2026-08-08',
+                'amount' => 400,
+                'debit_account_id' => $cash->id,
+            ])
+            ->assertRedirect(route('iran-cars.show', $car))
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(0, IranCarPayment::query()->count());
     }
 
     public function test_payment_posts_debit_cash_credit_1660_and_reduces_remaining(): void
@@ -77,18 +118,7 @@ class IranCarAccountingTest extends TestCase
         $user = $this->iranCarsUser();
         $company = $this->makeCompany();
         $cash = Account::query()->where('code', '1100')->firstOrFail();
-
-        $this->actingAs($user)
-            ->post(route('iran-cars.store'), [
-                'company_id' => $company->id,
-                'border' => IranBorder::Jolfa->value,
-                'model_name' => 'TOYOTA CAMRY',
-                'vin' => 'LVGBECEK3TG129171',
-                'total_amount' => 1000,
-            ])
-            ->assertRedirect();
-
-        $car = IranCar::query()->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 1000);
 
         $this->actingAs($user)
             ->post(route('iran-cars.payments.store', $car), [
@@ -113,7 +143,6 @@ class IranCarAccountingTest extends TestCase
         $this->assertSame($cash->id, $debit?->account_id);
         $this->assertSame($iranAr->id, $credit?->account_id);
         $this->assertSame($company->id, $credit?->company_id);
-        $this->assertNotSame($company->ar_account_id, $credit?->account_id);
 
         $car = $car->fresh();
         $this->assertSame(400.0, $car->paidAmount());
@@ -121,22 +150,35 @@ class IranCarAccountingTest extends TestCase
         $this->assertSame(IranCarStatus::Open, $car->status);
     }
 
+    public function test_sale_price_can_be_edited_before_payments(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $car = $this->createSoldCar($user, $company, 1000);
+
+        $this->actingAs($user)
+            ->put(route('iran-cars.update', $car), [
+                'company_id' => $company->id,
+                'border' => $car->border->value,
+                'model_name' => $car->model_name,
+                'vin' => $car->vin,
+                'total_amount' => $car->total_amount,
+                'sale_price' => 1800,
+            ])
+            ->assertRedirect(route('iran-cars.show', $car));
+
+        $car = $car->fresh('invoiceJournal.lines');
+        $this->assertEquals(1800.0, (float) $car->sale_price);
+        $this->assertEquals(1800.0, (float) $car->invoiceJournal?->lines->sum('debit'));
+        $this->assertEquals(1800.0, $car->remainingAmount());
+    }
+
     public function test_overpayment_is_rejected(): void
     {
         $user = $this->iranCarsUser();
         $company = $this->makeCompany();
         $cash = Account::query()->where('code', '1100')->firstOrFail();
-
-        $this->actingAs($user)
-            ->post(route('iran-cars.store'), [
-                'company_id' => $company->id,
-                'border' => IranBorder::Bazargan->value,
-                'model_name' => 'TOYOTA RAV4',
-                'vin' => 'LFMJBFBF8T3010035',
-                'total_amount' => 200,
-            ]);
-
-        $car = IranCar::query()->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 200);
 
         $this->actingAs($user)
             ->from(route('iran-cars.show', $car))
@@ -157,16 +199,7 @@ class IranCarAccountingTest extends TestCase
         $user = $this->iranCarsUser();
         $company = $this->makeCompany();
         $cash = Account::query()->where('code', '1100')->firstOrFail();
-
-        $this->actingAs($user)->post(route('iran-cars.store'), [
-            'company_id' => $company->id,
-            'border' => IranBorder::AmirAbad->value,
-            'model_name' => 'MG 5',
-            'vin' => 'LSJA36U32SZ041228',
-            'total_amount' => 14000,
-        ]);
-
-        $car = IranCar::query()->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 14000);
 
         $this->actingAs($user)->post(route('iran-cars.payments.store', $car), [
             'payment_date' => '2026-08-08',
@@ -195,6 +228,31 @@ class IranCarAccountingTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(0, IranCar::query()->count());
+    }
+
+    private function createUnsoldCar(User $user, $company, float $listPrice): IranCar
+    {
+        $this->actingAs($user)->post(route('iran-cars.store'), [
+            'company_id' => $company->id,
+            'border' => IranBorder::Jolfa->value,
+            'model_name' => 'TOYOTA CAMRY',
+            'vin' => 'LVGBECEK3TG'.str_pad((string) random_int(100000, 999999), 6, '0'),
+            'total_amount' => $listPrice,
+        ])->assertRedirect();
+
+        return IranCar::query()->latest('id')->firstOrFail();
+    }
+
+    private function createSoldCar(User $user, $company, float $salePrice): IranCar
+    {
+        $car = $this->createUnsoldCar($user, $company, $salePrice);
+
+        $this->actingAs($user)->post(route('iran-cars.sell', $car), [
+            'sale_price' => $salePrice,
+            'sold_at' => '2026-08-08',
+        ])->assertRedirect();
+
+        return $car->fresh();
     }
 
     private function iranCarsUser(): User

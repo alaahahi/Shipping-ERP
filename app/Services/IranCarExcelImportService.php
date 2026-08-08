@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\IranBorder;
+use App\Enums\IranCarSaleState;
 use App\Models\IranCar;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -17,6 +18,8 @@ class IranCarExcelImportService
 
     public const SESSION_NAME = 'iran_cars.import_name';
 
+    public const SESSION_SALE_STATE = 'iran_cars.import_sale_state';
+
     public function __construct(
         private readonly IranCarService $iranCarService
     ) {}
@@ -24,13 +27,14 @@ class IranCarExcelImportService
     /**
      * @return array{path: string, original_name: string}
      */
-    public function storeUpload(UploadedFile $file, User $actor): array
+    public function storeUpload(UploadedFile $file, User $actor, string $saleState = 'unsold'): array
     {
         $path = $file->store("iran-car-imports/{$actor->id}", 'local');
 
         session([
             self::SESSION_PATH => $path,
             self::SESSION_NAME => $file->getClientOriginalName(),
+            self::SESSION_SALE_STATE => IranCarSaleState::tryFrom($saleState)?->value ?? IranCarSaleState::Unsold->value,
         ]);
 
         return [
@@ -71,8 +75,12 @@ class IranCarExcelImportService
     /**
      * @return array{imported: int, duplicates: int, skipped: int}
      */
-    public function confirm(User $actor, ?int $defaultCompanyId = null, ?string $defaultBorder = null): array
-    {
+    public function confirm(
+        User $actor,
+        ?int $defaultCompanyId = null,
+        ?string $defaultBorder = null,
+        ?string $saleState = null
+    ): array {
         $path = session(self::SESSION_PATH);
         if (! $path || ! Storage::disk('local')->exists($path)) {
             throw ValidationException::withMessages([
@@ -86,9 +94,12 @@ class IranCarExcelImportService
             ]);
         }
 
+        $state = IranCarSaleState::tryFrom($saleState ?? session(self::SESSION_SALE_STATE, IranCarSaleState::Unsold->value))
+            ?? IranCarSaleState::Unsold;
+
         $parsed = $this->parseFile(Storage::disk('local')->path($path), $defaultCompanyId, $defaultBorder);
 
-        return DB::transaction(function () use ($parsed, $actor, $defaultCompanyId): array {
+        return DB::transaction(function () use ($parsed, $actor, $defaultCompanyId, $state): array {
             $imported = 0;
             $duplicates = 0;
             $skipped = 0;
@@ -106,21 +117,30 @@ class IranCarExcelImportService
                     continue;
                 }
 
-                $this->iranCarService->create([
+                $amount = (float) $row['total_amount'];
+                $payload = [
                     'company_id' => $row['company_id'] ?? $defaultCompanyId,
                     'border' => $row['border'],
                     'vin' => $row['vin'],
                     'model_name' => $row['model_name'],
                     'year' => $row['year'],
                     'color' => $row['color'],
-                    'total_amount' => $row['total_amount'],
+                    'total_amount' => $amount,
+                    'sale_state' => $state->value,
                     'notes' => null,
-                ], $actor);
+                ];
+
+                if ($state === IranCarSaleState::Sold) {
+                    $payload['sale_price'] = $amount;
+                    $payload['sold_at'] = now()->toDateString();
+                }
+
+                $this->iranCarService->create($payload, $actor);
 
                 $imported++;
             }
 
-            session()->forget([self::SESSION_PATH, self::SESSION_NAME]);
+            session()->forget([self::SESSION_PATH, self::SESSION_NAME, self::SESSION_SALE_STATE]);
 
             return [
                 'imported' => $imported,

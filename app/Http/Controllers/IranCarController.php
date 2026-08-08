@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\IranBorder;
+use App\Enums\IranCarSaleState;
 use App\Enums\Permission;
+use App\Http\Requests\IranCars\SellIranCarRequest;
 use App\Http\Requests\IranCars\StoreIranCarRequest;
 use App\Http\Requests\IranCars\UpdateIranCarRequest;
 use App\Models\IranCar;
@@ -30,6 +32,7 @@ class IranCarController extends Controller
 
         return Inertia::render('IranCars/Index', [
             'groups' => $this->iranCarService->grouped($filters),
+            'counts' => $this->iranCarService->saleStateCounts(),
             'filters' => $filters,
             'companies' => $this->companyService->options(),
             'borders' => $this->borderOptions(),
@@ -85,13 +88,25 @@ class IranCarController extends Controller
         return redirect()->route('iran-cars.show', $iran_car)->with('success', 'Iran car updated.');
     }
 
+    public function sell(SellIranCarRequest $request, IranCar $iran_car): RedirectResponse
+    {
+        Gate::authorize('update', $iran_car);
+        $this->iranCarService->markSold($iran_car, $request->validated(), $request->user());
+
+        return redirect()
+            ->route('iran-cars.show', $iran_car)
+            ->with('success', "Iran car {$iran_car->vin} moved to sold.");
+    }
+
     public function destroy(Request $request, IranCar $iran_car): RedirectResponse
     {
         Gate::authorize('delete', $iran_car);
         $vin = $iran_car->vin;
         $this->iranCarService->delete($iran_car, $request->user());
 
-        return redirect()->route('iran-cars.index')->with('success', "Iran car {$vin} deleted.");
+        return redirect()
+            ->route('iran-cars.index', ['sale_state' => IranCarSaleState::Unsold->value])
+            ->with('success', "Iran car {$vin} deleted.");
     }
 
     public function export(Request $request): StreamedResponse
@@ -102,14 +117,18 @@ class IranCarController extends Controller
     }
 
     /**
-     * @return array{search: string, company_id: string, border: string, remaining_only: bool}
+     * @return array{search: string, company_id: string, border: string, sale_state: string, remaining_only: bool}
      */
     private function filters(Request $request): array
     {
+        $saleState = IranCarSaleState::tryFrom($request->string('sale_state')->toString())
+            ?? IranCarSaleState::Unsold;
+
         return [
             'search' => $request->string('search')->toString(),
             'company_id' => $request->string('company_id')->toString(),
             'border' => $request->string('border')->toString(),
+            'sale_state' => $saleState->value,
             'remaining_only' => $request->boolean('remaining_only'),
         ];
     }

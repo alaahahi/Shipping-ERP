@@ -21,6 +21,7 @@ const form = useForm({
     color: props.car.color ?? '',
     vin: props.car.vin,
     total_amount: props.car.total_amount,
+    sale_price: props.car.sale_price ?? props.car.total_amount,
     notes: props.car.notes ?? '',
 });
 
@@ -79,17 +80,28 @@ const submit = () => form.put(route('iran-cars.update', props.car.id));
                     <InputError :message="form.errors.vin" />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-erp-label">{{ t('iran_cars.total') }}</label>
+                    <label class="form-erp-label">{{ t('iran_cars.list_price') }}</label>
                     <input
                         v-model="form.total_amount"
                         type="number"
                         min="0"
                         step="0.01"
                         class="form-control form-erp-control"
+                    />
+                    <InputError :message="form.errors.total_amount" />
+                </div>
+                <div v-if="car.is_sold" class="col-md-6">
+                    <label class="form-erp-label">{{ t('iran_cars.sale_price') }}</label>
+                    <input
+                        v-model="form.sale_price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="form-control form-erp-control"
                         :disabled="car.is_total_locked"
                     />
-                    <p v-if="car.is_total_locked" class="small text-secondary mb-0 mt-1">{{ t('iran_cars.total_locked') }}</p>
-                    <InputError :message="form.errors.total_amount" />
+                    <p v-if="car.is_total_locked" class="small text-secondary mb-0 mt-1">{{ t('iran_cars.sale_price_locked') }}</p>
+                    <InputError :message="form.errors.sale_price" />
                 </div>
                 <div class="col-12">
                     <label class="form-erp-label">{{ t('common.notes') }}</label>

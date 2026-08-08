@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\IranBorder;
+use App\Enums\IranCarSaleState;
 use App\Enums\Permission;
 use App\Http\Requests\IranCars\ConfirmIranCarsImportRequest;
 use App\Http\Requests\IranCars\ImportIranCarsRequest;
@@ -26,6 +27,10 @@ class IranCarImportController extends Controller
     {
         Gate::authorize('create', IranCar::class);
 
+        $saleState = IranCarSaleState::tryFrom($request->string('sale_state')->toString())
+            ?? IranCarSaleState::tryFrom((string) session(IranCarExcelImportService::SESSION_SALE_STATE))
+            ?? IranCarSaleState::Unsold;
+
         $preview = null;
         if (session(IranCarExcelImportService::SESSION_PATH)) {
             try {
@@ -48,6 +53,7 @@ class IranCarImportController extends Controller
             'defaults' => [
                 'company_id' => $request->integer('company_id') ?: null,
                 'border' => $request->string('border')->toString(),
+                'sale_state' => $saleState->value,
             ],
             'canManage' => $request->user()?->can(Permission::IranCarsManage->value) ?? false,
         ]);
@@ -56,12 +62,14 @@ class IranCarImportController extends Controller
     public function preview(ImportIranCarsRequest $request): RedirectResponse
     {
         Gate::authorize('create', IranCar::class);
-        $this->importService->storeUpload($request->file('file'), $request->user());
+        $validated = $request->validated();
+        $this->importService->storeUpload($request->file('file'), $request->user(), $validated['sale_state']);
 
         return redirect()
             ->route('iran-cars.import', [
-                'company_id' => $request->validated('company_id'),
-                'border' => $request->validated('border'),
+                'company_id' => $validated['company_id'] ?? null,
+                'border' => $validated['border'] ?? null,
+                'sale_state' => $validated['sale_state'],
             ])
             ->with('success', 'Excel uploaded. Review the preview then confirm import.');
     }
@@ -69,14 +77,16 @@ class IranCarImportController extends Controller
     public function confirm(ConfirmIranCarsImportRequest $request): RedirectResponse
     {
         Gate::authorize('create', IranCar::class);
+        $validated = $request->validated();
         $result = $this->importService->confirm(
             $request->user(),
-            (int) $request->validated('company_id'),
-            $request->validated('border')
+            (int) $validated['company_id'],
+            $validated['border'] ?? null,
+            $validated['sale_state']
         );
 
         return redirect()
-            ->route('iran-cars.index')
+            ->route('iran-cars.index', ['sale_state' => $validated['sale_state']])
             ->with(
                 'success',
                 "Iran cars import: {$result['imported']} imported, {$result['duplicates']} duplicates, {$result['skipped']} skipped."

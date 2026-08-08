@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AccountType;
 use App\Enums\Currency;
 use App\Enums\IranBorder;
+use App\Enums\IranCarSaleState;
 use App\Enums\IranCarStatus;
 use App\Enums\JournalStatus;
 use App\Models\Account;
@@ -26,7 +27,7 @@ class IranCarService
     ) {}
 
     /**
-     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, remaining_only?: bool}  $filters
+     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, sale_state?: string|null, remaining_only?: bool}  $filters
      * @return list<array<string, mixed>>
      */
     public function grouped(array $filters = []): array
@@ -40,7 +41,7 @@ class IranCarService
             ->get();
 
         if (! empty($filters['remaining_only'])) {
-            $cars = $cars->filter(fn (IranCar $car) => $car->remainingAmount() > 0.009)->values();
+            $cars = $cars->filter(fn (IranCar $car) => $car->isSold() && $car->remainingAmount() > 0.009)->values();
         }
 
         $groups = [];
@@ -57,7 +58,8 @@ class IranCarService
                 'border' => $border->value,
                 'label' => $border->label(),
                 'count' => count($transformed),
-                'total_amount' => $this->formatAmount($rows->sum(fn (IranCar $car) => (float) $car->total_amount)),
+                'list_amount' => $this->formatAmount($rows->sum(fn (IranCar $car) => (float) $car->total_amount)),
+                'sale_amount' => $this->formatAmount($rows->sum(fn (IranCar $car) => $car->billedAmount())),
                 'paid_amount' => $this->formatAmount($rows->sum(fn (IranCar $car) => $car->paidAmount())),
                 'remaining_amount' => $this->formatAmount($rows->sum(fn (IranCar $car) => $car->remainingAmount())),
                 'cars' => $transformed,
@@ -65,6 +67,17 @@ class IranCarService
         }
 
         return $groups;
+    }
+
+    /**
+     * @return array{unsold: int, sold: int}
+     */
+    public function saleStateCounts(): array
+    {
+        return [
+            'unsold' => IranCar::query()->where('sale_state', IranCarSaleState::Unsold->value)->count(),
+            'sold' => IranCar::query()->where('sale_state', IranCarSaleState::Sold->value)->count(),
+        ];
     }
 
     /**
@@ -76,12 +89,23 @@ class IranCarService
      *     year?: int|null,
      *     color?: string|null,
      *     total_amount?: float|int|string|null,
+     *     sale_price?: float|int|string|null,
+     *     sale_state?: string|null,
+     *     sold_at?: string|null,
      *     notes?: string|null
      * }  $data
      */
     public function create(array $data, User $actor): IranCar
     {
         return DB::transaction(function () use ($data, $actor): IranCar {
+            $saleState = IranCarSaleState::tryFrom((string) ($data['sale_state'] ?? IranCarSaleState::Unsold->value))
+                ?? IranCarSaleState::Unsold;
+            $listAmount = round((float) ($data['total_amount'] ?? 0), 2);
+            $isSold = $saleState === IranCarSaleState::Sold;
+            $salePrice = $isSold
+                ? round((float) ($data['sale_price'] ?? $listAmount), 2)
+                : null;
+
             $car = IranCar::query()->create([
                 'company_id' => $data['company_id'],
                 'border' => $data['border'],
@@ -90,13 +114,19 @@ class IranCarService
                 'year' => $data['year'] ?? null,
                 'color' => $this->nullableString($data['color'] ?? null),
                 'currency' => Currency::USD->value,
-                'total_amount' => round((float) ($data['total_amount'] ?? 0), 2),
+                'total_amount' => $listAmount,
+                'sale_price' => $salePrice,
                 'notes' => $this->nullableString($data['notes'] ?? null),
                 'status' => IranCarStatus::Open->value,
+                'sale_state' => $saleState->value,
+                'sold_at' => $isSold ? ($data['sold_at'] ?? now()->toDateString()) : null,
+                'sold_by' => $isSold ? $actor->id : null,
                 'created_by' => $actor->id,
             ]);
 
-            $this->syncInvoiceJournal($car->fresh(), $actor);
+            if ($isSold) {
+                $this->syncInvoiceJournal($car->fresh(), $actor);
+            }
 
             return $car->fresh($this->defaultRelations());
         });
@@ -111,6 +141,7 @@ class IranCarService
      *     year?: int|null,
      *     color?: string|null,
      *     total_amount?: float|int|string|null,
+     *     sale_price?: float|int|string|null,
      *     notes?: string|null
      * }  $data
      */
@@ -123,13 +154,16 @@ class IranCarService
         }
 
         $car->loadCount('payments');
-        $newTotal = round((float) ($data['total_amount'] ?? $car->total_amount), 2);
+        $newList = round((float) ($data['total_amount'] ?? $car->total_amount), 2);
         $newCompanyId = (int) $data['company_id'];
+        $newSalePrice = array_key_exists('sale_price', $data)
+            ? round((float) $data['sale_price'], 2)
+            : round((float) ($car->sale_price ?? 0), 2);
 
         if ($car->isTotalLocked()) {
-            if ($newTotal !== round((float) $car->total_amount, 2)) {
+            if ($car->isSold() && $newSalePrice !== round((float) ($car->sale_price ?? 0), 2)) {
                 throw ValidationException::withMessages([
-                    'total_amount' => 'Total cannot be changed after payments have been recorded.',
+                    'sale_price' => 'Sale price cannot be changed after payments have been recorded.',
                 ]);
             }
 
@@ -140,23 +174,73 @@ class IranCarService
             }
         }
 
-        return DB::transaction(function () use ($car, $data, $actor, $newTotal, $newCompanyId): IranCar {
-            $car->update([
+        return DB::transaction(function () use ($car, $data, $actor, $newList, $newCompanyId, $newSalePrice): IranCar {
+            $payload = [
                 'company_id' => $newCompanyId,
                 'border' => $data['border'],
                 'vin' => $this->normalizeVin($data['vin']),
                 'model_name' => trim($data['model_name']),
                 'year' => $data['year'] ?? null,
                 'color' => $this->nullableString($data['color'] ?? null),
-                'total_amount' => $newTotal,
+                'total_amount' => $newList,
                 'notes' => $this->nullableString($data['notes'] ?? null),
-            ]);
+            ];
 
-            if (! $car->isTotalLocked()) {
+            if ($car->isSold()) {
+                $payload['sale_price'] = $newSalePrice;
+            }
+
+            $car->update($payload);
+
+            if ($car->isSold() && ! $car->isTotalLocked()) {
                 $this->syncInvoiceJournal($car->fresh(), $actor);
             }
 
             $this->refreshStatus($car->fresh());
+
+            return $car->fresh($this->defaultRelations());
+        });
+    }
+
+    /**
+     * @param  array{sale_price: float|int|string, sold_at: string, notes?: string|null}  $data
+     */
+    public function markSold(IranCar $car, array $data, User $actor): IranCar
+    {
+        if ($car->isCancelled()) {
+            throw ValidationException::withMessages([
+                'status' => 'Cancelled Iran cars cannot be sold.',
+            ]);
+        }
+
+        if ($car->isSold()) {
+            throw ValidationException::withMessages([
+                'sale_state' => 'This car is already sold.',
+            ]);
+        }
+
+        $salePrice = round((float) $data['sale_price'], 2);
+        if ($salePrice < 0) {
+            throw ValidationException::withMessages([
+                'sale_price' => 'Sale price cannot be negative.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($car, $data, $actor, $salePrice): IranCar {
+            $notes = $this->nullableString($data['notes'] ?? null);
+            $mergedNotes = $notes
+                ? trim((string) $car->notes.($car->notes ? "\n" : '').$notes)
+                : $car->notes;
+
+            $car->update([
+                'sale_state' => IranCarSaleState::Sold->value,
+                'sale_price' => $salePrice,
+                'sold_at' => $data['sold_at'],
+                'sold_by' => $actor->id,
+                'notes' => $mergedNotes,
+            ]);
+
+            $this->syncInvoiceJournal($car->fresh(), $actor);
 
             return $car->fresh($this->defaultRelations());
         });
@@ -241,6 +325,7 @@ class IranCarService
             'company:id,name',
             'invoiceJournal:id,voucher_number,status',
             'creator:id,name',
+            'seller:id,name',
         ]);
 
         if ($detailed) {
@@ -272,14 +357,21 @@ class IranCarService
             'color' => $car->color,
             'currency' => $car->currency->value,
             'total_amount' => $this->formatAmount((float) $car->total_amount),
+            'sale_price' => $car->sale_price === null ? null : $this->formatAmount((float) $car->sale_price),
             'paid_amount' => $this->formatAmount($paid),
             'remaining_amount' => $this->formatAmount($remaining),
             'notes' => $car->notes,
             'status' => $car->status->value,
             'status_label' => $car->status->label(),
             'status_tone' => $car->status->tone(),
+            'sale_state' => $car->sale_state->value,
+            'sale_state_label' => $car->sale_state->label(),
+            'sale_state_tone' => $car->sale_state->tone(),
+            'sold_at' => $car->sold_at?->toDateString(),
+            'sold_by' => $car->seller?->name,
             'invoice_journal_id' => $car->invoice_journal_id,
             'invoice_voucher' => $car->invoiceJournal?->voucher_number,
+            'is_sold' => $car->isSold(),
             'is_total_locked' => $car->isTotalLocked(),
             'created_at' => $car->created_at?->toDateString(),
         ];
@@ -313,7 +405,15 @@ class IranCarService
             return;
         }
 
-        $total = round((float) $car->total_amount, 2);
+        if (! $car->isSold()) {
+            if ($car->status !== IranCarStatus::Open) {
+                $car->update(['status' => IranCarStatus::Open->value]);
+            }
+
+            return;
+        }
+
+        $total = $car->billedAmount();
         $remaining = $car->remainingAmount();
         $status = ($total > 0 && $remaining <= 0.009)
             ? IranCarStatus::Paid
@@ -325,32 +425,38 @@ class IranCarService
     }
 
     /**
-     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, remaining_only?: bool}  $filters
+     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, sale_state?: string|null, remaining_only?: bool}  $filters
      */
     public function exportExcel(array $filters = []): StreamedResponse
     {
         $groups = $this->grouped($filters);
-        $filename = 'iran-cars-'.now()->format('Ymd-His').'.xlsx';
+        $saleState = $filters['sale_state'] ?? IranCarSaleState::Unsold->value;
+        $filename = 'iran-cars-'.$saleState.'-'.now()->format('Ymd-His').'.xlsx';
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Iran Cars');
+        $sheet->setTitle($saleState === IranCarSaleState::Sold->value ? 'Sold' : 'Unsold');
 
-        $headers = ['#', 'Border', 'Vehicle Model', 'Year', 'Color', 'VIN', 'Company', 'Total', 'Paid', 'Remaining', 'Status'];
+        $isSold = $saleState === IranCarSaleState::Sold->value;
+        $headers = $isSold
+            ? ['#', 'Border', 'Vehicle Model', 'Year', 'Color', 'VIN', 'Company', 'Sale price', 'Paid', 'Remaining', 'Sold at', 'Status']
+            : ['#', 'Border', 'Vehicle Model', 'Year', 'Color', 'VIN', 'Company', 'List price', 'Status'];
+
         foreach ($headers as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, 1, $header);
         }
-        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
+        $lastCol = $isSold ? 'L' : 'I';
+        $sheet->getStyle("A1:{$lastCol}1")->getFont()->setBold(true);
 
         $line = 2;
         foreach ($groups as $group) {
             $sheet->setCellValue("A{$line}", $group['label']);
-            $sheet->mergeCells("A{$line}:K{$line}");
+            $sheet->mergeCells("A{$line}:{$lastCol}{$line}");
             $sheet->getStyle("A{$line}")->getFont()->setBold(true);
             $line++;
 
             foreach ($group['cars'] as $car) {
-                $sheet->fromArray([
+                $row = [
                     $car['index'],
                     $car['border_label'],
                     $car['model_name'],
@@ -358,18 +464,27 @@ class IranCarService
                     $car['color'],
                     $car['vin'],
                     $car['company_name'],
-                    $car['total_amount'],
-                    $car['paid_amount'],
-                    $car['remaining_amount'],
-                    $car['status_label'],
-                ], null, "A{$line}");
+                ];
+
+                if ($isSold) {
+                    $row[] = $car['sale_price'];
+                    $row[] = $car['paid_amount'];
+                    $row[] = $car['remaining_amount'];
+                    $row[] = $car['sold_at'];
+                    $row[] = $car['status_label'];
+                } else {
+                    $row[] = $car['total_amount'];
+                    $row[] = $car['sale_state_label'];
+                }
+
+                $sheet->fromArray($row, null, "A{$line}");
                 $line++;
             }
 
             $line++;
         }
 
-        foreach (range('A', 'K') as $column) {
+        foreach (range('A', $lastCol) as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -387,11 +502,15 @@ class IranCarService
     }
 
     /**
-     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, remaining_only?: bool}  $filters
+     * @param  array{search?: string|null, company_id?: string|null, border?: string|null, sale_state?: string|null, remaining_only?: bool}  $filters
      */
     private function filteredQuery(array $filters)
     {
         $query = IranCar::query();
+
+        $saleState = IranCarSaleState::tryFrom((string) ($filters['sale_state'] ?? IranCarSaleState::Unsold->value))
+            ?? IranCarSaleState::Unsold;
+        $query->where('sale_state', $saleState->value);
 
         if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
@@ -416,7 +535,14 @@ class IranCarService
 
     private function syncInvoiceJournal(IranCar $car, User $actor): void
     {
-        $total = round((float) $car->total_amount, 2);
+        if (! $car->isSold()) {
+            $this->voidInvoiceJournal($car, $actor, 'Iran car returned to unsold inventory.');
+            $this->refreshStatus($car->fresh());
+
+            return;
+        }
+
+        $total = $car->billedAmount();
         $postedInvoice = $car->invoiceJournal && $car->invoiceJournal->status === JournalStatus::Posted
             ? $car->invoiceJournal
             : null;
@@ -450,13 +576,13 @@ class IranCarService
         $company = Company::query()->findOrFail($car->company_id);
         $receivable = $this->iranReceivableAccounts->resolveFor($company);
         $revenue = $this->iranReceivableAccounts->revenueAccount();
-        $memo = sprintf('Iran car %s — %s', $car->vin, $company->name);
+        $memo = sprintf('Iran car sale %s — %s', $car->vin, $company->name);
 
         $draft = $this->journalService->createDraft([
-            'entry_date' => now()->toDateString(),
+            'entry_date' => $car->sold_at?->toDateString() ?? now()->toDateString(),
             'currency' => Currency::USD->value,
             'reference' => $car->vin,
-            'description' => sprintf('Iran car invoice — %s', $car->vin),
+            'description' => sprintf('Iran car sale — %s', $car->vin),
             'lines' => [
                 [
                     'account_id' => $receivable->id,
@@ -504,6 +630,7 @@ class IranCarService
             'company:id,name',
             'invoiceJournal:id,voucher_number,status',
             'creator:id,name',
+            'seller:id,name',
         ];
     }
 

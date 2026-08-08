@@ -1297,6 +1297,49 @@ a:hover {
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.7));
 }
 
+.erp-tabs {
+    display: flex;
+    gap: 0.15rem;
+    padding: 0.55rem 1rem 0;
+    border-bottom: 1px solid var(--erp-border);
+    background: var(--erp-surface);
+}
+
+.erp-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--erp-text-muted);
+    font-weight: 650;
+    font-size: 0.92rem;
+    padding: 0.7rem 1rem 0.75rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+}
+
+.erp-tab:hover {
+    color: var(--erp-text);
+}
+
+.erp-tab.active {
+    color: var(--erp-text);
+    border-bottom-color: var(--erp-accent, #1d4ed8);
+}
+
+.erp-tab-count {
+    display: inline-flex;
+    min-width: 1.4rem;
+    justify-content: center;
+    margin-inline-start: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--erp-surface-muted, #f1f5f9);
+    color: var(--erp-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
 .erp-stepper {
     display: flex;
     flex-wrap: wrap;

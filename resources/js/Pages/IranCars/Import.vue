@@ -25,11 +25,13 @@ const uploadForm = useForm({
     file: null,
     company_id: props.defaults.company_id || props.companies[0]?.id || '',
     border: props.defaults.border || '',
+    sale_state: props.defaults.sale_state || 'unsold',
 });
 
 const confirmForm = useForm({
     company_id: props.defaults.company_id || props.companies[0]?.id || '',
     border: props.defaults.border || '',
+    sale_state: props.defaults.sale_state || 'unsold',
 });
 
 const onFileChange = (event) => {
@@ -58,7 +60,10 @@ const statusTone = (status) => {
         <FlashMessage :message="success" />
 
         <div class="mb-3">
-            <Link :href="route('iran-cars.index')" class="text-decoration-none small fw-semibold">
+            <Link
+                :href="route('iran-cars.index', { sale_state: uploadForm.sale_state })"
+                class="text-decoration-none small fw-semibold"
+            >
                 ← {{ t('iran_cars.back') }}
             </Link>
         </div>
@@ -67,18 +72,26 @@ const statusTone = (status) => {
 
         <form class="erp-form-panel mb-3" @submit.prevent="submitPreview">
             <div class="row g-3">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-erp-label">{{ t('iran_cars.excel_file') }}</label>
                     <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" class="form-control form-erp-control" @change="onFileChange" />
                     <InputError :message="uploadForm.errors.file" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-erp-label">{{ t('iran_cars.import_as') }}</label>
+                    <select v-model="uploadForm.sale_state" class="form-select form-erp-control">
+                        <option value="unsold">{{ t('iran_cars.unsold') }}</option>
+                        <option value="sold">{{ t('iran_cars.sold') }}</option>
+                    </select>
+                    <InputError :message="uploadForm.errors.sale_state" />
+                </div>
+                <div class="col-md-3">
                     <label class="form-erp-label">{{ t('iran_cars.default_company') }}</label>
                     <select v-model="uploadForm.company_id" class="form-select form-erp-control">
                         <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.label }}</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-erp-label">{{ t('iran_cars.default_border') }}</label>
                     <select v-model="uploadForm.border" class="form-select form-erp-control">
                         <option value="">{{ t('iran_cars.from_excel') }}</option>
@@ -106,6 +119,13 @@ const statusTone = (status) => {
                     </p>
                 </div>
                 <form class="d-flex flex-wrap gap-2 align-items-end" @submit.prevent="submitConfirm">
+                    <div>
+                        <label class="form-erp-label">{{ t('iran_cars.import_as') }}</label>
+                        <select v-model="confirmForm.sale_state" class="form-select form-erp-control">
+                            <option value="unsold">{{ t('iran_cars.unsold') }}</option>
+                            <option value="sold">{{ t('iran_cars.sold') }}</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="form-erp-label">{{ t('iran_cars.default_company') }}</label>
                         <select v-model="confirmForm.company_id" class="form-select form-erp-control">
@@ -137,7 +157,7 @@ const statusTone = (status) => {
                             <th>{{ t('iran_cars.year') }}</th>
                             <th>{{ t('iran_cars.color') }}</th>
                             <th>{{ t('iran_cars.vin') }}</th>
-                            <th class="text-end pe-4">{{ t('iran_cars.total') }}</th>
+                            <th class="text-end pe-4">{{ t('iran_cars.price') }}</th>
                         </tr>
                     </thead>
                     <tbody>
