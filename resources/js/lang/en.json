@@ -172,6 +172,9 @@
     "logs": "Application log",
     "log_lines": "lines",
     "download_log": "Download log",
+    "clear_log": "Clear error log",
+    "clearing_log": "Clearing…",
+    "clear_log_confirm": "Clear application log files now? This cannot be undone.",
     "no_logs": "No log lines to show."
   },
   "users": {

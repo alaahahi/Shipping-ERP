@@ -60,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/settings/countries/{country}', [CountryController::class, 'destroy'])->name('settings.countries.destroy');
     Route::post('/settings/system/migrate', [SettingController::class, 'migrate'])->name('settings.system.migrate');
     Route::get('/settings/system/logs/download', [SettingController::class, 'downloadLogs'])->name('settings.system.logs.download');
+    Route::post('/settings/system/logs/clear', [SettingController::class, 'clearLogs'])->name('settings.system.logs.clear');
 
     Route::get('/whatsapp-notifications', [WhatsappNotificationController::class, 'index'])
         ->name('whatsapp-notifications.index');

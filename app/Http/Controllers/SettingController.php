@@ -155,6 +155,23 @@ class SettingController extends Controller
         return $this->systemAdminService->downloadLog();
     }
 
+    public function clearLogs(Request $request): RedirectResponse
+    {
+        Gate::authorize('manage', Setting::class);
+
+        try {
+            $this->systemAdminService->clearLogs($request->user());
+        } catch (Throwable $e) {
+            return redirect()
+                ->route('settings.edit', ['tab' => 'system'])
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('settings.edit', ['tab' => 'system'])
+            ->with('success', 'Application logs cleared.');
+    }
+
     /**
      * @return list<array{value: string, label: string}>
      */

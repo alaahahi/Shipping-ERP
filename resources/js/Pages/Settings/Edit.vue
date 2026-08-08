@@ -29,6 +29,7 @@ const error = computed(() => page.props.flash?.error);
 const migrateOutput = computed(() => page.props.flash?.migrate_output);
 const currentUserId = computed(() => page.props.auth?.user?.id);
 const migrating = ref(false);
+const clearingLogs = ref(false);
 const editingCountryId = ref(null);
 
 const form = useForm({
@@ -131,6 +132,17 @@ const runMigrate = () => {
 
 const filterLogs = (level) => {
     router.get(route('settings.edit'), { tab: 'system', level }, { preserveState: true, replace: true });
+};
+
+const clearLogs = () => {
+    if (!window.confirm(t('settings.clear_log_confirm'))) return;
+    clearingLogs.value = true;
+    router.post(route('settings.system.logs.clear'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            clearingLogs.value = false;
+        },
+    });
 };
 
 const logClass = (level) => {
@@ -419,6 +431,14 @@ const logClass = (level) => {
                             <option value="DEBUG">DEBUG</option>
                         </select>
                         <a :href="route('settings.system.logs.download')" class="btn btn-erp-ghost">{{ t('settings.download_log') }}</a>
+                        <button
+                            type="button"
+                            class="btn btn-outline-danger"
+                            :disabled="clearingLogs"
+                            @click="clearLogs"
+                        >
+                            {{ clearingLogs ? t('settings.clearing_log') : t('settings.clear_log') }}
+                        </button>
                     </div>
                 </div>
                 <div class="erp-log-viewer">

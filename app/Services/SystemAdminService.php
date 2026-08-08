@@ -64,6 +64,32 @@ class SystemAdminService
         ];
     }
 
+    public function clearLogs(User $actor): void
+    {
+        $dir = realpath(storage_path('logs'));
+        if (! $dir || ! is_dir($dir)) {
+            throw new RuntimeException('Logs directory is missing.');
+        }
+
+        foreach (File::files($dir) as $file) {
+            if (! str_ends_with($file->getFilename(), '.log')) {
+                continue;
+            }
+
+            $real = $file->getRealPath();
+            if (! $real || ! str_starts_with($real, $dir)) {
+                continue;
+            }
+
+            File::put($real, '');
+        }
+
+        Log::warning('Application logs cleared from settings UI.', [
+            'actor_id' => $actor->id,
+            'actor_email' => $actor->email,
+        ]);
+    }
+
     public function downloadLog(): StreamedResponse
     {
         $path = $this->latestLogPath();
