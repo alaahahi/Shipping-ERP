@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\Currency;
 use App\Enums\IranBorder;
 use App\Enums\IranCarStatus;
 use App\Enums\JournalStatus;
@@ -70,7 +69,7 @@ class IranCarAccountingTest extends TestCase
         $this->assertSame($company->id, $debit?->company_id);
         $this->assertSame($revenue->id, $credit?->account_id);
         $this->assertNotSame($company->ar_account_id, $debit?->account_id);
-        $this->assertSame('1500.50', $car->remainingAmount());
+        $this->assertEquals(1500.50, $car->remainingAmount());
     }
 
     public function test_payment_posts_debit_cash_credit_1660_and_reduces_remaining(): void

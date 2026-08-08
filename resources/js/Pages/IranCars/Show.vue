@@ -36,7 +36,10 @@ const submitPayment = () => {
 
 const destroyPayment = (payment) => {
     if (!window.confirm(t('iran_cars.reverse_payment_confirm', { voucher: payment.voucher_number }))) return;
-    router.delete(route('iran-cars.payments.destroy', [props.car.id, payment.id]), { preserveScroll: true });
+    router.delete(route('iran-cars.payments.destroy', {
+        iran_car: props.car.id,
+        iran_car_payment: payment.id,
+    }), { preserveScroll: true });
 };
 </script>
 
