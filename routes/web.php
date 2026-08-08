@@ -6,6 +6,9 @@ use App\Http\Controllers\CompanyDirectChargeController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DubaiAccountController;
+use App\Http\Controllers\IranCarController;
+use App\Http\Controllers\IranCarImportController;
+use App\Http\Controllers\IranCarPaymentController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LandTripController;
 use App\Http\Controllers\MoneyVoucherController;
@@ -83,6 +86,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.transition');
     Route::post('/land-trips/{land_trip}/post', [LandTripController::class, 'post'])
         ->name('land-trips.post');
+
+    Route::get('/iran-cars/export', [IranCarController::class, 'export'])->name('iran-cars.export');
+    Route::get('/iran-cars/import', [IranCarImportController::class, 'create'])->name('iran-cars.import');
+    Route::post('/iran-cars/import/preview', [IranCarImportController::class, 'preview'])->name('iran-cars.import.preview');
+    Route::post('/iran-cars/import/confirm', [IranCarImportController::class, 'confirm'])->name('iran-cars.import.confirm');
+    Route::resource('iran-cars', IranCarController::class);
+    Route::post('/iran-cars/{iran_car}/payments', [IranCarPaymentController::class, 'store'])
+        ->name('iran-cars.payments.store');
+    Route::delete('/iran-cars/{iran_car}/payments/{iran_car_payment}', [IranCarPaymentController::class, 'destroy'])
+        ->name('iran-cars.payments.destroy');
 
     Route::resource('dubai-accounts', DubaiAccountController::class);
     Route::post('/dubai-accounts/{dubai_account}/entries', [DubaiAccountController::class, 'storeEntry'])

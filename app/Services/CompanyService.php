@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 class CompanyService
 {
     public function __construct(
-        private readonly CompanyReceivableAccountService $companyReceivableAccounts
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts,
+        private readonly IranCarReceivableAccountService $iranCarReceivableAccounts
     ) {}
 
     /**
@@ -107,7 +108,9 @@ class CompanyService
                 'contact_phone' => $company->contact_phone,
             ]);
 
-            $this->companyReceivableAccounts->ensureFor($company->fresh() ?? $company);
+            $fresh = $company->fresh() ?? $company;
+            $this->companyReceivableAccounts->ensureFor($fresh);
+            $this->iranCarReceivableAccounts->syncIfLinked($fresh);
 
             return $company->fresh('arAccount');
         });
