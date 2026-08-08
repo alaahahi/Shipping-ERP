@@ -1,4 +1,5 @@
 <script setup>
+import { formatMoney } from '@/utils/formatMoney';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -13,7 +14,7 @@ const props = defineProps({
 });
 
 const numeric = computed(() => {
-    const parsed = Number(props.value);
+    const parsed = Number(String(props.value ?? '').replace(/,/g, '').trim());
     return Number.isFinite(parsed) ? parsed : 0;
 });
 
@@ -22,10 +23,7 @@ const display = computed(() => {
         return '—';
     }
 
-    const formatted =
-        typeof props.value === 'string' && props.value.trim() !== ''
-            ? props.value
-            : numeric.value.toFixed(2);
+    const formatted = formatMoney(numeric.value);
 
     return props.currency ? `${formatted} ${props.currency}` : formatted;
 });

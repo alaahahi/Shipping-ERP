@@ -5,6 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import { formatMoney } from '@/utils/formatMoney';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, ref } from 'vue';
@@ -141,6 +142,19 @@ const paymentListPanel = ref(null);
 const partnerSummary = computed(() => props.partnerSummaries[ledgerCurrency.value] || null);
 const filteredExpenses = computed(() => props.expenses.filter((row) => row.currency === ledgerCurrency.value));
 const filteredContributions = computed(() => props.contributions.filter((row) => row.currency === ledgerCurrency.value));
+const ownerToneClass = (ownerId) => {
+    const id = Number(ownerId);
+    const index = props.ownerships.findIndex((row) => Number(row.owner_id) === id);
+    return `owner-tone-${(index < 0 ? 0 : index) % 6}`;
+};
+const expensePayerId = (expense) =>
+    expense?.paid_by_owner_id
+    || partnerSummary.value?.spender_owner_id
+    || defaultSpenderId();
+const expensePayerName = (expense) =>
+    expense?.paid_by_owner_name
+    || partnerSummary.value?.spender_name
+    || '—';
 const differenceTone = computed(() => {
     const value = Number(partnerSummary.value?.difference_numeric || 0);
     if (Math.abs(value) < 0.005) return 'is-settled';
@@ -517,7 +531,7 @@ const submitPaymentImport = async () => {
                 <button type="button" class="erp-stat is-clickable w-100 text-start border-0" @click="activeTab = 'owners'">
                     <div class="erp-stat-label">{{ t('ship_owners.title') }}</div>
                     <p class="erp-stat-value">{{ ownershipSummary.owners_count || 0 }}</p>
-                    <div class="erp-stat-hint">{{ t('ship_owners.click_manage') }} · {{ ownershipSummary.total_share || '0.00' }}%</div>
+                    <div class="erp-stat-hint">{{ t('ship_owners.click_manage') }} · {{ formatMoney(ownershipSummary.total_share || 0) }}%</div>
                 </button>
             </div>
             <div class="col-6 col-md-3">
@@ -742,10 +756,23 @@ const submitPaymentImport = async () => {
                             v-for="total in expenseTotals"
                             :key="total.currency"
                             tone="info"
-                            :label="`${total.total} ${total.currency}`"
+                            :label="`${formatMoney(total.total)} ${total.currency}`"
                             :dot="false"
                         />
                     </div>
+                </div>
+
+                <div v-if="ownerships.length" class="owner-legend mb-3">
+                    <span class="small text-secondary me-1">{{ t('ship_expenses.owner_colors') }}:</span>
+                    <span
+                        v-for="owner in ownerships"
+                        :key="owner.owner_id"
+                        class="owner-chip"
+                        :class="ownerToneClass(owner.owner_id)"
+                    >
+                        <span class="owner-chip-dot" aria-hidden="true" />
+                        {{ owner.owner_name }}
+                    </span>
                 </div>
 
                 <div v-if="partnerSummary" class="row g-3 mb-4">
@@ -756,13 +783,16 @@ const submitPaymentImport = async () => {
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="erp-stat h-100">
+                        <div class="erp-stat h-100" :class="ownerToneClass(partnerSummary.spender_owner_id)">
                             <div class="erp-stat-label">{{ t('ship_expenses.spender_paid', { name: partnerSummary.spender_name || '—' }) }}</div>
                             <p class="erp-stat-value"><MoneyAmount :value="partnerSummary.spender_paid" :currency="ledgerCurrency" /></p>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="erp-stat h-100">
+                        <div
+                            class="erp-stat h-100"
+                            :class="ownerToneClass(partnerSummary.partners?.find((row) => !row.is_spender)?.owner_id)"
+                        >
                             <div class="erp-stat-label">{{ t('ship_expenses.payer_paid', { name: partnerSummary.other_name || '—' }) }}</div>
                             <p class="erp-stat-value"><MoneyAmount :value="partnerSummary.others_paid" :currency="ledgerCurrency" /></p>
                         </div>
@@ -771,7 +801,7 @@ const submitPaymentImport = async () => {
                         <div class="erp-stat h-100" :class="differenceTone">
                             <div class="erp-stat-label">{{ t('ship_expenses.difference') }}</div>
                             <p class="erp-stat-value"><MoneyAmount :value="partnerSummary.difference" :currency="ledgerCurrency" /></p>
-                            <p class="erp-stat-hint mb-0">{{ settlementHint }}</p>
+                            <p class="erp-stat-hint mb-0" :class="differenceTone">{{ settlementHint }}</p>
                         </div>
                     </div>
                 </div>
@@ -788,12 +818,20 @@ const submitPaymentImport = async () => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="partner in partnerSummary.partners" :key="partner.ownership_id">
+                            <tr
+                                v-for="partner in partnerSummary.partners"
+                                :key="partner.ownership_id"
+                                class="owner-stripe"
+                                :class="ownerToneClass(partner.owner_id)"
+                            >
                                 <td>
-                                    {{ partner.owner_name }}
+                                    <span class="owner-chip" :class="ownerToneClass(partner.owner_id)">
+                                        <span class="owner-chip-dot" aria-hidden="true" />
+                                        {{ partner.owner_name }}
+                                    </span>
                                     <StatusBadge v-if="partner.is_spender" tone="info" :label="t('ship_owners.managing')" :dot="false" />
                                 </td>
-                                <td class="text-end font-monospace">{{ partner.share_percent }}</td>
+                                <td class="text-end font-monospace">{{ formatMoney(partner.share_percent) }}</td>
                                 <td class="text-end"><MoneyAmount :value="partner.fair_share" /></td>
                                 <td class="text-end"><MoneyAmount :value="partner.paid_formatted" /></td>
                                 <td class="text-end"><MoneyAmount :value="partner.variance" /></td>
@@ -825,16 +863,26 @@ const submitPaymentImport = async () => {
                                 <tbody v-for="group in expensesByMonth" :key="group.month">
                                     <tr class="table-light">
                                         <td colspan="3" class="fw-semibold">{{ t('ship_expenses.month') }} {{ group.month }}</td>
-                                        <td class="text-end font-monospace fw-semibold">{{ group.total.toFixed(2) }}</td>
+                                        <td class="text-end font-monospace fw-semibold">{{ formatMoney(group.total) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
-                                    <tr v-for="expense in group.rows" :key="expense.id">
+                                    <tr
+                                        v-for="expense in group.rows"
+                                        :key="expense.id"
+                                        class="owner-stripe"
+                                        :class="ownerToneClass(expensePayerId(expense))"
+                                    >
                                         <td>{{ expense.expense_date }}</td>
                                         <td>
                                             <div class="fw-semibold">{{ expense.vendor || expense.expense_type_label }}</div>
                                             <div class="small text-secondary">{{ expense.expense_type_label }}<span v-if="expense.reference"> · {{ expense.reference }}</span></div>
                                         </td>
-                                        <td>{{ expense.paid_by_owner_name || partnerSummary?.spender_name || '—' }}</td>
+                                        <td>
+                                            <span class="owner-chip" :class="ownerToneClass(expensePayerId(expense))">
+                                                <span class="owner-chip-dot" aria-hidden="true" />
+                                                <span class="owner-name">{{ expensePayerName(expense) }}</span>
+                                            </span>
+                                        </td>
                                         <td class="text-end"><MoneyAmount :value="expense.amount" /></td>
                                         <td>
                                             <Link
@@ -932,12 +980,20 @@ const submitPaymentImport = async () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="row in filteredContributions" :key="row.id">
+                                    <tr
+                                        v-for="row in filteredContributions"
+                                        :key="row.id"
+                                        class="owner-stripe"
+                                        :class="ownerToneClass(row.owner_id)"
+                                    >
                                         <td>{{ row.contribution_date }}</td>
                                         <td>
                                             <div class="fw-semibold">{{ row.description || row.owner_name }}</div>
                                             <div class="small text-secondary">
-                                                {{ row.owner_name }}
+                                                <span class="owner-chip" :class="ownerToneClass(row.owner_id)">
+                                                    <span class="owner-chip-dot" aria-hidden="true" />
+                                                    {{ row.owner_name }}
+                                                </span>
                                                 <Link
                                                     v-if="row.is_posted && row.journal_entry_id"
                                                     :href="route('journals.show', row.journal_entry_id)"

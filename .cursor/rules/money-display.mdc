@@ -1,0 +1,13 @@
+---
+description: Display money without trailing .00 when the amount is a whole number.
+globs: resources/js/**/*.{vue,js}
+alwaysApply: false
+---
+
+# Money display
+
+Never show trailing `.00` in the UI when the amount is a whole integer.
+
+- Format via `formatMoney` / `MoneyAmount` only.
+- Keep real cents: `30.50` stays `30.50`.
+- Do not change stored decimals or journal amounts — display only.

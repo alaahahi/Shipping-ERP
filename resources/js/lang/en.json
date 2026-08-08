@@ -333,7 +333,8 @@
     "reason": "Reason",
     "paid_by": "Paid by",
     "paid_by_default": "Managing partner (default)",
-    "paid_by_help": "If an owner paid the expense, it counts in that partner's payments and journal clearing."
+    "paid_by_help": "If an owner paid the expense, it counts in that partner's payments and journal clearing.",
+    "owner_colors": "Owner colors"
   },
   "ship_partners": {
     "title": "Partner payments",
