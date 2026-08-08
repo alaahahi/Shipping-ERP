@@ -46,7 +46,10 @@ class ShipExpenseController extends Controller
             $ship,
             $request->file('file'),
             $request->validated('currency'),
-            $request->user()?->id
+            $request->user()?->id,
+            isset($request->validated()['paid_by_owner_id'])
+                ? (int) $request->validated('paid_by_owner_id')
+                : null
         );
 
         return $this->backToExpenses(

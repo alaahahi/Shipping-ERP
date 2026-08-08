@@ -20,11 +20,17 @@ class ShipExpenseLedgerImportService
     /**
      * @return array{imported: int, skipped: int, errors: list<string>}
      */
-    public function importExpenses(Ship $ship, UploadedFile $file, string $currency = 'USD', ?int $createdBy = null): array
-    {
+    public function importExpenses(
+        Ship $ship,
+        UploadedFile $file,
+        string $currency = 'USD',
+        ?int $createdBy = null,
+        ?int $paidByOwnerId = null
+    ): array {
         $rows = $this->loadRows($file);
+        $ownersByName = $this->ownerNameMap($ship);
 
-        return DB::transaction(function () use ($ship, $rows, $currency, $createdBy): array {
+        return DB::transaction(function () use ($ship, $rows, $currency, $createdBy, $paidByOwnerId, $ownersByName): array {
             $imported = 0;
             $skipped = 0;
             $errors = [];
@@ -36,6 +42,7 @@ class ShipExpenseLedgerImportService
                 }
 
                 try {
+                    $rowPayer = $this->matchOwnerId($payload['payer'] ?? null, $ownersByName) ?? $paidByOwnerId;
                     $this->shipExpenseService->create($ship, [
                         'expense_type' => $this->inferExpenseType((string) ($payload['description'] ?? '')),
                         'amount' => $payload['amount'],
@@ -45,6 +52,7 @@ class ShipExpenseLedgerImportService
                         'reference' => $payload['reference'] ?? null,
                         'notes' => null,
                         'created_by' => $createdBy,
+                        'paid_by_owner_id' => $rowPayer,
                     ]);
                     $imported++;
                 } catch (\Throwable $exception) {
@@ -106,7 +114,7 @@ class ShipExpenseLedgerImportService
     }
 
     /**
-     * @return list<array{date: string, description: ?string, amount: float, reference: ?string}|null>
+     * @return list<array{date: string, description: ?string, amount: float, reference: ?string, payer: ?string}|null>
      */
     private function loadRows(UploadedFile $file): array
     {
@@ -122,7 +130,7 @@ class ShipExpenseLedgerImportService
 
         $headerIndex = $this->findHeaderRow($sheetRows);
         $map = $headerIndex === null
-            ? ['date' => 0, 'description' => 1, 'amount' => 2, 'reference' => 3]
+            ? ['date' => 0, 'description' => 1, 'amount' => 2, 'reference' => 3, 'payer' => 4]
             : $this->mapHeader($sheetRows[$headerIndex]);
 
         if ($map['date'] === null || $map['amount'] === null) {
@@ -169,11 +177,11 @@ class ShipExpenseLedgerImportService
 
     /**
      * @param  list<mixed>  $header
-     * @return array{date: int|null, description: int|null, amount: int|null, reference: int|null}
+     * @return array{date: int|null, description: int|null, amount: int|null, reference: int|null, payer: int|null}
      */
     private function mapHeader(array $header): array
     {
-        $map = ['date' => null, 'description' => null, 'amount' => null, 'reference' => null];
+        $map = ['date' => null, 'description' => null, 'amount' => null, 'reference' => null, 'payer' => null];
 
         foreach ($header as $index => $cell) {
             $label = mb_strtolower(trim((string) $cell));
@@ -191,6 +199,17 @@ class ShipExpenseLedgerImportService
                 || str_contains($label, 'واسلى')
             )) {
                 $map['amount'] = $index;
+            } elseif ($map['payer'] === null && (
+                str_contains($label, 'paid by')
+                || str_contains($label, 'payer')
+                || str_contains($label, 'partner')
+                || str_contains($label, 'owner')
+                || str_contains($label, 'دفعها')
+                || str_contains($label, 'دافع')
+                || str_contains($label, 'شريك')
+                || str_contains($label, 'هاوبەش')
+            )) {
+                $map['payer'] = $index;
             } elseif ($map['reference'] === null && (str_contains($label, 'ref') || str_contains($label, 'رقم') || str_contains($label, 'no'))) {
                 $map['reference'] = $index;
             } elseif ($map['description'] === null && (
@@ -209,8 +228,8 @@ class ShipExpenseLedgerImportService
 
     /**
      * @param  list<mixed>  $row
-     * @param  array{date: int|null, description: int|null, amount: int|null, reference: int|null}  $map
-     * @return array{date: string, description: ?string, amount: float, reference: ?string}|null
+     * @param  array{date: int|null, description: int|null, amount: int|null, reference: int|null, payer?: int|null}  $map
+     * @return array{date: string, description: ?string, amount: float, reference: ?string, payer: ?string}|null
      */
     private function mapRow(array $row, array $map): ?array
     {
@@ -218,6 +237,7 @@ class ShipExpenseLedgerImportService
         $amount = $this->numericOrNull($row[$map['amount']] ?? null);
         $description = trim((string) ($row[$map['description'] ?? -1] ?? ''));
         $reference = trim((string) ($row[$map['reference'] ?? -1] ?? ''));
+        $payer = trim((string) ($row[$map['payer'] ?? -1] ?? ''));
 
         if ($date === null && ($amount === null || $amount <= 0) && $description === '') {
             return null;
@@ -232,7 +252,41 @@ class ShipExpenseLedgerImportService
             'description' => $description !== '' ? $description : null,
             'amount' => $amount,
             'reference' => $reference !== '' ? $reference : null,
+            'payer' => $payer !== '' ? $payer : null,
         ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function ownerNameMap(Ship $ship): array
+    {
+        $ship->loadMissing('ownerships.owner');
+        $map = [];
+
+        foreach ($ship->ownerships as $ownership) {
+            $name = trim((string) $ownership->owner?->name);
+            if ($name === '') {
+                continue;
+            }
+            $map[mb_strtolower($name)] = (int) $ownership->owner_id;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<string, int>  $ownersByName
+     */
+    private function matchOwnerId(?string $name, array $ownersByName): ?int
+    {
+        if ($name === null || trim($name) === '') {
+            return null;
+        }
+
+        $key = mb_strtolower(trim($name));
+
+        return $ownersByName[$key] ?? null;
     }
 
     private function inferExpenseType(string $text): string

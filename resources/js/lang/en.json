@@ -323,11 +323,14 @@
     "variance": "Vs share %",
     "list_add": "Add expense list",
     "import_excel": "Import expenses Excel",
-    "import_help": "Columns: Date, Reason, Amount (optional Type / Reference). Header row optional.",
+    "import_help": "Columns: Date, Reason, Amount, optional Paid by / Partner. Header row optional.",
     "add_row": "Add row",
     "save_list": "Save list",
     "month": "Month",
-    "reason": "Reason"
+    "reason": "Reason",
+    "paid_by": "Paid by",
+    "paid_by_default": "Managing partner (default)",
+    "paid_by_help": "If an owner paid the expense, it counts in that partner's payments and journal clearing."
   },
   "ship_partners": {
     "title": "Partner payments",

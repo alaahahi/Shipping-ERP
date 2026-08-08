@@ -21,6 +21,7 @@ class ImportShipExpenseLedgerRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
             'currency' => ['required', Rule::enum(Currency::class)],
+            'paid_by_owner_id' => ['nullable', 'integer', 'exists:owners,id'],
         ];
     }
 }

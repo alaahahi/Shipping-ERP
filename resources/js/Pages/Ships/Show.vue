@@ -42,6 +42,10 @@ const ledgerCurrency = ref('USD');
 const createNewOwner = ref(props.ownerOptions.length === 0);
 
 const today = () => new Date().toISOString().slice(0, 10);
+const defaultSpenderId = () =>
+    props.ownerships.find((row) => row.is_managing)?.owner_id
+    ?? props.ownerships[0]?.owner_id
+    ?? null;
 const defaultPayerId = () =>
     props.ownerships.find((row) => !row.is_managing)?.owner_id
     ?? props.ownerships[0]?.owner_id
@@ -54,6 +58,7 @@ const emptyExpenseRow = () => ({
     expense_date: today(),
     vendor: '',
     reference: '',
+    paid_by_owner_id: defaultSpenderId(),
 });
 
 const emptyPaymentRow = () => ({
@@ -84,6 +89,7 @@ const expenseForm = useForm({
     vendor: '',
     reference: '',
     notes: '',
+    paid_by_owner_id: defaultSpenderId(),
 });
 
 const postForm = useForm({
@@ -115,6 +121,7 @@ const paymentListForm = useForm({
 const expenseImportForm = useForm({
     file: null,
     currency: 'USD',
+    paid_by_owner_id: defaultSpenderId(),
 });
 
 const paymentImportForm = useForm({
@@ -215,6 +222,7 @@ const resetExpenseForm = () => {
     expenseForm.expense_type = props.expenseTypes[0]?.value ?? 'other';
     expenseForm.currency = 'USD';
     expenseForm.expense_date = new Date().toISOString().slice(0, 10);
+    expenseForm.paid_by_owner_id = defaultSpenderId();
 };
 
 const startEditExpense = (expense) => {
@@ -227,6 +235,7 @@ const startEditExpense = (expense) => {
     expenseForm.vendor = expense.vendor ?? '';
     expenseForm.reference = expense.reference ?? '';
     expenseForm.notes = expense.notes ?? '';
+    expenseForm.paid_by_owner_id = expense.paid_by_owner_id ?? defaultSpenderId();
 };
 
 const submitExpense = () => {
@@ -740,6 +749,7 @@ const submitPaymentImport = () => {
                                     <tr>
                                         <th>{{ t('common.date') }}</th>
                                         <th>{{ t('ship_expenses.reason') }}</th>
+                                        <th>{{ t('ship_expenses.paid_by') }}</th>
                                         <th class="text-end">{{ t('common.amount') }}</th>
                                         <th>{{ t('voyage_expenses.journal') }}</th>
                                         <th class="text-end"></th>
@@ -747,7 +757,7 @@ const submitPaymentImport = () => {
                                 </thead>
                                 <tbody v-for="group in expensesByMonth" :key="group.month">
                                     <tr class="table-light">
-                                        <td colspan="2" class="fw-semibold">{{ t('ship_expenses.month') }} {{ group.month }}</td>
+                                        <td colspan="3" class="fw-semibold">{{ t('ship_expenses.month') }} {{ group.month }}</td>
                                         <td class="text-end font-monospace fw-semibold">{{ group.total.toFixed(2) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
@@ -757,6 +767,7 @@ const submitPaymentImport = () => {
                                             <div class="fw-semibold">{{ expense.vendor || expense.expense_type_label }}</div>
                                             <div class="small text-secondary">{{ expense.expense_type_label }}<span v-if="expense.reference"> · {{ expense.reference }}</span></div>
                                         </td>
+                                        <td>{{ expense.paid_by_owner_name || partnerSummary?.spender_name || '—' }}</td>
                                         <td class="text-end"><MoneyAmount :value="expense.amount" /></td>
                                         <td>
                                             <Link
@@ -964,8 +975,19 @@ const submitPaymentImport = () => {
                                     <label class="form-erp-label">{{ t('common.reference') }}</label>
                                     <input v-model="expenseForm.reference" class="form-control form-erp-control" />
                                 </div>
+                                <div class="col-md-4">
+                                    <label class="form-erp-label">{{ t('ship_expenses.paid_by') }}</label>
+                                    <select v-model="expenseForm.paid_by_owner_id" class="form-select form-erp-control">
+                                        <option :value="null">{{ t('ship_expenses.paid_by_default') }}</option>
+                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">
+                                            {{ owner.owner_name }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="expenseForm.errors.paid_by_owner_id" />
+                                </div>
                             </div>
-                            <p class="small text-secondary mb-0 mt-3">{{ t('ship_expenses.accounting_note') }}</p>
+                            <p class="small text-secondary mb-0 mt-3">{{ t('ship_expenses.paid_by_help') }}</p>
+                            <p class="small text-secondary mb-0 mt-1">{{ t('ship_expenses.accounting_note') }}</p>
                             <div class="erp-form-actions">
                                 <button type="submit" class="btn btn-erp" :disabled="expenseForm.processing">
                                     {{ expenseForm.processing ? t('common.saving') : (editingExpenseId ? t('users.save_changes') : t('ship_expenses.add')) }}
@@ -976,18 +998,26 @@ const submitPaymentImport = () => {
                         <form class="erp-form-panel mb-3" @submit.prevent="submitExpenseList">
                             <h4 class="h6 mb-2">{{ t('ship_expenses.list_add') }}</h4>
                             <div v-for="(row, index) in expenseListForm.rows" :key="index" class="row g-2 mb-2">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input v-model="row.expense_date" type="date" class="form-control form-erp-control" />
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <input v-model="row.vendor" class="form-control form-erp-control" :placeholder="t('ship_expenses.reason')" />
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input v-model.number="row.amount" type="number" min="0" step="0.01" class="form-control form-erp-control" :placeholder="t('common.amount')" />
                                 </div>
                                 <div class="col-md-2">
                                     <select v-model="row.expense_type" class="form-select form-erp-control">
                                         <option v-for="type in expenseTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select v-model="row.paid_by_owner_id" class="form-select form-erp-control">
+                                        <option :value="null">{{ t('ship_expenses.paid_by_default') }}</option>
+                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">
+                                            {{ owner.owner_name }}
+                                        </option>
                                     </select>
                                 </div>
                             </div>
@@ -1004,13 +1034,21 @@ const submitPaymentImport = () => {
                             <h4 class="h6 mb-1">{{ t('ship_expenses.import_excel') }}</h4>
                             <p class="small text-secondary mb-2">{{ t('ship_expenses.import_help') }}</p>
                             <div class="row g-2">
-                                <div class="col-md-8">
+                                <div class="col-md-5">
                                     <input type="file" class="form-control form-erp-control" accept=".xlsx,.xls,.csv" @change="onExpenseFile" />
                                     <InputError :message="expenseImportForm.errors.file" />
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <select v-model="expenseImportForm.currency" class="form-select form-erp-control">
                                         <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select v-model="expenseImportForm.paid_by_owner_id" class="form-select form-erp-control">
+                                        <option :value="null">{{ t('ship_expenses.paid_by_default') }}</option>
+                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">
+                                            {{ owner.owner_name }}
+                                        </option>
                                     </select>
                                 </div>
                             </div>

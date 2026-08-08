@@ -28,6 +28,7 @@ class BulkStoreShipExpenseRequest extends FormRequest
             'rows.*.vendor' => ['nullable', 'string', 'max:180'],
             'rows.*.reference' => ['nullable', 'string', 'max:120'],
             'rows.*.notes' => ['nullable', 'string', 'max:2000'],
+            'rows.*.paid_by_owner_id' => ['nullable', 'integer', 'exists:owners,id'],
         ];
     }
 }

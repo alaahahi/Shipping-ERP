@@ -54,7 +54,7 @@ class ShipExpensePostingService
         $creditAccount = $mode === 'cash'
             ? $this->resolvePaymentAccount((int) $paymentAccountId, $currency)
             : $this->resolvePartnerClearingAccount($currency);
-        $spenderOwnerId = $mode === 'cash' ? null : $this->resolveSpenderOwnerId($expense->ship);
+        $spenderOwnerId = $mode === 'cash' ? null : $this->resolvePayerOwnerId($expense);
 
         $memo = trim(implode(' · ', array_filter([
             $expense->expense_type->label(),
@@ -150,6 +150,15 @@ class ShipExpensePostingService
         }
 
         return $account;
+    }
+
+    public function resolvePayerOwnerId(ShipExpense $expense): int
+    {
+        if ($expense->paid_by_owner_id) {
+            return (int) $expense->paid_by_owner_id;
+        }
+
+        return $this->resolveSpenderOwnerId($expense->ship);
     }
 
     public function resolveSpenderOwnerId(?Ship $ship): int

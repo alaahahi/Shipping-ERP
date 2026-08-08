@@ -22,6 +22,7 @@ class ShipExpense extends Model
         'reference',
         'notes',
         'created_by',
+        'paid_by_owner_id',
         'journal_entry_id',
     ];
 
@@ -43,6 +44,11 @@ class ShipExpense extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function paidByOwner(): BelongsTo
+    {
+        return $this->belongsTo(Owner::class, 'paid_by_owner_id');
     }
 
     public function journalEntry(): BelongsTo

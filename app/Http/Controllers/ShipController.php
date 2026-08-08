@@ -86,6 +86,7 @@ class ShipController extends Controller
         $ship->load([
             'ownerships.owner',
             'expenses.journalEntry:id,voucher_number,status',
+            'expenses.paidByOwner:id,name',
             'partnerContributions.owner:id,name',
             'partnerContributions.journalEntry:id,voucher_number,status',
         ]);

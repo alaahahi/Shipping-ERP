@@ -27,6 +27,7 @@ class UpdateShipExpenseRequest extends FormRequest
             'vendor' => ['nullable', 'string', 'max:180'],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'paid_by_owner_id' => ['nullable', 'integer', 'exists:owners,id'],
         ];
     }
 }

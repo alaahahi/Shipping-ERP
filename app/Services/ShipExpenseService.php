@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Currency;
+use App\Models\Owner;
 use App\Models\Ship;
 use App\Models\ShipExpense;
 use Illuminate\Support\Facades\DB;
@@ -19,11 +20,14 @@ class ShipExpenseService
      *     vendor?: string|null,
      *     reference?: string|null,
      *     notes?: string|null,
-     *     created_by?: int|null
+     *     created_by?: int|null,
+     *     paid_by_owner_id?: int|null
      * }  $data
      */
     public function create(Ship $ship, array $data): ShipExpense
     {
+        $paidByOwnerId = $this->normalizePaidByOwnerId($ship, $data['paid_by_owner_id'] ?? null);
+
         return DB::transaction(fn (): ShipExpense => $ship->expenses()->create([
             'expense_type' => $data['expense_type'],
             'amount' => $data['amount'],
@@ -33,6 +37,7 @@ class ShipExpenseService
             'reference' => $data['reference'] ?? null,
             'notes' => $data['notes'] ?? null,
             'created_by' => $data['created_by'] ?? null,
+            'paid_by_owner_id' => $paidByOwnerId,
         ]));
     }
 
@@ -67,15 +72,17 @@ class ShipExpenseService
      *     expense_date: string,
      *     vendor?: string|null,
      *     reference?: string|null,
-     *     notes?: string|null
+     *     notes?: string|null,
+     *     paid_by_owner_id?: int|null
      * }  $data
      */
     public function update(ShipExpense $expense, array $data): ShipExpense
     {
-        $expense->loadMissing('journalEntry');
+        $expense->loadMissing(['journalEntry', 'ship']);
         $this->assertNotPosted($expense);
+        $paidByOwnerId = $this->normalizePaidByOwnerId($expense->ship, $data['paid_by_owner_id'] ?? null);
 
-        return DB::transaction(function () use ($expense, $data): ShipExpense {
+        return DB::transaction(function () use ($expense, $data, $paidByOwnerId): ShipExpense {
             $expense->update([
                 'expense_type' => $data['expense_type'],
                 'amount' => $data['amount'],
@@ -84,9 +91,10 @@ class ShipExpenseService
                 'vendor' => $data['vendor'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'notes' => $data['notes'] ?? null,
+                'paid_by_owner_id' => $paidByOwnerId,
             ]);
 
-            return $expense->fresh();
+            return $expense->fresh(['paidByOwner']);
         });
     }
 
@@ -102,12 +110,14 @@ class ShipExpenseService
      */
     public function transform(ShipExpense $expense): array
     {
-        $expense->loadMissing('journalEntry');
+        $expense->loadMissing(['journalEntry', 'paidByOwner:id,name']);
         $posted = $expense->isPostedToAccounting();
 
         return [
             'id' => $expense->id,
             'ship_id' => $expense->ship_id,
+            'paid_by_owner_id' => $expense->paid_by_owner_id,
+            'paid_by_owner_name' => $expense->paidByOwner?->name,
             'expense_type' => $expense->expense_type->value,
             'expense_type_label' => $expense->expense_type->label(),
             'amount' => number_format((float) $expense->amount, 2, '.', ''),
@@ -151,5 +161,29 @@ class ShipExpenseService
                 'expense' => 'Posted ship expenses cannot be edited or deleted. Void the journal first.',
             ]);
         }
+    }
+
+    private function normalizePaidByOwnerId(Ship $ship, mixed $ownerId): ?int
+    {
+        if ($ownerId === null || $ownerId === '' || (int) $ownerId === 0) {
+            return null;
+        }
+
+        $ownerId = (int) $ownerId;
+        $onShip = $ship->ownerships()->where('owner_id', $ownerId)->exists();
+
+        if (! $onShip) {
+            throw ValidationException::withMessages([
+                'paid_by_owner_id' => 'Selected payer is not an owner of this ship.',
+            ]);
+        }
+
+        if (! Owner::query()->whereKey($ownerId)->where('is_active', true)->exists()) {
+            throw ValidationException::withMessages([
+                'paid_by_owner_id' => 'Selected payer is inactive.',
+            ]);
+        }
+
+        return $ownerId;
     }
 }
