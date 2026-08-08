@@ -8,6 +8,11 @@ enum ShipExpenseType: string
     case Insurance = 'insurance';
     case Drydock = 'drydock';
     case Crew = 'crew';
+    case Salary = 'salary';
+    case Fuel = 'fuel';
+    case Rent = 'rent';
+    case Food = 'food';
+    case Transfer = 'transfer';
     case Supplies = 'supplies';
     case Other = 'other';
 
@@ -18,6 +23,11 @@ enum ShipExpenseType: string
             self::Insurance => 'Insurance',
             self::Drydock => 'Drydock',
             self::Crew => 'Crew',
+            self::Salary => 'Salary',
+            self::Fuel => 'Fuel',
+            self::Rent => 'Rent',
+            self::Food => 'Food',
+            self::Transfer => 'Transfer / commission',
             self::Supplies => 'Supplies',
             self::Other => 'Other',
         };

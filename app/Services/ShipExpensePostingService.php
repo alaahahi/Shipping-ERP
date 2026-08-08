@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\Currency;
 use App\Enums\Permission;
+use App\Models\Account;
+use App\Models\Ship;
 use App\Models\ShipExpense;
 use App\Models\User;
 use App\Notifications\AccountingPostedNotification;
@@ -20,9 +22,9 @@ class ShipExpensePostingService
         private readonly NotificationDispatchService $notificationDispatchService
     ) {}
 
-    public function post(ShipExpense $expense, int $paymentAccountId, User $actor): ShipExpense
+    public function post(ShipExpense $expense, User $actor, string $mode = 'partner', ?int $paymentAccountId = null): ShipExpense
     {
-        $expense->loadMissing(['ship', 'journalEntry']);
+        $expense->loadMissing(['ship.ownerships.owner', 'journalEntry']);
 
         if ($expense->journal_entry_id && $expense->journalEntry && ! $expense->journalEntry->isVoid()) {
             throw ValidationException::withMessages([
@@ -41,7 +43,6 @@ class ShipExpensePostingService
             $currency === Currency::AED ? '5200' : '5110',
             $currency
         );
-        $paymentAccount = $this->resolvePaymentAccount($paymentAccountId, $currency);
         $amount = round((float) $expense->amount, 2);
 
         if ($amount <= 0) {
@@ -49,6 +50,11 @@ class ShipExpensePostingService
                 'amount' => 'Expense amount must be greater than zero.',
             ]);
         }
+
+        $creditAccount = $mode === 'cash'
+            ? $this->resolvePaymentAccount((int) $paymentAccountId, $currency)
+            : $this->resolvePartnerClearingAccount($currency);
+        $spenderOwnerId = $mode === 'cash' ? null : $this->resolveSpenderOwnerId($expense->ship);
 
         $memo = trim(implode(' · ', array_filter([
             $expense->expense_type->label(),
@@ -68,7 +74,8 @@ class ShipExpensePostingService
             $actor,
             $currency,
             $expenseAccount,
-            $paymentAccount,
+            $creditAccount,
+            $spenderOwnerId,
             $amount,
             $memo,
             $description
@@ -90,10 +97,11 @@ class ShipExpensePostingService
                         'memo' => $memo ?: null,
                     ],
                     [
-                        'account_id' => $paymentAccount->id,
+                        'account_id' => $creditAccount->id,
                         'debit' => 0,
                         'credit' => $amount,
                         'memo' => $memo ?: null,
+                        'owner_id' => $spenderOwnerId,
                     ],
                 ],
             ], $actor);
@@ -122,5 +130,41 @@ class ShipExpensePostingService
         );
 
         return $expense;
+    }
+
+    public function resolvePartnerClearingAccount(Currency $currency): Account
+    {
+        $code = $currency === Currency::AED ? '2215' : '2210';
+        $account = Account::query()->where('code', $code)->where('is_active', true)->first();
+
+        if (! $account) {
+            throw ValidationException::withMessages([
+                'account' => "Ship partner clearing account {$code} is missing. Run migrations / seed the chart.",
+            ]);
+        }
+
+        if ($account->currency !== $currency) {
+            throw ValidationException::withMessages([
+                'account' => "Clearing account {$code} currency mismatch.",
+            ]);
+        }
+
+        return $account;
+    }
+
+    public function resolveSpenderOwnerId(?Ship $ship): int
+    {
+        $ship?->loadMissing('ownerships.owner');
+
+        $spender = $ship?->ownerships->firstWhere('is_managing', true)
+            ?? $ship?->ownerships->sortByDesc('share_percent')->first();
+
+        if (! $spender?->owner_id) {
+            throw ValidationException::withMessages([
+                'owner_id' => 'Add a managing owner before posting ship expenses to partner clearing.',
+            ]);
+        }
+
+        return (int) $spender->owner_id;
     }
 }

@@ -320,6 +320,8 @@ class AccountService
                 ['code' => '1600', 'name' => 'Accounts Receivable', 'type' => AccountType::Asset, 'currency' => Currency::USD, 'parent' => '1000'],
                 ['code' => '2000', 'name' => 'Liabilities', 'type' => AccountType::Liability, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '2100', 'name' => 'Accounts Payable', 'type' => AccountType::Liability, 'currency' => Currency::USD, 'parent' => '2000'],
+                ['code' => '2210', 'name' => 'Ship Partner Clearing', 'type' => AccountType::Liability, 'currency' => Currency::USD, 'parent' => '2000'],
+                ['code' => '2215', 'name' => 'Ship Partner Clearing AED', 'type' => AccountType::Liability, 'currency' => Currency::AED, 'parent' => '2000'],
                 ['code' => '3000', 'name' => 'Equity', 'type' => AccountType::Equity, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '4000', 'name' => 'Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => null],
                 ['code' => '4100', 'name' => 'Shipping Revenue', 'type' => AccountType::Revenue, 'currency' => Currency::USD, 'parent' => '4000'],

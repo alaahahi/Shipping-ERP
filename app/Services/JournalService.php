@@ -49,7 +49,7 @@ class JournalService
      *     currency: string,
      *     reference?: string|null,
      *     description: string,
-     *     lines: list<array{account_id: int, debit: float|int|string, credit: float|int|string, memo?: string|null, company_id?: int|null, voyage_id?: int|null}>
+     *     lines: list<array{account_id: int, debit: float|int|string, credit: float|int|string, memo?: string|null, company_id?: int|null, voyage_id?: int|null, owner_id?: int|null}>
      * }  $data
      */
     public function createDraft(array $data, User $actor): JournalEntry
@@ -80,7 +80,7 @@ class JournalService
      *     currency: string,
      *     reference?: string|null,
      *     description: string,
-     *     lines: list<array{account_id: int, debit: float|int|string, credit: float|int|string, memo?: string|null, company_id?: int|null, voyage_id?: int|null}>
+     *     lines: list<array{account_id: int, debit: float|int|string, credit: float|int|string, memo?: string|null, company_id?: int|null, voyage_id?: int|null, owner_id?: int|null}>
      * }  $data
      */
     public function updateDraft(JournalEntry $entry, array $data): JournalEntry
@@ -193,6 +193,7 @@ class JournalService
                 'account_id' => $line['account_id'],
                 'company_id' => $line['company_id'] ?? null,
                 'voyage_id' => $line['voyage_id'] ?? null,
+                'owner_id' => $line['owner_id'] ?? null,
                 'debit' => $debit,
                 'credit' => $credit,
                 'memo' => $line['memo'] ?? null,

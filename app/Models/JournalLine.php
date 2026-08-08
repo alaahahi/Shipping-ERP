@@ -15,6 +15,7 @@ class JournalLine extends Model
         'account_id',
         'company_id',
         'voyage_id',
+        'owner_id',
         'debit',
         'credit',
         'memo',
@@ -46,5 +47,10 @@ class JournalLine extends Model
     public function voyage(): BelongsTo
     {
         return $this->belongsTo(Voyage::class);
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(Owner::class);
     }
 }

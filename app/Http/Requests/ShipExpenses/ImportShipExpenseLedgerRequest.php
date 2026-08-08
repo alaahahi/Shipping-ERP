@@ -2,10 +2,11 @@
 
 namespace App\Http\Requests\ShipExpenses;
 
+use App\Enums\Currency;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class PostShipExpenseRequest extends FormRequest
+class ImportShipExpenseLedgerRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,8 +19,8 @@ class PostShipExpenseRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'mode' => ['nullable', Rule::in(['partner', 'cash'])],
-            'payment_account_id' => ['required_if:mode,cash', 'nullable', 'integer', 'exists:accounts,id'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
+            'currency' => ['required', Rule::enum(Currency::class)],
         ];
     }
 }

@@ -32,6 +32,11 @@ class Owner extends Model
         return $this->hasMany(ShipOwnership::class);
     }
 
+    public function shipContributions(): HasMany
+    {
+        return $this->hasMany(ShipPartnerContribution::class);
+    }
+
     public function ships(): BelongsToMany
     {
         return $this->belongsToMany(Ship::class, 'ship_ownerships')

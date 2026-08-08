@@ -37,6 +37,29 @@ class ShipExpenseService
     }
 
     /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return int
+     */
+    public function createMany(Ship $ship, array $rows, ?int $createdBy = null): int
+    {
+        return DB::transaction(function () use ($ship, $rows, $createdBy): int {
+            $count = 0;
+            foreach ($rows as $row) {
+                if (($row['amount'] ?? 0) <= 0 || empty($row['expense_date'])) {
+                    continue;
+                }
+                $this->create($ship, [
+                    ...$row,
+                    'created_by' => $createdBy,
+                ]);
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
      * @param  array{
      *     expense_type: string,
      *     amount: float|int|string,

@@ -14,15 +14,27 @@
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
     # Block sensitive application paths
-    RewriteRule ^(\.env|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml)(/|$) - [F,L]
-    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|node_modules)(/|$) - [F,L]
+    RewriteRule ^(\.env.*|\.git)(/|$) - [F,L]
+    RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml)(/|$) - [F,L]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor|node_modules)(/|$) - [F,L]
 
-    # Serve Vite build, storage links, and other public files from /public
-    # without changing the document root or copying files by hand.
+    # Public disk lives in public/storage. Rewrite before any directory exists check
+    # (the real Laravel storage/ folder is always present at the project root).
+    RewriteRule ^storage(/.*)?$ public/storage$1 [L]
+
+    # Prefer public/build when that file exists (Laravel's default manifest location).
+    RewriteCond %{DOCUMENT_ROOT}/public/build/$1 -f
+    RewriteRule ^build/(.*)$ public/build/$1 [L]
+
+    RewriteCond %{DOCUMENT_ROOT}/public/hot -f
+    RewriteRule ^hot$ public/hot [L]
+
+    # Serve Vite build, hot file, and other public files from /public when
+    # they are not already present at the web root (mirrored ./build).
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(build|hot|storage|favicon\.ico|robots\.txt)(/.*)?$ public/$0 [L]
+    RewriteRule ^(build|hot|favicon\.ico|robots\.txt)(/.*)?$ public/$0 [L]
 
     # Redirect trailing slashes if not a folder
     RewriteCond %{REQUEST_FILENAME} !-d

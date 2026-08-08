@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\Permission;
 use App\Policies\RolePolicy;
+use App\Support\ViteBuildDirectory;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->configureViteForSharedHosting();
+
         Vite::prefetch(concurrency: 3);
 
         Gate::policy(Role::class, RolePolicy::class);
@@ -37,5 +40,26 @@ class AppServiceProvider extends ServiceProvider
 
             return null;
         });
+    }
+
+    /**
+     * cPanel often uses the project root as the document root.
+     * Read public/build first, then the mirrored ./build at the web root.
+     * Asset URLs stay /build/... so Apache can serve either copy.
+     */
+    private function configureViteForSharedHosting(): void
+    {
+        $directory = ViteBuildDirectory::relativeToPublic(
+            public_path('build/manifest.json'),
+            base_path('build/manifest.json'),
+        );
+
+        Vite::useBuildDirectory($directory);
+
+        if (ViteBuildDirectory::usesWebRootMirror($directory)) {
+            Vite::createAssetPathsUsing(
+                fn (string $path, ?bool $secure = null) => asset(ViteBuildDirectory::toPublicUrlPath($path), $secure)
+            );
+        }
     }
 }

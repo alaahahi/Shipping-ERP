@@ -17,6 +17,7 @@ use App\Http\Controllers\ShipController;
 use App\Http\Controllers\WhatsappNotificationController;
 use App\Http\Controllers\ShipExpenseController;
 use App\Http\Controllers\ShipOwnershipController;
+use App\Http\Controllers\ShipPartnerContributionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoyageCarController;
 use App\Http\Controllers\VoyageCompanyController;
@@ -98,12 +99,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('ships.ownerships.destroy');
     Route::post('/ships/{ship}/expenses', [ShipExpenseController::class, 'store'])
         ->name('ships.expenses.store');
+    Route::post('/ships/{ship}/expenses/bulk', [ShipExpenseController::class, 'bulkStore'])
+        ->name('ships.expenses.bulk');
+    Route::post('/ships/{ship}/expenses/import', [ShipExpenseController::class, 'import'])
+        ->name('ships.expenses.import');
     Route::put('/ships/{ship}/expenses/{expense}', [ShipExpenseController::class, 'update'])
         ->name('ships.expenses.update');
     Route::delete('/ships/{ship}/expenses/{expense}', [ShipExpenseController::class, 'destroy'])
         ->name('ships.expenses.destroy');
     Route::post('/ships/{ship}/expenses/{expense}/post', [ShipExpenseController::class, 'post'])
         ->name('ships.expenses.post');
+    Route::post('/ships/{ship}/contributions', [ShipPartnerContributionController::class, 'store'])
+        ->name('ships.contributions.store');
+    Route::post('/ships/{ship}/contributions/bulk', [ShipPartnerContributionController::class, 'bulkStore'])
+        ->name('ships.contributions.bulk');
+    Route::post('/ships/{ship}/contributions/import', [ShipPartnerContributionController::class, 'import'])
+        ->name('ships.contributions.import');
+    Route::put('/ships/{ship}/contributions/{contribution}', [ShipPartnerContributionController::class, 'update'])
+        ->name('ships.contributions.update');
+    Route::delete('/ships/{ship}/contributions/{contribution}', [ShipPartnerContributionController::class, 'destroy'])
+        ->name('ships.contributions.destroy');
+    Route::post('/ships/{ship}/contributions/{contribution}/post', [ShipPartnerContributionController::class, 'post'])
+        ->name('ships.contributions.post');
     Route::resource('voyages', VoyageController::class);
     Route::get('/voyages/{voyage}/tracking', [VoyageController::class, 'tracking'])
         ->name('voyages.tracking');

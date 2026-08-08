@@ -10,6 +10,8 @@ use App\Models\Ship;
 use App\Services\ShipExpensePostingService;
 use App\Services\ShipExpenseService;
 use App\Services\ShipOwnershipService;
+use App\Services\ShipPartnerContributionService;
+use App\Services\ShipPartnerSettlementService;
 use App\Services\ShipService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,9 @@ class ShipController extends Controller
         private readonly ShipService $shipService,
         private readonly ShipOwnershipService $shipOwnershipService,
         private readonly ShipExpenseService $shipExpenseService,
-        private readonly ShipExpensePostingService $shipExpensePostingService
+        private readonly ShipExpensePostingService $shipExpensePostingService,
+        private readonly ShipPartnerContributionService $contributionService,
+        private readonly ShipPartnerSettlementService $settlementService
     ) {}
 
     public function index(Request $request): Response
@@ -78,10 +82,12 @@ class ShipController extends Controller
     {
         Gate::authorize('view', $ship);
 
-        $ship->loadCount(['voyages', 'ownerships', 'expenses']);
+        $ship->loadCount(['voyages', 'ownerships', 'expenses', 'partnerContributions']);
         $ship->load([
             'ownerships.owner',
             'expenses.journalEntry:id,voucher_number,status',
+            'partnerContributions.owner:id,name',
+            'partnerContributions.journalEntry:id,voucher_number,status',
         ]);
 
         $user = request()->user();
@@ -113,6 +119,15 @@ class ShipController extends Controller
                 ->map(fn ($expense) => $this->shipExpenseService->transform($expense))
                 ->all(),
             'expenseTotals' => $this->shipExpenseService->totalsByCurrency($ship),
+            'contributions' => $ship->partnerContributions
+                ->sortByDesc('contribution_date')
+                ->values()
+                ->map(fn ($row) => $this->contributionService->transform($row))
+                ->all(),
+            'partnerSummaries' => [
+                Currency::USD->value => $this->settlementService->summary($ship, Currency::USD->value),
+                Currency::AED->value => $this->settlementService->summary($ship, Currency::AED->value),
+            ],
             'expenseTypes' => ShipExpenseType::options(),
             'currencies' => collect(Currency::cases())->map(fn (Currency $currency) => [
                 'value' => $currency->value,

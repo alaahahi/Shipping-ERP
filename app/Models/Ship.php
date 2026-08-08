@@ -43,6 +43,11 @@ class Ship extends Model
         return $this->hasMany(ShipExpense::class);
     }
 
+    public function partnerContributions(): HasMany
+    {
+        return $this->hasMany(ShipPartnerContribution::class);
+    }
+
     public function owners(): BelongsToMany
     {
         return $this->belongsToMany(Owner::class, 'ship_ownerships')
