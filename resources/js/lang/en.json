@@ -125,7 +125,8 @@
     "type": "Type",
     "retry": "Retry",
     "yes": "Yes",
-    "none": "None"
+    "none": "None",
+    "print": "Print"
   },
   "settings": {
     "title": "Settings",
@@ -334,7 +335,14 @@
     "paid_by": "Paid by",
     "paid_by_default": "Managing partner (default)",
     "paid_by_help": "If an owner paid the expense, it counts in that partner's payments and journal clearing.",
-    "owner_colors": "Owner colors"
+    "owner_colors": "Owner colors",
+    "print": "Print",
+    "print_title": "Ship expense ledger",
+    "printed_at": "Printed",
+    "serial": "No.",
+    "grand_total": "Grand total",
+    "payments_total": "Payments total",
+    "print_footer": "Operational partner ledger. Journal posting is optional and not required for this report."
   },
   "ship_partners": {
     "title": "Partner payments",

@@ -643,7 +643,7 @@ const submitPaymentImport = async () => {
                                     <div class="fw-semibold">{{ row.owner_name }}</div>
                                     <div class="small text-secondary">{{ row.owner_phone || row.owner_email || '—' }}</div>
                                 </td>
-                                <td class="text-end font-monospace fw-semibold">{{ row.share_percent }}%</td>
+                                <td class="text-end font-monospace fw-semibold">{{ formatMoney(row.share_percent) }}%</td>
                                 <td>
                                     <StatusBadge
                                         v-if="row.is_managing"
@@ -752,6 +752,14 @@ const submitPaymentImport = async () => {
                         <select v-model="ledgerCurrency" class="form-select form-select-sm form-erp-control" style="width: auto">
                             <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                         </select>
+                        <a
+                            class="btn btn-erp-ghost btn-sm"
+                            :href="route('ships.expenses.print', { ship: ship.id, currency: ledgerCurrency })"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('ship_expenses.print') }}
+                        </a>
                         <StatusBadge
                             v-for="total in expenseTotals"
                             :key="total.currency"

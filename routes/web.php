@@ -4,9 +4,9 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\LandTripController;
 use App\Http\Controllers\DubaiAccountController;
 use App\Http\Controllers\JournalEntryController;
+use App\Http\Controllers\LandTripController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -14,16 +14,17 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShipController;
-use App\Http\Controllers\WhatsappNotificationController;
 use App\Http\Controllers\ShipExpenseController;
+use App\Http\Controllers\ShipExpensePrintController;
 use App\Http\Controllers\ShipOwnershipController;
 use App\Http\Controllers\ShipPartnerContributionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoyageCarController;
 use App\Http\Controllers\VoyageCompanyController;
 use App\Http\Controllers\VoyageController;
-use App\Http\Controllers\VoyageSettlementController;
 use App\Http\Controllers\VoyageExpenseController;
+use App\Http\Controllers\VoyageSettlementController;
+use App\Http\Controllers\WhatsappNotificationController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -97,6 +98,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('ships.ownerships.update');
     Route::delete('/ships/{ship}/ownerships/{ownership}', [ShipOwnershipController::class, 'destroy'])
         ->name('ships.ownerships.destroy');
+    Route::get('/ships/{ship}/expenses/print', ShipExpensePrintController::class)
+        ->name('ships.expenses.print');
     Route::post('/ships/{ship}/expenses', [ShipExpenseController::class, 'store'])
         ->name('ships.expenses.store');
     Route::post('/ships/{ship}/expenses/bulk', [ShipExpenseController::class, 'bulkStore'])

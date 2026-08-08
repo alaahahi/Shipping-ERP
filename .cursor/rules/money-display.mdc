@@ -7,7 +7,9 @@ alwaysApply: false
 # Money display
 
 Never show trailing `.00` in the UI when the amount is a whole integer.
+Use Western thousand separators: `1120000` → `1,120,000`.
 
 - Format via `formatMoney` / `MoneyAmount` only.
-- Keep real cents: `30.50` stays `30.50`.
+- Keep real cents: `30.50` stays `30.50`; `1,120,000.50` keeps two decimals.
+- Negatives stay prefixed: `-111,482` not `111482.00-`.
 - Do not change stored decimals or journal amounts — display only.
