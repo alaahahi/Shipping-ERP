@@ -1,0 +1,1 @@
+import{u as t,z as c,G as o,o as n,c as r,x as p}from"./app-BhXQjn7s.js";const u={class:"d-none","aria-hidden":"true"},m={__name:"LocaleSync",setup(_){const a=p(),{locale:s}=t();return c(()=>a.props.appSettings?.locale,e=>{e&&(s.value=e,o(e))},{immediate:!0}),(e,l)=>(n(),r("span",u))}};export{m as _};
