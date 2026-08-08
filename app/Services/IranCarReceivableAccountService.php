@@ -9,9 +9,9 @@ use App\Models\Company;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class CompanyReceivableAccountService
+class IranCarReceivableAccountService
 {
-    public const CONTROL_CODE = '1600';
+    public const CONTROL_CODE = '1660';
 
     public function controlAccount(): Account
     {
@@ -22,7 +22,23 @@ class CompanyReceivableAccountService
 
         if (! $account) {
             throw ValidationException::withMessages([
-                'account' => 'Accounts Receivable 1600 is missing. Seed the chart of accounts.',
+                'account' => 'Iran Cars Receivable 1660 is missing. Seed the chart of accounts.',
+            ]);
+        }
+
+        return $account;
+    }
+
+    public function revenueAccount(): Account
+    {
+        $account = Account::query()
+            ->where('code', '4300')
+            ->where('currency', Currency::USD->value)
+            ->first();
+
+        if (! $account) {
+            throw ValidationException::withMessages([
+                'account' => 'Iran Cars Revenue 4300 is missing. Seed the chart of accounts.',
             ]);
         }
 
@@ -40,20 +56,18 @@ class CompanyReceivableAccountService
             } else {
                 $account = Account::query()->create([
                     'code' => $this->nextCode($company),
-                    'name' => $company->name,
+                    'name' => $this->accountName($company),
                     'type' => AccountType::Asset->value,
                     'currency' => Currency::USD->value,
                     'parent_id' => $control->id,
-                    'accountable_type' => $company->getMorphClass(),
-                    'accountable_id' => $company->id,
                     'is_system' => false,
                     'is_active' => $company->is_active,
-                    'description' => 'Company accounts receivable',
+                    'description' => 'Iran cars accounts receivable',
                 ]);
             }
 
-            if ((int) $company->ar_account_id !== (int) $account->id) {
-                $company->forceFill(['ar_account_id' => $account->id])->save();
+            if ((int) $company->iran_ar_account_id !== (int) $account->id) {
+                $company->forceFill(['iran_ar_account_id' => $account->id])->save();
             }
 
             return $account->fresh();
@@ -62,51 +76,28 @@ class CompanyReceivableAccountService
 
     public function resolveFor(Company $company): Account
     {
-        $company->loadMissing('arAccount');
+        $company->loadMissing('iranArAccount');
 
-        if ($company->arAccount && $company->arAccount->is_active) {
-            return $company->arAccount;
+        if ($company->iranArAccount && $company->iranArAccount->is_active) {
+            return $company->iranArAccount;
         }
 
         return $this->ensureFor($company);
     }
 
-    /**
-     * Control 1600 plus subsidiary company AR accounts (for ledgers / historical lines).
-     *
-     * @return list<int>
-     */
-    public function receivableAccountIds(?Company $company = null): array
+    public function syncIfLinked(Company $company): void
     {
-        $control = $this->controlAccount();
-
-        $ids = Account::query()
-            ->where(function ($query) use ($control): void {
-                $query->whereKey($control->id)->orWhere('parent_id', $control->id);
-            })
-            ->pluck('id')
-            ->all();
-
-        if ($company?->ar_account_id) {
-            $ids[] = (int) $company->ar_account_id;
+        if (! $company->iran_ar_account_id) {
+            return;
         }
 
-        return array_values(array_unique(array_map('intval', $ids)));
-    }
-
-    public function isCompanyReceivable(Account $account): bool
-    {
-        if ($account->accountable_type === (new Company)->getMorphClass()) {
-            return true;
-        }
-
-        return Company::query()->where('ar_account_id', $account->id)->exists();
+        $this->ensureFor($company);
     }
 
     private function findExisting(Company $company, Account $control): ?Account
     {
-        if ($company->ar_account_id) {
-            $linked = Account::query()->withTrashed()->find($company->ar_account_id);
+        if ($company->iran_ar_account_id) {
+            $linked = Account::query()->withTrashed()->find($company->iran_ar_account_id);
             if ($linked) {
                 if ($linked->trashed()) {
                     $linked->restore();
@@ -114,16 +105,6 @@ class CompanyReceivableAccountService
 
                 return $linked;
             }
-        }
-
-        $byMorph = Account::query()
-            ->where('accountable_type', $company->getMorphClass())
-            ->where('accountable_id', $company->id)
-            ->where('parent_id', $control->id)
-            ->first();
-
-        if ($byMorph) {
-            return $byMorph;
         }
 
         return Account::query()
@@ -135,18 +116,22 @@ class CompanyReceivableAccountService
     private function syncAccount(Account $account, Company $company, Account $control): void
     {
         $account->fill([
-            'name' => $company->name,
+            'name' => $this->accountName($company),
             'type' => AccountType::Asset->value,
             'currency' => Currency::USD->value,
             'parent_id' => $control->id,
-            'accountable_type' => $company->getMorphClass(),
-            'accountable_id' => $company->id,
             'is_active' => $company->is_active || $account->journalLines()->exists(),
+            'description' => 'Iran cars accounts receivable',
         ]);
 
         if ($account->isDirty()) {
             $account->save();
         }
+    }
+
+    private function accountName(Company $company): string
+    {
+        return $company->name.' — Iran cars';
     }
 
     private function preferredCode(Company $company): string

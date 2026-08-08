@@ -64,6 +64,7 @@ class RolePermissionService
             Permission::SettingsView->value,
             Permission::DubaiAccountsView->value,
             Permission::LandTripsView->value,
+            Permission::IranCarsView->value,
         ];
 
         return [
@@ -78,6 +79,8 @@ class RolePermissionService
                 Permission::DubaiAccountsView->value,
                 Permission::DubaiAccountsManage->value,
                 Permission::LandTripsView->value,
+                Permission::IranCarsView->value,
+                Permission::IranCarsManage->value,
             ],
             SystemRole::Operator->value => [
                 Permission::ShipsView->value,
@@ -92,6 +95,8 @@ class RolePermissionService
                 Permission::DubaiAccountsManage->value,
                 Permission::LandTripsView->value,
                 Permission::LandTripsManage->value,
+                Permission::IranCarsView->value,
+                Permission::IranCarsManage->value,
             ],
             SystemRole::Viewer->value => $viewOnly,
         ];

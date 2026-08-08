@@ -35,6 +35,9 @@ enum Permission: string
     case LandTripsView = 'land_trips.view';
     case LandTripsManage = 'land_trips.manage';
 
+    case IranCarsView = 'iran_cars.view';
+    case IranCarsManage = 'iran_cars.manage';
+
     public function label(): string
     {
         return match ($this) {
@@ -58,6 +61,8 @@ enum Permission: string
             self::DubaiAccountsManage => 'Manage Dubai accounts',
             self::LandTripsView => 'View land trips',
             self::LandTripsManage => 'Manage land trips',
+            self::IranCarsView => 'View Iran cars',
+            self::IranCarsManage => 'Manage Iran cars',
         };
     }
 

@@ -22,6 +22,7 @@ class Company extends Model
         'notes',
         'is_active',
         'ar_account_id',
+        'iran_ar_account_id',
     ];
 
     protected function casts(): array
@@ -40,6 +41,16 @@ class Company extends Model
     public function arAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'ar_account_id');
+    }
+
+    public function iranArAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'iran_ar_account_id');
+    }
+
+    public function iranCars(): HasMany
+    {
+        return $this->hasMany(IranCar::class);
     }
 
     public function directCharges(): HasMany
