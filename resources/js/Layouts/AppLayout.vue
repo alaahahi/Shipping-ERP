@@ -159,6 +159,17 @@ const markAllRead = () => {
                 </Link>
 
                 <Link
+                    v-if="can('iran_cars.view')"
+                    :href="route('iran-cars.index')"
+                    class="erp-nav-link"
+                    :class="{ active: route().current('iran-cars.*') }"
+                    @click="appStore.closeSidebar"
+                >
+                    <span aria-hidden="true">▣</span>
+                    {{ t('nav.iran_cars') }}
+                </Link>
+
+                <Link
                     v-if="can('reports.view')"
                     :href="route('reports.index')"
                     class="erp-nav-link"
