@@ -776,7 +776,16 @@
     "print_payments": "طباعة الدفعات والمتبقي",
     "print_footer": "سيارات إيران — حسابات مستقلة 1660 / 4300",
     "cars_count": "عدد السيارات",
-    "printed_at": "تاريخ الطباعة"
+    "printed_at": "تاريخ الطباعة",
+    "total_sales": "إجمالي المبيعات",
+    "car_payments_total": "مدفوع السيارات",
+    "pool_payments_total": "مدفوع المجموع",
+    "global_remaining": "المتبقي العام",
+    "pool_payment": "دفعة على المجموع",
+    "pool_payment_help": "تسجَّل الدفعة على مجموع كل السيارات المباعة دون توزيع على كل سيارة. اختر الشركة لخفض ذمم إيران (1660).",
+    "pool_payments": "دفعات المجموع",
+    "no_pool_payments": "لا دفعات مجموع بعد.",
+    "ar_company": "شركة الذمم"
   },
   "language": {
     "label": "اللغة",

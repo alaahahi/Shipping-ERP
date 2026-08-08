@@ -8,7 +8,7 @@ import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -18,6 +18,9 @@ const props = defineProps({
     companies: { type: Array, default: () => [] },
     borders: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
+    poolSummary: { type: Object, default: null },
+    poolPayments: { type: Array, default: () => [] },
+    cashAccounts: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -27,6 +30,10 @@ const saleState = computed(() => props.filters.sale_state || 'unsold');
 const isSoldTab = computed(() => saleState.value === 'sold');
 const hasCars = computed(() => props.groups.some((group) => group.cars?.length));
 const sellingCar = ref(null);
+const globalRemaining = computed(() => Number(props.poolSummary?.remaining ?? 0));
+const canPoolPay = computed(
+    () => props.canManage && isSoldTab.value && globalRemaining.value > 0.009 && props.cashAccounts.length > 0,
+);
 
 const filterForm = useForm({
     search: props.filters.search ?? '',
@@ -40,6 +47,31 @@ const sellForm = useForm({
     sold_at: new Date().toISOString().slice(0, 10),
     notes: '',
 });
+
+const poolForm = useForm({
+    company_id: props.companies[0]?.id ?? '',
+    payment_date: new Date().toISOString().slice(0, 10),
+    amount: '',
+    debit_account_id: props.cashAccounts[0]?.id ?? '',
+    reference: '',
+    notes: '',
+});
+
+watch(
+    () => [props.poolSummary?.remaining, props.cashAccounts, props.companies],
+    () => {
+        if (globalRemaining.value > 0.009) {
+            poolForm.amount = globalRemaining.value;
+        }
+        if (!poolForm.debit_account_id && props.cashAccounts[0]?.id) {
+            poolForm.debit_account_id = props.cashAccounts[0].id;
+        }
+        if (!poolForm.company_id && props.companies[0]?.id) {
+            poolForm.company_id = props.companies[0].id;
+        }
+    },
+    { immediate: true },
+);
 
 const query = (extra = {}) => ({
     sale_state: saleState.value,
@@ -92,6 +124,21 @@ const submitSell = () => {
     });
 };
 
+const submitPoolPayment = () => {
+    poolForm.post(route('iran-cars.pool-payments.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            poolForm.reset('reference', 'notes');
+            poolForm.payment_date = new Date().toISOString().slice(0, 10);
+        },
+    });
+};
+
+const destroyPoolPayment = (payment) => {
+    if (!window.confirm(t('iran_cars.reverse_payment_confirm', { voucher: payment.voucher_number }))) return;
+    router.delete(route('iran-cars.pool-payments.destroy', payment.id), { preserveScroll: true });
+};
+
 const colCount = computed(() => (isSoldTab.value ? 11 : 9));
 </script>
 
@@ -113,6 +160,142 @@ const colCount = computed(() => (isSoldTab.value ? 11 : 9));
                 </Link>
             </template>
         </PageHeader>
+
+        <div v-if="isSoldTab && poolSummary" class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('iran_cars.total_sales') }}</div>
+                    <p class="erp-stat-value">
+                        <MoneyAmount :value="poolSummary.billed_amount" currency="USD" show-zero />
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('iran_cars.car_payments_total') }}</div>
+                    <p class="erp-stat-value">
+                        <MoneyAmount :value="poolSummary.car_paid_amount" currency="USD" show-zero />
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('iran_cars.pool_payments_total') }}</div>
+                    <p class="erp-stat-value">
+                        <MoneyAmount :value="poolSummary.pool_paid_amount" currency="USD" show-zero />
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('iran_cars.global_remaining') }}</div>
+                    <p class="erp-stat-value">
+                        <MoneyAmount :value="poolSummary.remaining_amount" currency="USD" show-zero />
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="canPoolPay" class="erp-form-panel mb-3">
+            <h3 class="erp-panel-title">{{ t('iran_cars.pool_payment') }}</h3>
+            <p class="small text-secondary mb-3">{{ t('iran_cars.pool_payment_help') }}</p>
+            <form class="row g-3" @submit.prevent="submitPoolPayment">
+                <div class="col-md-3">
+                    <label class="form-erp-label">{{ t('common.date') }}</label>
+                    <input v-model="poolForm.payment_date" type="date" class="form-control form-erp-control" required />
+                    <InputError :message="poolForm.errors.payment_date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-erp-label">{{ t('common.amount') }}</label>
+                    <input v-model="poolForm.amount" type="number" min="0.01" step="0.01" class="form-control form-erp-control" required />
+                    <InputError :message="poolForm.errors.amount" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-erp-label">{{ t('iran_cars.ar_company') }}</label>
+                    <select v-model="poolForm.company_id" class="form-select form-erp-control" required>
+                        <option v-for="company in companies" :key="company.id" :value="company.id">
+                            {{ company.label }}
+                        </option>
+                    </select>
+                    <InputError :message="poolForm.errors.company_id" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-erp-label">{{ t('iran_cars.cash_bank') }}</label>
+                    <select v-model="poolForm.debit_account_id" class="form-select form-erp-control" required>
+                        <option v-for="account in cashAccounts" :key="account.id" :value="account.id">
+                            {{ account.label }}
+                        </option>
+                    </select>
+                    <InputError :message="poolForm.errors.debit_account_id" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-erp-label">{{ t('common.reference') }}</label>
+                    <input v-model="poolForm.reference" class="form-control form-erp-control" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-erp-label">{{ t('common.notes') }}</label>
+                    <input v-model="poolForm.notes" class="form-control form-erp-control" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-erp w-100" :disabled="poolForm.processing">
+                        {{ poolForm.processing ? t('common.posting') : t('iran_cars.post_payment') }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div v-if="isSoldTab" class="erp-card p-0 overflow-hidden mb-3">
+            <div class="p-3 border-bottom">
+                <h3 class="erp-panel-title mb-0">{{ t('iran_cars.pool_payments') }}</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table erp-table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">{{ t('iran_cars.voucher') }}</th>
+                            <th>{{ t('common.date') }}</th>
+                            <th>{{ t('iran_cars.company') }}</th>
+                            <th>{{ t('iran_cars.cash_bank') }}</th>
+                            <th>{{ t('common.reference') }}</th>
+                            <th class="text-end">{{ t('common.amount') }}</th>
+                            <th class="text-end pe-4">{{ t('common.actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="!poolPayments.length">
+                            <td colspan="7">
+                                <EmptyState icon="$">{{ t('iran_cars.no_pool_payments') }}</EmptyState>
+                            </td>
+                        </tr>
+                        <tr v-for="payment in poolPayments" :key="payment.id">
+                            <td class="ps-4 fw-semibold">
+                                {{ payment.voucher_number }}
+                                <div v-if="payment.journal_voucher" class="small text-secondary">
+                                    {{ payment.journal_voucher }}
+                                </div>
+                            </td>
+                            <td>{{ payment.payment_date }}</td>
+                            <td>{{ payment.company_name || '—' }}</td>
+                            <td>{{ payment.debit_account_label || '—' }}</td>
+                            <td>{{ payment.reference || '—' }}</td>
+                            <td class="text-end">
+                                <MoneyAmount :value="payment.amount" :currency="payment.currency" show-zero />
+                            </td>
+                            <td class="text-end pe-4">
+                                <button
+                                    v-if="canManage"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    @click="destroyPoolPayment(payment)"
+                                >
+                                    {{ t('iran_cars.reverse') }}
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         <div class="erp-card p-0 overflow-hidden">
             <div class="erp-tabs">

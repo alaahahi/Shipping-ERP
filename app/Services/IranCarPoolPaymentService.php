@@ -3,15 +3,14 @@
 namespace App\Services;
 
 use App\Enums\Currency;
-use App\Enums\IranCarStatus;
-use App\Models\IranCar;
-use App\Models\IranCarPayment;
+use App\Models\Company;
+use App\Models\IranCarPoolPayment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
-class IranCarPaymentService
+class IranCarPoolPaymentService
 {
     public function __construct(
         private readonly JournalService $journalService,
@@ -21,6 +20,7 @@ class IranCarPaymentService
 
     /**
      * @param  array{
+     *     company_id: int,
      *     payment_date: string,
      *     amount: float|int|string,
      *     debit_account_id: int,
@@ -28,24 +28,9 @@ class IranCarPaymentService
      *     notes?: string|null
      * }  $data
      */
-    public function create(IranCar $car, array $data, User $actor): IranCarPayment
+    public function create(array $data, User $actor): IranCarPoolPayment
     {
-        return DB::transaction(function () use ($car, $data, $actor): IranCarPayment {
-            $locked = IranCar::query()->lockForUpdate()->findOrFail($car->id);
-            $locked->load(['company']);
-
-            if ($locked->isCancelled()) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Cannot collect payment on a cancelled car.',
-                ]);
-            }
-
-            if (! $locked->isSold()) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Move the car to sold before collecting payments.',
-                ]);
-            }
-
+        return DB::transaction(function () use ($data, $actor): IranCarPoolPayment {
             $amount = round((float) $data['amount'], 2);
             if ($amount <= 0) {
                 throw ValidationException::withMessages([
@@ -53,22 +38,26 @@ class IranCarPaymentService
                 ]);
             }
 
-            $remaining = $locked->remainingAmount();
-            $globalRemaining = $this->iranCarService->globalPaymentSummary()['remaining'];
-            $allowable = min($remaining, $globalRemaining);
-
-            if ($amount - $allowable > 0.009) {
+            $remaining = $this->iranCarService->globalPaymentSummary()['remaining'];
+            if ($amount - $remaining > 0.009) {
                 throw ValidationException::withMessages([
-                    'amount' => sprintf('Payment exceeds remaining balance (%s).', number_format($allowable, 2, '.', '')),
+                    'amount' => sprintf('Payment exceeds remaining balance (%s).', number_format($remaining, 2, '.', '')),
                 ]);
             }
 
-            $debitAccount = $this->iranCarService->resolveCashBankAccount((int) $data['debit_account_id']);
-            $receivable = $this->iranReceivableAccounts->resolveFor($locked->company);
-            $memo = sprintf('Iran car payment — %s', $locked->vin);
+            if ($remaining <= 0.009) {
+                throw ValidationException::withMessages([
+                    'amount' => 'There is no remaining Iran cars balance to collect.',
+                ]);
+            }
 
-            $payment = IranCarPayment::query()->create([
-                'iran_car_id' => $locked->id,
+            $company = Company::query()->findOrFail((int) $data['company_id']);
+            $debitAccount = $this->iranCarService->resolveCashBankAccount((int) $data['debit_account_id']);
+            $receivable = $this->iranReceivableAccounts->resolveFor($company);
+            $memo = sprintf('Iran cars pool payment — %s', $company->name);
+
+            $payment = IranCarPoolPayment::query()->create([
+                'company_id' => $company->id,
                 'voucher_number' => $this->nextVoucherNumber(),
                 'payment_date' => $data['payment_date'],
                 'amount' => $amount,
@@ -87,14 +76,14 @@ class IranCarPaymentService
                 'lines' => [
                     [
                         'account_id' => $debitAccount->id,
-                        'company_id' => $locked->company_id,
+                        'company_id' => $company->id,
                         'debit' => $amount,
                         'credit' => 0,
                         'memo' => $memo,
                     ],
                     [
                         'account_id' => $receivable->id,
-                        'company_id' => $locked->company_id,
+                        'company_id' => $company->id,
                         'debit' => 0,
                         'credit' => $amount,
                         'memo' => $memo,
@@ -105,31 +94,28 @@ class IranCarPaymentService
             $posted = $this->journalService->post($draft, $actor);
             $payment->update(['journal_entry_id' => $posted->id]);
 
-            $this->iranCarService->refreshStatus($locked->fresh());
             $this->iranCarService->refreshAllSoldStatuses();
 
-            return $payment->fresh(['debitAccount', 'journalEntry', 'creator']);
+            return $payment->fresh(['company:id,name', 'debitAccount', 'journalEntry', 'creator']);
         });
     }
 
-    public function delete(IranCar $car, IranCarPayment $payment, User $actor): void
+    public function delete(IranCarPoolPayment $payment, User $actor): void
     {
-        abort_unless((int) $payment->iran_car_id === (int) $car->id, 404);
-
-        DB::transaction(function () use ($car, $payment, $actor): void {
+        DB::transaction(function () use ($payment, $actor): void {
             $payment->loadMissing('journalEntry');
 
             if ($payment->journalEntry?->isPosted()) {
                 $this->journalService->void(
                     $payment->journalEntry,
                     $actor,
-                    'Iran car payment reversed.'
+                    'Iran cars pool payment reversed.'
                 );
             }
 
-            Log::info('Iran car payment deleted.', [
-                'iran_car_id' => $car->id,
-                'payment_id' => $payment->id,
+            Log::info('Iran cars pool payment deleted.', [
+                'pool_payment_id' => $payment->id,
+                'company_id' => $payment->company_id,
                 'voucher_number' => $payment->voucher_number,
                 'amount' => $payment->amount,
                 'deleted_by' => $actor->id,
@@ -137,19 +123,57 @@ class IranCarPaymentService
 
             $payment->delete();
 
-            $fresh = $car->fresh();
-            if ($fresh && $fresh->status !== IranCarStatus::Cancelled) {
-                $this->iranCarService->refreshStatus($fresh);
-            }
-
             $this->iranCarService->refreshAllSoldStatuses();
         });
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listTransformed(): array
+    {
+        return IranCarPoolPayment::query()
+            ->with([
+                'company:id,name',
+                'debitAccount:id,code,name',
+                'journalEntry:id,voucher_number,status',
+                'creator:id,name',
+            ])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (IranCarPoolPayment $payment) => $this->transform($payment))
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function transform(IranCarPoolPayment $payment): array
+    {
+        return [
+            'id' => $payment->id,
+            'company_id' => $payment->company_id,
+            'company_name' => $payment->company?->name,
+            'voucher_number' => $payment->voucher_number,
+            'payment_date' => $payment->payment_date?->toDateString(),
+            'amount' => number_format((float) $payment->amount, 2, '.', ''),
+            'currency' => $payment->currency?->value ?? Currency::USD->value,
+            'debit_account_id' => $payment->debit_account_id,
+            'debit_account_label' => $payment->debitAccount
+                ? $payment->debitAccount->code.' — '.$payment->debitAccount->name
+                : null,
+            'journal_voucher' => $payment->journalEntry?->voucher_number,
+            'reference' => $payment->reference,
+            'notes' => $payment->notes,
+            'created_by_name' => $payment->creator?->name,
+        ];
+    }
+
     public function nextVoucherNumber(): string
     {
-        $prefix = 'ICP-'.now()->format('Ym').'-';
-        $latest = IranCarPayment::query()
+        $prefix = 'ICPP-'.now()->format('Ym').'-';
+        $latest = IranCarPoolPayment::query()
             ->withTrashed()
             ->where('voucher_number', 'like', $prefix.'%')
             ->orderByDesc('voucher_number')

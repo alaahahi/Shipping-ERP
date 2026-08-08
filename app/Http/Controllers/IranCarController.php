@@ -10,6 +10,7 @@ use App\Http\Requests\IranCars\StoreIranCarRequest;
 use App\Http\Requests\IranCars\UpdateIranCarRequest;
 use App\Models\IranCar;
 use App\Services\CompanyService;
+use App\Services\IranCarPoolPaymentService;
 use App\Services\IranCarService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,13 +23,15 @@ class IranCarController extends Controller
 {
     public function __construct(
         private readonly IranCarService $iranCarService,
-        private readonly CompanyService $companyService
+        private readonly CompanyService $companyService,
+        private readonly IranCarPoolPaymentService $poolPaymentService
     ) {}
 
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', IranCar::class);
         $filters = $this->filters($request);
+        $isSold = ($filters['sale_state'] ?? '') === IranCarSaleState::Sold->value;
 
         return Inertia::render('IranCars/Index', [
             'groups' => $this->iranCarService->grouped($filters),
@@ -37,6 +40,9 @@ class IranCarController extends Controller
             'companies' => $this->companyService->options(),
             'borders' => $this->borderOptions(),
             'canManage' => $request->user()?->can(Permission::IranCarsManage->value) ?? false,
+            'poolSummary' => $isSold ? $this->iranCarService->globalPaymentSummary() : null,
+            'poolPayments' => $isSold ? $this->poolPaymentService->listTransformed() : [],
+            'cashAccounts' => $isSold ? $this->iranCarService->cashBankAccountOptions() : [],
         ]);
     }
 

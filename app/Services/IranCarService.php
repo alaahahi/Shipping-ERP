@@ -11,6 +11,8 @@ use App\Enums\JournalStatus;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\IranCar;
+use App\Models\IranCarPayment;
+use App\Models\IranCarPoolPayment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -399,7 +401,7 @@ class IranCarService
         return $payload;
     }
 
-    public function refreshStatus(IranCar $car): void
+    public function refreshStatus(IranCar $car, ?float $globalRemaining = null): void
     {
         if ($car->status === IranCarStatus::Cancelled) {
             return;
@@ -414,14 +416,76 @@ class IranCarService
         }
 
         $total = $car->billedAmount();
-        $remaining = $car->remainingAmount();
-        $status = ($total > 0 && $remaining <= 0.009)
+        $carRemaining = $car->remainingAmount();
+        $poolRemaining = $globalRemaining ?? $this->globalPaymentSummary()['remaining'];
+        $status = ($total > 0 && ($carRemaining <= 0.009 || $poolRemaining <= 0.009))
             ? IranCarStatus::Paid
             : IranCarStatus::Open;
 
         if ($car->status !== $status) {
             $car->update(['status' => $status->value]);
         }
+    }
+
+    /**
+     * @return array{
+     *     billed: float,
+     *     car_paid: float,
+     *     pool_paid: float,
+     *     paid: float,
+     *     remaining: float,
+     *     billed_amount: string,
+     *     car_paid_amount: string,
+     *     pool_paid_amount: string,
+     *     paid_amount: string,
+     *     remaining_amount: string
+     * }
+     */
+    public function globalPaymentSummary(): array
+    {
+        $billed = round((float) IranCar::query()
+            ->where('sale_state', IranCarSaleState::Sold->value)
+            ->where('status', '!=', IranCarStatus::Cancelled->value)
+            ->sum('sale_price'), 2);
+
+        $carPaid = round((float) IranCarPayment::query()
+            ->whereHas('iranCar', function ($query): void {
+                $query
+                    ->where('sale_state', IranCarSaleState::Sold->value)
+                    ->where('status', '!=', IranCarStatus::Cancelled->value);
+            })
+            ->sum('amount'), 2);
+
+        $poolPaid = round((float) IranCarPoolPayment::query()->sum('amount'), 2);
+        $paid = round($carPaid + $poolPaid, 2);
+        $remaining = round($billed - $paid, 2);
+
+        return [
+            'billed' => $billed,
+            'car_paid' => $carPaid,
+            'pool_paid' => $poolPaid,
+            'paid' => $paid,
+            'remaining' => $remaining,
+            'billed_amount' => $this->formatAmount($billed),
+            'car_paid_amount' => $this->formatAmount($carPaid),
+            'pool_paid_amount' => $this->formatAmount($poolPaid),
+            'paid_amount' => $this->formatAmount($paid),
+            'remaining_amount' => $this->formatAmount($remaining),
+        ];
+    }
+
+    public function refreshAllSoldStatuses(): void
+    {
+        $globalRemaining = $this->globalPaymentSummary()['remaining'];
+
+        IranCar::query()
+            ->where('sale_state', IranCarSaleState::Sold->value)
+            ->where('status', '!=', IranCarStatus::Cancelled->value)
+            ->withSum('payments as payments_sum_amount', 'amount')
+            ->orderBy('id')
+            ->each(function (IranCar $car) use ($globalRemaining): void {
+                $this->refreshStatus($car, $globalRemaining);
+            });
     }
 
     /**

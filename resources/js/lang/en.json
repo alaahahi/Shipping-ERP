@@ -776,7 +776,16 @@
     "print_payments": "Payments and remaining",
     "print_footer": "Iran Cars — independent accounts 1660 / 4300",
     "cars_count": "Cars",
-    "printed_at": "Printed at"
+    "printed_at": "Printed at",
+    "total_sales": "Total sales",
+    "car_payments_total": "Car payments",
+    "pool_payments_total": "Pool payments",
+    "global_remaining": "Global remaining",
+    "pool_payment": "Pool payment",
+    "pool_payment_help": "Applies to the sum of all sold Iran cars without allocating to each VIN. Choose the company whose Iran AR (1660) to credit.",
+    "pool_payments": "Pool payments",
+    "no_pool_payments": "No pool payments yet.",
+    "ar_company": "AR company"
   },
   "language": {
     "label": "Language",

@@ -10,6 +10,7 @@ use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\IranCar;
 use App\Models\IranCarPayment;
+use App\Models\IranCarPoolPayment;
 use App\Models\User;
 use App\Services\CompanyService;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -209,6 +210,173 @@ class IranCarAccountingTest extends TestCase
 
         $this->assertSame(IranCarStatus::Paid, $car->fresh()->status);
         $this->assertSame(0.0, $car->fresh()->remainingAmount());
+    }
+
+    public function test_pool_payment_reduces_global_remaining_without_car_id(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $carA = $this->createSoldCar($user, $company, 1000);
+        $carB = $this->createSoldCar($user, $company, 500);
+
+        $this->actingAs($user)
+            ->post(route('iran-cars.pool-payments.store'), [
+                'company_id' => $company->id,
+                'payment_date' => '2026-08-08',
+                'amount' => 700,
+                'debit_account_id' => $cash->id,
+                'reference' => 'POOL-1',
+            ])
+            ->assertRedirect(route('iran-cars.index', ['sale_state' => IranCarSaleState::Sold->value]));
+
+        $payment = IranCarPoolPayment::query()->firstOrFail();
+        $this->assertSame('ICPP-'.now()->format('Ym').'-0001', $payment->voucher_number);
+        $this->assertSame($company->id, $payment->company_id);
+        $this->assertNull(IranCarPayment::query()->first());
+
+        $entry = $payment->journalEntry()->with('lines')->firstOrFail();
+        $this->assertSame(JournalStatus::Posted, $entry->status);
+        $debit = $entry->lines->firstWhere('debit', '>', 0);
+        $credit = $entry->lines->firstWhere('credit', '>', 0);
+        $iranAr = $company->fresh()->iranArAccount;
+
+        $this->assertSame($cash->id, $debit?->account_id);
+        $this->assertSame($iranAr->id, $credit?->account_id);
+        $this->assertSame($company->id, $credit?->company_id);
+
+        $summary = app(\App\Services\IranCarService::class)->globalPaymentSummary();
+        $this->assertSame(1500.0, $summary['billed']);
+        $this->assertSame(0.0, $summary['car_paid']);
+        $this->assertSame(700.0, $summary['pool_paid']);
+        $this->assertSame(800.0, $summary['remaining']);
+
+        $this->assertSame(1000.0, $carA->fresh()->remainingAmount());
+        $this->assertSame(500.0, $carB->fresh()->remainingAmount());
+    }
+
+    public function test_pool_overpayment_is_rejected(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $this->createSoldCar($user, $company, 200);
+
+        $this->actingAs($user)
+            ->from(route('iran-cars.index', ['sale_state' => IranCarSaleState::Sold->value]))
+            ->post(route('iran-cars.pool-payments.store'), [
+                'company_id' => $company->id,
+                'payment_date' => '2026-08-08',
+                'amount' => 200.01,
+                'debit_account_id' => $cash->id,
+            ])
+            ->assertRedirect(route('iran-cars.index', ['sale_state' => IranCarSaleState::Sold->value]))
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(0, IranCarPoolPayment::query()->count());
+    }
+
+    public function test_car_and_pool_payments_combine_for_global_remaining(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 1000);
+
+        $this->actingAs($user)->post(route('iran-cars.payments.store', $car), [
+            'payment_date' => '2026-08-08',
+            'amount' => 300,
+            'debit_account_id' => $cash->id,
+        ])->assertRedirect();
+
+        $this->actingAs($user)->post(route('iran-cars.pool-payments.store'), [
+            'company_id' => $company->id,
+            'payment_date' => '2026-08-08',
+            'amount' => 400,
+            'debit_account_id' => $cash->id,
+        ])->assertRedirect();
+
+        $summary = app(\App\Services\IranCarService::class)->globalPaymentSummary();
+        $this->assertSame(1000.0, $summary['billed']);
+        $this->assertSame(300.0, $summary['car_paid']);
+        $this->assertSame(400.0, $summary['pool_paid']);
+        $this->assertSame(300.0, $summary['remaining']);
+        $this->assertSame(700.0, $car->fresh()->remainingAmount());
+        $this->assertSame(IranCarStatus::Open, $car->fresh()->status);
+    }
+
+    public function test_full_pool_payment_marks_sold_cars_paid(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $carA = $this->createSoldCar($user, $company, 600);
+        $carB = $this->createSoldCar($user, $company, 400);
+
+        $this->actingAs($user)->post(route('iran-cars.pool-payments.store'), [
+            'company_id' => $company->id,
+            'payment_date' => '2026-08-08',
+            'amount' => 1000,
+            'debit_account_id' => $cash->id,
+        ])->assertRedirect();
+
+        $this->assertSame(IranCarStatus::Paid, $carA->fresh()->status);
+        $this->assertSame(IranCarStatus::Paid, $carB->fresh()->status);
+        $this->assertSame(0.0, app(\App\Services\IranCarService::class)->globalPaymentSummary()['remaining']);
+    }
+
+    public function test_reversing_pool_payment_restores_remaining_and_voids_journal(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 800);
+
+        $this->actingAs($user)->post(route('iran-cars.pool-payments.store'), [
+            'company_id' => $company->id,
+            'payment_date' => '2026-08-08',
+            'amount' => 500,
+            'debit_account_id' => $cash->id,
+        ])->assertRedirect();
+
+        $payment = IranCarPoolPayment::query()->firstOrFail();
+        $journalId = $payment->journal_entry_id;
+
+        $this->actingAs($user)
+            ->delete(route('iran-cars.pool-payments.destroy', $payment))
+            ->assertRedirect(route('iran-cars.index', ['sale_state' => IranCarSaleState::Sold->value]));
+
+        $this->assertSoftDeleted($payment);
+        $this->assertSame(JournalStatus::Void, \App\Models\JournalEntry::query()->findOrFail($journalId)->status);
+        $this->assertSame(800.0, app(\App\Services\IranCarService::class)->globalPaymentSummary()['remaining']);
+        $this->assertSame(IranCarStatus::Open, $car->fresh()->status);
+    }
+
+    public function test_car_payment_cannot_exceed_global_remaining_after_pool(): void
+    {
+        $user = $this->iranCarsUser();
+        $company = $this->makeCompany();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $car = $this->createSoldCar($user, $company, 1000);
+
+        $this->actingAs($user)->post(route('iran-cars.pool-payments.store'), [
+            'company_id' => $company->id,
+            'payment_date' => '2026-08-08',
+            'amount' => 700,
+            'debit_account_id' => $cash->id,
+        ])->assertRedirect();
+
+        $this->actingAs($user)
+            ->from(route('iran-cars.show', $car))
+            ->post(route('iran-cars.payments.store', $car), [
+                'payment_date' => '2026-08-08',
+                'amount' => 400,
+                'debit_account_id' => $cash->id,
+            ])
+            ->assertRedirect(route('iran-cars.show', $car))
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(0, IranCarPayment::query()->count());
     }
 
     public function test_unauthorized_user_cannot_create_iran_car(): void

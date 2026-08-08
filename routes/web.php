@@ -9,6 +9,7 @@ use App\Http\Controllers\DubaiAccountController;
 use App\Http\Controllers\IranCarController;
 use App\Http\Controllers\IranCarImportController;
 use App\Http\Controllers\IranCarPaymentController;
+use App\Http\Controllers\IranCarPoolPaymentController;
 use App\Http\Controllers\IranCarPrintController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LandTripController;
@@ -93,6 +94,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/iran-cars/import', [IranCarImportController::class, 'create'])->name('iran-cars.import');
     Route::post('/iran-cars/import/preview', [IranCarImportController::class, 'preview'])->name('iran-cars.import.preview');
     Route::post('/iran-cars/import/confirm', [IranCarImportController::class, 'confirm'])->name('iran-cars.import.confirm');
+    Route::post('/iran-cars/pool-payments', [IranCarPoolPaymentController::class, 'store'])
+        ->name('iran-cars.pool-payments.store');
+    Route::delete('/iran-cars/pool-payments/{iran_car_pool_payment}', [IranCarPoolPaymentController::class, 'destroy'])
+        ->name('iran-cars.pool-payments.destroy');
     Route::resource('iran-cars', IranCarController::class);
     Route::get('/iran-cars/{iran_car}/print', [IranCarPrintController::class, 'car'])->name('iran-cars.car.print');
     Route::post('/iran-cars/{iran_car}/sell', [IranCarController::class, 'sell'])->name('iran-cars.sell');
