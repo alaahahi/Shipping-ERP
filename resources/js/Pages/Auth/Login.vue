@@ -145,7 +145,7 @@ const submit = () => {
                             autocomplete="username"
                             required
                             autofocus
-                            class="login-input flex h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                            class="login-input h-12 w-full rounded-full px-5 text-sm"
                             @focus="isTyping = true"
                             @blur="isTyping = false"
                         >
@@ -161,11 +161,11 @@ const submit = () => {
                                 :type="showPassword ? 'text' : 'password'"
                                 autocomplete="current-password"
                                 required
-                                class="login-input flex h-12 w-full rounded-full border border-slate-200 bg-white px-4 pe-12 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                                class="login-input h-12 w-full rounded-full px-5 pe-12 text-sm"
                             >
                             <button
                                 type="button"
-                                class="absolute inset-y-0 end-0 flex items-center pe-4 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                                class="absolute inset-y-0 end-0 flex items-center pe-4 text-slate-400 hover:text-slate-700"
                                 :aria-label="t('auth.password')"
                                 @click="showPassword = !showPassword"
                             >
@@ -193,7 +193,6 @@ const submit = () => {
                     <InteractiveHoverButton
                         type="submit"
                         :text="form.processing ? t('auth.signing_in') : t('auth.sign_in')"
-                        class="h-12 text-base"
                         :disabled="form.processing"
                     />
                 </form>
