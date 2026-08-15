@@ -441,7 +441,7 @@ const applyLocation = (carIds = []) => {
     moveForm.post(route('land-trips.companies.cars.location', props.company.id), {
         preserveScroll: true,
         preserveState: true,
-        only: ['cars', 'statusSummary', 'locationLog'],
+        only: ['cars', 'statusSummary', 'locationLog', 'importLog'],
         onSuccess: () => {
             selectedIds.value = [];
             toastMessage.value = t('land_trips.location_updated');
@@ -586,6 +586,23 @@ const savePrice = (car, value) => {
                         >
                             {{ t('land_trips.undo_last') }}
                         </button>
+                        <a
+                            :href="route('land-trips.companies.import-logs', company.id)"
+                            class="btn btn-erp-ghost"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('land_trips.import_log') }}
+                        </a>
+                        <button
+                            v-if="canManage"
+                            type="button"
+                            class="btn btn-erp-ghost"
+                            :disabled="!importLog.can_undo"
+                            @click="undoLastImport"
+                        >
+                            {{ t('land_trips.undo_last_import') }}
+                        </button>
                         <a :href="exportHref" class="btn btn-erp-ghost">
                             {{ t('land_trips.export') }}
                         </a>
@@ -668,30 +685,31 @@ const savePrice = (car, value) => {
                         </button>
                     </div>
 
-                    <div class="land-hub-toolbar">
-                    <form class="land-hub-search" @submit.prevent>
-                        <label class="visually-hidden" for="land-hub-search">{{ t('land_trips.search_cars') }}</label>
-                        <input
-                            id="land-hub-search"
-                            v-model="filterForm.search"
-                            type="search"
-                            class="form-control form-erp-control"
-                            :placeholder="t('land_trips.search_cars')"
-                            autocomplete="off"
-                        />
-                    </form>
-                    <div class="land-hub-sort">
-                        <label class="visually-hidden" for="land-hub-sort">{{ t('land_trips.sort_cars') }}</label>
-                        <select
-                            id="land-hub-sort"
-                            v-model="filterForm.sort"
-                            class="form-select form-erp-control"
-                        >
-                            <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
-                            <option value="location">{{ t('land_trips.sort_location') }}</option>
-                            <option value="oldest">{{ t('land_trips.sort_oldest') }}</option>
-                        </select>
-                    </div>
+                    <div class="land-hub-filters">
+                        <form class="land-hub-search" @submit.prevent>
+                            <label class="visually-hidden" for="land-hub-search">{{ t('land_trips.search_cars') }}</label>
+                            <input
+                                id="land-hub-search"
+                                v-model="filterForm.search"
+                                type="search"
+                                class="form-control form-erp-control"
+                                :placeholder="t('land_trips.search_cars')"
+                                autocomplete="off"
+                            />
+                        </form>
+                        <div class="land-hub-sort">
+                            <label class="visually-hidden" for="land-hub-sort">{{ t('land_trips.sort_cars') }}</label>
+                            <select
+                                id="land-hub-sort"
+                                v-model="filterForm.sort"
+                                class="form-select form-erp-control"
+                            >
+                                <option value="newest">{{ t('land_trips.sort_newest') }}</option>
+                                <option value="oldest">{{ t('land_trips.sort_oldest') }}</option>
+                                <option value="location">{{ t('land_trips.sort_location') }}</option>
+                                <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div v-if="canManage" class="land-hub-bulk">

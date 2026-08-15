@@ -915,6 +915,13 @@ a:hover {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
+    align-items: stretch;
+}
+
+.erp-page {
+    padding: 1.5rem;
+    flex: 0 0 auto;
+    animation: erp-page-in 320ms var(--erp-transition);
 }
 
 .erp-topbar {
@@ -944,11 +951,6 @@ a:hover {
 .erp-icon-btn .small {
     font-size: 0.72rem;
     letter-spacing: 0.04em;
-}
-
-.erp-page {
-    padding: 1.5rem;
-    animation: erp-page-in 320ms var(--erp-transition);
 }
 
 @keyframes erp-page-in {
@@ -3096,7 +3098,8 @@ body:has(.erp-print-shell) {
     color: var(--erp-text);
 }
 
-.company-country-map {
+.company-country-map,
+.company-country-card .company-country-map.leaflet-container {
     height: 280px;
     max-height: 280px;
     width: 100%;
