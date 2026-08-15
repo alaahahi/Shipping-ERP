@@ -60,7 +60,9 @@ const clonePreviewRow = (row) => ({
 
 const restorePreviewRows = () => {
     nextUid = 1;
-    rows.value = (props.preview?.rows ?? []).map((row) => clonePreviewRow(row));
+    rows.value = (props.preview?.rows ?? [])
+        .filter((row) => cleanChassis(row.chassis_no))
+        .map((row) => clonePreviewRow(row));
 };
 
 watch(
@@ -233,15 +235,17 @@ const resetPreview = () => {
 };
 
 const submitConfirm = () => {
-    confirmForm.rows = rows.value.map((row, index) => ({
-        row_number: Number(row.row_number) || index + 1,
-        chassis_no: cleanChassis(row.chassis_no) || null,
-        cmr_waybill: cleanCmr(row.cmr_waybill) || null,
-        description: cleanDescription(row.description) || null,
-        consignee_name: row.consignee_name || null,
-        status_text: row.status_text || null,
-        location_status_id: row.location_status_id || null,
-    }));
+    confirmForm.rows = rows.value
+        .map((row, index) => ({
+            row_number: Number(row.row_number) || index + 1,
+            chassis_no: cleanChassis(row.chassis_no) || null,
+            cmr_waybill: cleanCmr(row.cmr_waybill) || null,
+            description: cleanDescription(row.description) || null,
+            consignee_name: row.consignee_name || null,
+            status_text: row.status_text || null,
+            location_status_id: row.location_status_id || null,
+        }))
+        .filter((row) => row.chassis_no);
     confirmForm.post(route('land-trips.import.confirm', props.trip.id));
 };
 </script>

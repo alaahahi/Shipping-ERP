@@ -126,6 +126,13 @@ class LandTripController extends Controller
         return response()->json($cars);
     }
 
+    public function companyCarCheck(Company $company): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return response()->json($this->landTripService->carCheckIndex($company));
+    }
+
     public function syncCompanyCars(SyncCompanyLandCarsRequest $request, Company $company): RedirectResponse
     {
         Gate::authorize('create', LandTrip::class);

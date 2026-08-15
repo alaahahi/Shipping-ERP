@@ -3157,3 +3157,395 @@ body:has(.erp-print-shell) {
 .company-country-map-label.leaflet-tooltip::before {
     display: none;
 }
+
+.land-hub .erp-tab.active {
+    border-bottom-color: #0f766e;
+}
+
+.land-car-check {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.15rem 1.25rem 1.4rem;
+    border: 1px solid var(--erp-border);
+    border-radius: 1rem;
+    background: var(--erp-surface);
+    color: var(--erp-text);
+    box-shadow: var(--erp-shadow-soft);
+}
+
+.land-car-check-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 750;
+    color: var(--erp-text);
+}
+
+.land-car-check-help,
+.land-car-check-panel-bar p,
+.land-car-check-empty p {
+    margin: 0.35rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--erp-text-muted);
+}
+
+.land-car-check-toast {
+    margin: 0;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, #0f766e 12%, var(--erp-surface-soft));
+    color: var(--erp-text);
+    font-size: 0.875rem;
+}
+
+.land-car-check-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (min-width: 992px) {
+    .land-car-check-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.land-car-check-stat {
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--erp-border);
+    border-radius: 0.85rem;
+    background: var(--erp-surface-soft);
+}
+
+.land-car-check-stat span {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--erp-text-muted);
+}
+
+.land-car-check-stat strong {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 1.5rem;
+    color: var(--erp-text);
+}
+
+.land-car-check-stat.is-ok {
+    border-color: color-mix(in srgb, #059669 45%, var(--erp-border));
+    background: color-mix(in srgb, #059669 10%, var(--erp-surface));
+}
+
+.land-car-check-stat.is-warn {
+    border-color: color-mix(in srgb, #d97706 45%, var(--erp-border));
+    background: color-mix(in srgb, #d97706 10%, var(--erp-surface));
+}
+
+.land-car-check-stat.is-danger {
+    border-color: color-mix(in srgb, #e11d48 45%, var(--erp-border));
+    background: color-mix(in srgb, #e11d48 10%, var(--erp-surface));
+}
+
+.land-car-check-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 1200px) {
+    .land-car-check-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem);
+        align-items: start;
+    }
+
+    .land-car-check-panel {
+        order: 2;
+    }
+
+    .land-car-check-results {
+        order: 1;
+    }
+}
+
+.land-car-check-panel,
+.land-car-check-missing,
+.land-car-check-card,
+.land-car-check-empty {
+    border: 1px solid var(--erp-border);
+    border-radius: 1rem;
+    background: var(--erp-surface-soft);
+}
+
+.land-car-check-panel {
+    padding: 1rem;
+}
+
+.land-car-check-panel-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.land-car-check-panel-bar h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.land-car-check-textarea {
+    min-height: 22rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--erp-border);
+    border-radius: 0.85rem;
+    background: var(--erp-surface);
+    color: var(--erp-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.land-car-check-textarea:focus {
+    outline: 2px solid color-mix(in srgb, #0f766e 55%, transparent);
+    outline-offset: 1px;
+    border-color: #0f766e;
+}
+
+.land-car-check-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.land-car-check-missing {
+    padding: 1rem;
+}
+
+.land-car-check-missing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.5rem;
+}
+
+.land-car-check-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid color-mix(in srgb, #e11d48 35%, var(--erp-border));
+    border-radius: 0.65rem;
+    background: var(--erp-surface);
+    color: var(--erp-text);
+    font-size: 0.85rem;
+}
+
+.land-car-check-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.land-car-check-card {
+    overflow: hidden;
+}
+
+.land-car-check-card.is-matched {
+    border-color: color-mix(in srgb, #059669 50%, var(--erp-border));
+}
+
+.land-car-check-card.is-elsewhere {
+    border-color: color-mix(in srgb, #d97706 50%, var(--erp-border));
+}
+
+.land-car-check-card.is-missing {
+    border-color: color-mix(in srgb, #e11d48 50%, var(--erp-border));
+}
+
+.land-car-check-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--erp-border);
+}
+
+.land-car-check-kicker {
+    font-size: 0.75rem;
+    color: var(--erp-text-muted);
+}
+
+.land-car-check-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, #0f766e 16%, var(--erp-surface));
+    color: var(--erp-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.land-car-check-card.is-elsewhere .land-car-check-badge {
+    background: color-mix(in srgb, #d97706 18%, var(--erp-surface));
+}
+
+.land-car-check-card.is-missing .land-car-check-badge {
+    background: color-mix(in srgb, #e11d48 16%, var(--erp-surface));
+}
+
+.land-car-check-other {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: var(--erp-text);
+}
+
+.land-car-check-table {
+    width: 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    text-align: start;
+    color: var(--erp-text);
+}
+
+.land-car-check-table th,
+.land-car-check-table td {
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid var(--erp-border);
+    vertical-align: middle;
+}
+
+.land-car-check-table thead th {
+    background: color-mix(in srgb, #0f766e 12%, var(--erp-surface));
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.land-car-check-empty {
+    min-height: 14rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem 1.25rem;
+    border-style: dashed;
+}
+
+.land-car-check-empty h4 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+html.dark .land-hub-toolbar,
+[data-theme='dark'] .land-hub-toolbar,
+html.dark .land-hub-workspace,
+[data-theme='dark'] .land-hub-workspace {
+    background: #111827;
+    border-color: #374151;
+}
+
+html.dark .land-hub-chip,
+[data-theme='dark'] .land-hub-chip {
+    background: #1f2937;
+    color: #e5e7eb;
+    border-color: #374151;
+}
+
+html.dark .land-hub-chip-count,
+[data-theme='dark'] .land-hub-chip-count,
+html.dark .land-hub-bulk-label,
+[data-theme='dark'] .land-hub-bulk-label {
+    color: #e5e7eb;
+}
+
+html.dark .land-hub-search .form-erp-control,
+html.dark .land-hub-sort .form-erp-control,
+html.dark .land-hub-bulk .form-erp-control,
+[data-theme='dark'] .land-hub-search .form-erp-control,
+[data-theme='dark'] .land-hub-sort .form-erp-control,
+[data-theme='dark'] .land-hub-bulk .form-erp-control {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    border-color: #374151;
+}
+
+html.dark .land-hub-table thead th,
+[data-theme='dark'] .land-hub-table thead th {
+    background: #1f2937;
+    color: #e5e7eb;
+}
+
+html.dark .company-country-card,
+[data-theme='dark'] .company-country-card {
+    background: #111827;
+    color: #e5e7eb;
+    border-color: #374151;
+}
+
+html.dark .land-hub .erp-tabs,
+[data-theme='dark'] .land-hub .erp-tabs {
+    background: #111827;
+}
+
+html.dark .land-car-check,
+[data-theme='dark'] .land-car-check {
+    background: #111827;
+    color: #e5e7eb;
+    border-color: #334155;
+}
+
+html.dark .land-car-check-stat,
+html.dark .land-car-check-panel,
+html.dark .land-car-check-missing,
+html.dark .land-car-check-card,
+html.dark .land-car-check-empty,
+html.dark .land-car-check-chip,
+[data-theme='dark'] .land-car-check-stat,
+[data-theme='dark'] .land-car-check-panel,
+[data-theme='dark'] .land-car-check-missing,
+[data-theme='dark'] .land-car-check-card,
+[data-theme='dark'] .land-car-check-empty,
+[data-theme='dark'] .land-car-check-chip {
+    background: #1f2937;
+    border-color: #334155;
+    color: #e5e7eb;
+}
+
+html.dark .land-car-check-textarea,
+[data-theme='dark'] .land-car-check-textarea {
+    background: #020617;
+    color: #f8fafc;
+    border-color: #334155;
+    caret-color: #f8fafc;
+}
+
+html.dark .land-car-check-textarea::placeholder,
+[data-theme='dark'] .land-car-check-textarea::placeholder {
+    color: #64748b;
+}
+
+html.dark .land-car-check-table thead th,
+[data-theme='dark'] .land-car-check-table thead th {
+    background: #0f766e;
+    color: #fff;
+}
+
+html.dark .land-car-check-help,
+html.dark .land-car-check-panel-bar p,
+html.dark .land-car-check-empty p,
+html.dark .land-car-check-kicker,
+[data-theme='dark'] .land-car-check-help,
+[data-theme='dark'] .land-car-check-panel-bar p,
+[data-theme='dark'] .land-car-check-empty p,
+[data-theme='dark'] .land-car-check-kicker {
+    color: #cbd5e1;
+}
+

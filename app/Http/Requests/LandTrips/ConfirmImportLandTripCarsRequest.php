@@ -19,18 +19,27 @@ class ConfirmImportLandTripCarsRequest extends FormRequest
             return;
         }
 
+        $normalized = array_values(array_filter(array_map(static function ($row) {
+            if (! is_array($row)) {
+                return null;
+            }
+
+            if (($row['location_status_id'] ?? '') === '') {
+                $row['location_status_id'] = null;
+            }
+
+            $chassis = trim((string) ($row['chassis_no'] ?? ''));
+            if ($chassis === '') {
+                return null;
+            }
+
+            $row['chassis_no'] = $chassis;
+
+            return $row;
+        }, $rows)));
+
         $this->merge([
-            'rows' => array_map(static function ($row) {
-                if (! is_array($row)) {
-                    return $row;
-                }
-
-                if (($row['location_status_id'] ?? '') === '') {
-                    $row['location_status_id'] = null;
-                }
-
-                return $row;
-            }, $rows),
+            'rows' => $normalized,
         ]);
     }
 

@@ -82,11 +82,16 @@ class LandTripExcelImportService
         $sheet->fromArray([
             'Vehicle Model',
             'CMR',
-            'VIN Number',
+            'VIN',
             '#',
             'Status',
+            'Consignee',
+            'Price',
+            'Weight',
+            'Notes',
+            'Entered At',
         ], null, 'A2');
-        $sheet->getStyle('A2:E2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:J2')->getFont()->setBold(true);
 
         $line = 3;
         $serial = 1;
@@ -96,11 +101,16 @@ class LandTripExcelImportService
             $sheet->setCellValueExplicit("C{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
             $sheet->setCellValue("D{$line}", $serial);
             $sheet->setCellValue("E{$line}", $car->locationStatus?->localizedName() ?? '');
+            $sheet->setCellValue("F{$line}", (string) ($car->consignee_name ?? ''));
+            $sheet->setCellValue("G{$line}", (int) round((float) ($car->price ?? 0)));
+            $sheet->setCellValue("H{$line}", $car->weight !== null ? (string) $car->weight : '');
+            $sheet->setCellValue("I{$line}", (string) ($car->notes ?? ''));
+            $sheet->setCellValue("J{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
             $line++;
             $serial++;
         }
 
-        foreach (range('A', 'E') as $column) {
+        foreach (range('A', 'J') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -233,6 +243,10 @@ class LandTripExcelImportService
                 $consigneeFallback,
             );
 
+            if (($evaluated['reason_code'] ?? null) === 'missing_chassis') {
+                continue;
+            }
+
             if (($evaluated['status_text'] ?? '') !== '' && empty($evaluated['location_status_id'])) {
                 $unmatchedStatus++;
             }
@@ -333,10 +347,9 @@ class LandTripExcelImportService
             $statusText = $this->cell($cells, $columns['status'] ?? null);
             $chassisRaw = $this->rawVinFromRow($cells, $columns['vin'] ?? null);
 
-            if ($model === '' && $cmr === '' && $chassisRaw === '' && $statusText === '') {
-                if ($serial === '' || ! is_numeric($serial)) {
-                    continue;
-                }
+            $chassis = $this->sanitizeChassis($chassisRaw);
+            if ($chassis === '') {
+                continue;
             }
 
             $sortOrder = ctype_digit($serial) ? (int) $serial : $rowNumber;
@@ -345,7 +358,7 @@ class LandTripExcelImportService
                 'row_number' => $sortOrder,
                 'description' => $this->sanitizeDescription($model),
                 'cmr_waybill' => $this->sanitizeCmr($cmr),
-                'chassis_no' => $this->sanitizeChassis($chassisRaw),
+                'chassis_no' => $chassis,
                 'status_text' => $statusText,
                 'consignee_name' => $consignee,
             ];

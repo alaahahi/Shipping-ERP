@@ -1187,6 +1187,55 @@ class LandTripService
     }
 
     /**
+     * @return array{own: list<array<string, mixed>>, elsewhere: array<string, string>}
+     */
+    public function carCheckIndex(Company $company): array
+    {
+        $own = LandTripCar::query()
+            ->whereNotNull('chassis_no')
+            ->where('chassis_no', '!=', '')
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->with(['locationStatus:id,code,name,name_ar,name_ckb'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (LandTripCar $car) => [
+                'id' => $car->id,
+                'chassis_no' => (string) ($car->chassis_no ?? ''),
+                'description' => (string) ($car->description ?? ''),
+                'consignee_name' => (string) ($car->consignee_name ?? ''),
+                'location_label' => $car->locationStatus?->localizedName(),
+                'created_at' => optional($car->created_at)?->format('Y-m-d'),
+            ])
+            ->filter(fn (array $car): bool => $car['chassis_no'] !== '')
+            ->values()
+            ->all();
+
+        $elsewhere = [];
+        $foreign = LandTripCar::query()
+            ->whereNotNull('chassis_no')
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $company->id))
+            ->with(['landTrip:id,company_id', 'landTrip.company:id,name'])
+            ->get(['id', 'chassis_no', 'land_trip_id']);
+
+        foreach ($foreign as $car) {
+            $normalized = strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $car->chassis_no));
+            if ($normalized === '') {
+                continue;
+            }
+
+            $name = $car->landTrip?->company?->name;
+            if (is_string($name) && $name !== '') {
+                $elsewhere[$normalized] = $name;
+            }
+        }
+
+        return [
+            'own' => $own,
+            'elsewhere' => $elsewhere,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function transformCar(LandTripCar $car): array

@@ -5,6 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import LandTripCompanyWallet from '@/Components/LandTripCompanyWallet.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
+import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
 import { useLandTripStation } from '@/composables/useLandTripStation';
@@ -565,7 +566,11 @@ const savePrice = (car, value) => {
             <PageHeader
                 :kicker="t('land_trips.title')"
                 :title="company.name"
-                :subtitle="hubTab === 'wallet' ? t('land_trips.wallet_help') : t('land_trips.company_cars_help')"
+                :subtitle="hubTab === 'wallet'
+                    ? t('land_trips.wallet_help')
+                    : hubTab === 'check'
+                        ? t('land_trips.check_help')
+                        : t('land_trips.company_cars_help')"
             >
                 <template #actions>
                     <template v-if="hubTab === 'cars'">
@@ -637,9 +642,19 @@ const savePrice = (car, value) => {
                 >
                     {{ t('land_trips.wallet_tab') }}
                 </button>
+                <button
+                    type="button"
+                    class="erp-tab"
+                    :class="{ active: hubTab === 'check' }"
+                    @click="hubTab = 'check'"
+                >
+                    {{ t('land_trips.check_tab') }}
+                </button>
             </div>
 
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
+
+            <LandTripCarCheck v-show="hubTab === 'check'" :active="hubTab === 'check'" :company-id="company.id" />
 
             <div v-show="hubTab === 'cars'" class="erp-card p-0 overflow-hidden land-hub-workspace">
                 <div class="land-hub-toolbar">

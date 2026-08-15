@@ -97,6 +97,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.show');
     Route::get('/land-trips/companies/{company}/cars', [LandTripController::class, 'companyCars'])
         ->name('land-trips.companies.cars');
+    Route::get('/land-trips/companies/{company}/car-check', [LandTripController::class, 'companyCarCheck'])
+        ->name('land-trips.companies.car-check');
     Route::post('/land-trips/companies/{company}/cars', [LandTripController::class, 'syncCompanyCars'])
         ->name('land-trips.companies.cars.sync');
     Route::post('/land-trips/companies/{company}/cars/location', [LandTripController::class, 'bulkUpdateCompanyCarStatus'])
