@@ -26,6 +26,19 @@ return new class extends Migration
             });
         }
 
+        if (! Schema::hasColumn('land_trip_car_statuses', 'color')) {
+            Schema::table('land_trip_car_statuses', function (Blueprint $table) {
+                $table->string('color', 7)->default('#64748B')->after('row_tone');
+            });
+        }
+
+        if (! Schema::hasColumn('land_trip_car_statuses', 'is_archive')) {
+            Schema::table('land_trip_car_statuses', function (Blueprint $table) {
+                $table->boolean('is_archive')->default(false)->after('is_active');
+                $table->index('is_archive');
+            });
+        }
+
         if (Schema::hasTable('land_trip_cars') && ! Schema::hasColumn('land_trip_cars', 'location_status_id')) {
             Schema::table('land_trip_cars', function (Blueprint $table) {
                 $table->foreignId('location_status_id')
