@@ -164,13 +164,13 @@ const statusTone = (row) => {
 
 const rowClass = (row) => {
     if (row.reason_code === 'chassis_used' || row.reason_code === 'invalid_chassis' || row.reason_code === 'missing_chassis') {
-        return 'land-trip-import-row-invalid bg-red-50 dark:bg-red-950/50';
+        return 'land-trip-import-row-invalid';
     }
     if (row.reason_code === 'already_in_company') {
-        return 'land-trip-import-row-info bg-sky-50 dark:bg-sky-950/40';
+        return 'land-trip-import-row-info';
     }
     if (row.reason_code === 'duplicate_in_file' || row.status !== 'ready') {
-        return 'land-trip-import-row-warning bg-amber-50 dark:bg-amber-950/40';
+        return 'land-trip-import-row-warning';
     }
     if (row.location_status_tone === 'yellow') {
         return 'land-car-row-yellow';
@@ -179,7 +179,7 @@ const rowClass = (row) => {
         return 'land-car-row-green';
     }
 
-    return '';
+    return 'land-trip-import-row-ready';
 };
 
 const onFileChange = (event) => {
@@ -268,14 +268,14 @@ const submitConfirm = () => {
 
             <PageHeader :title="t('land_trips.import')" :subtitle="t('land_trips.import_help')" />
 
-            <form class="land-trip-import-panel mb-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800" @submit.prevent="submitPreview">
+            <form class="land-trip-import-panel mb-4 rounded-lg border border-gray-200 p-4 dark:border-slate-700" @submit.prevent="submitPreview">
                 <div class="max-w-xl">
                     <label :class="fbLabel">{{ t('land_trips.excel_file') }}</label>
                     <input
                         ref="fileInput"
                         type="file"
                         accept=".xlsx,.xls,.csv"
-                        :class="fbInput"
+                        :class="[fbInput, 'land-trip-import-file']"
                         @change="onFileChange"
                     />
                     <InputError :message="uploadForm.errors.file" />
@@ -287,11 +287,11 @@ const submitConfirm = () => {
                 </div>
             </form>
 
-            <div v-if="preview" class="land-trip-import-panel overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
+            <div v-if="preview" class="land-trip-import-panel overflow-hidden rounded-lg border border-gray-200 dark:border-slate-700">
+                <div class="land-trip-import-toolbar flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 p-4 dark:border-slate-700">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('land_trips.preview_title') }}</h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                        <p class="land-trip-import-filename mt-1 text-sm text-gray-700 dark:text-gray-200">
                             {{ preview.original_name }}
                             <span v-if="preview.default_consignee"> · {{ preview.default_consignee }}</span>
                             · {{ t('land_trips.preview_stats', {
@@ -395,7 +395,7 @@ const submitConfirm = () => {
                                     <input v-model="row.consignee_name" type="text" :class="fbInput" autocomplete="off" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <button type="button" :class="fbGhostButton" class="land-trip-import-ghost text-red-700 dark:text-red-400" @click="removeRow(index)">
+                                    <button type="button" :class="fbGhostButton" class="land-trip-import-ghost land-trip-import-delete" @click="removeRow(index)">
                                         {{ t('common.delete') }}
                                     </button>
                                 </td>
