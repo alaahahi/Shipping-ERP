@@ -1902,10 +1902,11 @@ a:hover {
 .land-hub-toolbar {
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
+    flex: none;
     align-items: stretch;
-    gap: 0.75rem;
-    padding: 0.85rem 1.1rem;
+    justify-content: flex-start;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--erp-border);
     background: var(--erp-surface);
 }
@@ -1980,58 +1981,66 @@ a:hover {
     color: var(--erp-text);
 }
 
-.land-hub-filters {
+.land-hub-filters,
+.land-hub-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 0.65rem;
     width: 100%;
+    flex: none;
 }
 
 .land-hub-search {
-    flex: 1 1 14rem;
+    flex: 1 0 12rem;
+    width: min(22rem, 100%);
     max-width: 22rem;
     min-width: 0;
 }
 
 .land-hub-sort {
-    flex: 0 1 14rem;
-    width: min(16rem, 100%);
-    max-width: 18rem;
+    flex: 0 0 16rem;
+    width: 16rem;
+    max-width: 100%;
     min-width: 0;
 }
 
 .land-hub-search .form-erp-control,
-.land-hub-sort .form-erp-control {
+.land-hub-sort .form-erp-control,
+.land-hub-bulk .form-erp-control {
     width: 100%;
-    min-height: 2.4rem;
-    height: 2.4rem;
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
 }
 
 .land-hub-bulk {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem 0.65rem;
-    padding-top: 0.15rem;
+    gap: 0.4rem 0.5rem;
+    flex: 1 1 16rem;
+    min-width: 0;
 }
 
 .land-hub-bulk-label {
-    flex: 0 0 100%;
+    flex: none;
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 650;
+    color: var(--erp-text-muted);
+    white-space: nowrap;
 }
 
 .land-hub-bulk-select {
-    min-width: min(16rem, 100%);
-    flex: 1 1 12rem;
+    width: 11.5rem;
+    max-width: 100%;
+    flex: none;
 }
 
 .land-hub-bulk-hint {
-    flex: 1 0 100%;
-    font-size: 0.8rem;
-    line-height: 1.45;
-    color: var(--erp-text-muted);
+    display: none;
 }
 
 .land-hub-table thead th {
@@ -2169,12 +2178,8 @@ a:hover {
 }
 
 @media (min-width: 768px) {
-    .land-hub-bulk-label {
-        flex: 0 0 auto;
-    }
-
     .land-hub-bulk-select {
-        flex: 0 1 16rem;
+        width: 12rem;
     }
 }
 

@@ -685,7 +685,7 @@ const savePrice = (car, value) => {
                         </button>
                     </div>
 
-                    <div class="land-hub-filters">
+                    <div class="land-hub-controls">
                         <form class="land-hub-search" @submit.prevent>
                             <label class="visually-hidden" for="land-hub-search">{{ t('land_trips.search_cars') }}</label>
                             <input
@@ -710,42 +710,38 @@ const savePrice = (car, value) => {
                                 <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div v-if="canManage" class="land-hub-bulk">
-                        <label class="form-erp-label mb-0 land-hub-bulk-label" for="land-hub-move">
-                            {{ t('land_trips.move_to') }}
-                        </label>
-                        <select
-                            id="land-hub-move"
-                            v-model="moveForm.location_status_id"
-                            class="form-select form-erp-control land-hub-bulk-select"
-                        >
-                            <option value="">{{ t('land_trips.choose_location') }}</option>
-                            <option v-for="status in carStatuses" :key="status.id" :value="status.id">
-                                {{ stationLabel(status) }}
-                            </option>
-                        </select>
-                        <button
-                            type="button"
-                            class="btn btn-erp"
-                            :disabled="moveForm.processing || deletingSelected || !moveForm.location_status_id || !selectedCount"
-                            @click="moveSelected"
-                        >
-                            {{ t('land_trips.apply_selected') }}
-                            <span class="land-hub-bulk-n">({{ selectedCount }})</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-outline-danger"
-                            :disabled="moveForm.processing || deletingSelected || !selectedCount"
-                            @click="deleteSelected"
-                        >
-                            {{ t('common.delete') }}
-                            <span class="land-hub-bulk-n">({{ selectedCount }})</span>
-                        </button>
-                        <p class="land-hub-bulk-hint mb-0">{{ t('land_trips.bulk_move_hint') }}</p>
-                        <InputError :message="moveForm.errors.location_status_id || moveForm.errors.car_ids || moveForm.errors.cars" />
+                        <div v-if="canManage" class="land-hub-bulk">
+                            <label class="land-hub-bulk-label" for="land-hub-move">{{ t('land_trips.move_to') }}</label>
+                            <select
+                                id="land-hub-move"
+                                v-model="moveForm.location_status_id"
+                                class="form-select form-erp-control land-hub-bulk-select"
+                            >
+                                <option value="">{{ t('land_trips.choose_location') }}</option>
+                                <option v-for="status in carStatuses" :key="status.id" :value="status.id">
+                                    {{ stationLabel(status) }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="btn btn-erp"
+                                :disabled="moveForm.processing || deletingSelected || !moveForm.location_status_id || !selectedCount"
+                                @click="moveSelected"
+                            >
+                                {{ t('land_trips.apply_selected') }}
+                                <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-danger"
+                                :disabled="moveForm.processing || deletingSelected || !selectedCount"
+                                @click="deleteSelected"
+                            >
+                                {{ t('common.delete') }}
+                                <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                            </button>
+                            <InputError :message="moveForm.errors.location_status_id || moveForm.errors.car_ids || moveForm.errors.cars" />
+                        </div>
                     </div>
                 </div>
 
