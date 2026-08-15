@@ -100,6 +100,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars.sync');
     Route::post('/land-trips/companies/{company}/cars/location', [LandTripController::class, 'bulkUpdateCompanyCarStatus'])
         ->name('land-trips.companies.cars.location');
+    Route::delete('/land-trips/companies/{company}/cars', [LandTripController::class, 'destroyCompanyCars'])
+        ->name('land-trips.companies.cars.destroy');
     Route::get('/land-trips/companies/{company}/location-logs', [LandTripLocationLogController::class, 'index'])
         ->name('land-trips.companies.location-logs');
     Route::post('/land-trips/companies/{company}/location-logs/undo', [LandTripLocationLogController::class, 'undo'])

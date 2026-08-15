@@ -108,7 +108,7 @@ watch(success, (message) => {
     if (!message) {
         return;
     }
-    if (/updated \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message))) {
+    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message))) {
         return;
     }
     toastMessage.value = message;
@@ -423,6 +423,40 @@ const applyLocation = (carIds = []) => {
     });
 };
 
+const deletingSelected = ref(false);
+
+const deleteSelected = () => {
+    if (!selectedCount.value) {
+        return;
+    }
+
+    if (!window.confirm(t('land_trips.delete_selected_confirm', { count: selectedCount.value }))) {
+        return;
+    }
+
+    const carIds = [...selectedIds.value];
+    const snapshot = loadedCars.value.map((car) => ({ ...car }));
+    loadedCars.value = loadedCars.value.filter((car) => !carIds.includes(car.id) && !carIds.includes(Number(car.id)));
+    deletingSelected.value = true;
+
+    router.delete(route('land-trips.companies.cars.destroy', props.company.id), {
+        data: { car_ids: carIds },
+        preserveScroll: true,
+        preserveState: true,
+        only: ['cars', 'statusSummary', 'locationLog'],
+        onSuccess: () => {
+            selectedIds.value = [];
+            toastMessage.value = t('land_trips.cars_deleted');
+        },
+        onError: () => {
+            loadedCars.value = snapshot;
+        },
+        onFinish: () => {
+            deletingSelected.value = false;
+        },
+    });
+};
+
 const moveSelected = () => applyLocation(selectedIds.value);
 
 const undoLastLocation = () => {
@@ -593,10 +627,19 @@ const moveOne = (carId, statusId) => {
                         <button
                             type="button"
                             class="btn btn-erp"
-                            :disabled="moveForm.processing || !moveForm.location_status_id || !selectedCount"
+                            :disabled="moveForm.processing || deletingSelected || !moveForm.location_status_id || !selectedCount"
                             @click="moveSelected"
                         >
                             {{ t('land_trips.apply_selected') }}
+                            <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-danger"
+                            :disabled="moveForm.processing || deletingSelected || !selectedCount"
+                            @click="deleteSelected"
+                        >
+                            {{ t('common.delete') }}
                             <span class="land-hub-bulk-n">({{ selectedCount }})</span>
                         </button>
                         <p class="land-hub-bulk-hint mb-0">{{ t('land_trips.bulk_move_hint') }}</p>
@@ -679,7 +722,7 @@ const moveOne = (carId, statusId) => {
                                         v-if="canManage"
                                         class="form-select form-select-sm form-erp-control land-hub-row-select"
                                         :value="car.location_status_id || ''"
-                                        :disabled="moveForm.processing"
+                                        :disabled="moveForm.processing || deletingSelected"
                                         :aria-label="t('land_trips.location_status')"
                                         @change="moveOne(car.id, $event.target.value)"
                                     >

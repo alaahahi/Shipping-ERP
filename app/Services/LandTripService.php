@@ -441,6 +441,44 @@ class LandTripService
     }
 
     /**
+     * @param  list<int>  $carIds
+     */
+    public function deleteCompanyCars(Company $company, array $carIds, User $actor): int
+    {
+        $ids = array_values(array_unique(array_map('intval', $carIds)));
+        if ($ids === []) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Select at least one car.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($company, $ids, $actor): int {
+            $cars = LandTripCar::query()
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+                ->whereIn('id', $ids)
+                ->get();
+
+            if ($cars->isEmpty()) {
+                return 0;
+            }
+
+            Log::info('Land trip cars deleted.', [
+                'company_id' => $company->id,
+                'deleted_by' => $actor->id,
+                'count' => $cars->count(),
+                'car_ids' => $cars->pluck('id')->all(),
+                'chassis_nos' => $cars->pluck('chassis_no')->all(),
+            ]);
+
+            LandTripCar::query()
+                ->whereIn('id', $cars->pluck('id'))
+                ->delete();
+
+            return $cars->count();
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     public function updateCompanyCar(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar

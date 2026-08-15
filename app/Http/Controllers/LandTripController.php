@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\LandTripStatus;
 use App\Enums\Permission;
+use App\Http\Requests\LandTrips\BulkDeleteCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
 use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
@@ -137,6 +138,19 @@ class LandTripController extends Controller
         );
 
         return back()->with('success', "Updated {$updated} cars.");
+    }
+
+    public function destroyCompanyCars(BulkDeleteCompanyLandCarsRequest $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $deleted = $this->landTripService->deleteCompanyCars(
+            $company,
+            $request->validated('car_ids'),
+            $request->user()
+        );
+
+        return back()->with('success', "Deleted {$deleted} cars.");
     }
 
     public function updateCompanyManifest(UpdateCompanyLandManifestRequest $request, Company $company): RedirectResponse

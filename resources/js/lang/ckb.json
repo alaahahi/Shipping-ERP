@@ -354,6 +354,8 @@
     "move_to": "گواستنەوە بۆ شوێن",
     "choose_location": "شوێن هەڵبژێرە…",
     "apply_selected": "هەڵبژێردراوەکان",
+    "delete_selected_confirm": "سڕینەوەی {count} ئۆتۆمبێلی هەڵبژێردراو؟",
+    "cars_deleted": "ئۆتۆمبێلە هەڵبژێردراوەکان سڕانەوە.",
     "apply_filtered": "فلتەری ئێستا",
     "apply_all_cmr": "هەموو ئۆتۆمبێل (CMR)",
     "add": "گەشتی وشکانی نوێ",

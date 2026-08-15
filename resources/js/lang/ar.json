@@ -746,6 +746,8 @@
     "move_to": "نقل إلى موقع",
     "choose_location": "اختر الموقع…",
     "apply_selected": "المحددة",
+    "delete_selected_confirm": "حذف {count} سيارة محددة؟",
+    "cars_deleted": "تم حذف السيارات المحددة.",
     "apply_filtered": "الفلتر الحالي",
     "apply_all_cmr": "كل السيارات (CMR)",
     "add": "رحلة برية جديدة",

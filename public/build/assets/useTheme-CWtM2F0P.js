@@ -1,0 +1,1 @@
+import{E as o,W as s,X as r,Y as n,H as u}from"./app-BDifBTdw.js";const e=u(s());function h(){const a=()=>{e.value=s(),r(e.value)},t=()=>{e.value=n(e.value==="dark"?"light":"dark")};return o(a),{theme:e,toggleTheme:t,sync:a}}export{h as u};
