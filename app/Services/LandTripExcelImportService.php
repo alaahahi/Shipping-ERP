@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\LandTrip;
+use App\Models\LandTripCar;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -219,6 +220,22 @@ class LandTripExcelImportService
 
         $columns = $this->completeColumns($columns, $raw, $headerRowNumber);
 
+        $occupiedElsewhere = [];
+        $companyId = (int) $trip->company_id;
+        if ($companyId > 0) {
+            foreach (
+                LandTripCar::query()
+                    ->whereNotNull('chassis_no')
+                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $companyId))
+                    ->pluck('chassis_no') as $value
+            ) {
+                $normalized = $this->normalizeChassis((string) $value);
+                if ($normalized !== null) {
+                    $occupiedElsewhere[$normalized] = true;
+                }
+            }
+        }
+
         $preview = [];
         $ready = 0;
         $skipped = 0;
@@ -256,6 +273,13 @@ class LandTripExcelImportService
             if ($chassis === null) {
                 $skipped++;
                 $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, null, $statusText, null, null, null, 'Missing chassis / VIN');
+
+                continue;
+            }
+
+            if (isset($occupiedElsewhere[$chassis])) {
+                $skipped++;
+                $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, $chassis, $statusText, null, null, null, 'Chassis already used');
 
                 continue;
             }

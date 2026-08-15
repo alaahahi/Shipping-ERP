@@ -499,6 +499,17 @@ class LandTripService
                 continue;
             }
 
+            $elsewhere = LandTripCar::query()
+                ->where('chassis_no', $chassis)
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $company->id))
+                ->exists();
+
+            if ($elsewhere) {
+                $skipped++;
+
+                continue;
+            }
+
             $payload['car_id'] = $this->findOrCreateCar($chassis, $payload['description'])->id;
             $trip->cars()->create($payload);
             $imported++;
@@ -644,11 +655,10 @@ class LandTripService
                 $duplicate = LandTripCar::query()
                     ->where('chassis_no', $chassis)
                     ->where('id', '!=', $car->id)
-                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $targetCompany->id))
                     ->exists();
                 if ($duplicate) {
                     throw ValidationException::withMessages([
-                        'chassis_no' => 'Duplicate chassis number for this company.',
+                        'chassis_no' => 'This chassis number is already used.',
                     ]);
                 }
             }
@@ -706,18 +716,7 @@ class LandTripService
             $working = $this->workingTripForCompany($company, $actor);
             $this->assertEditable($working);
 
-            $seenChassis = [];
-            foreach (
-                LandTripCar::query()
-                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
-                    ->whereNotNull('chassis_no')
-                    ->pluck('chassis_no') as $chassis
-            ) {
-                $normalized = $this->normalizeChassis($chassis);
-                if ($normalized !== null) {
-                    $seenChassis[$normalized] = true;
-                }
-            }
+            $seenChassis = $this->occupiedChassisSet();
 
             $sortOrder = (int) LandTripCar::query()
                 ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
@@ -761,7 +760,7 @@ class LandTripService
         if ($chassis !== null) {
             if (isset($seenChassis[$chassis])) {
                 throw ValidationException::withMessages([
-                    "cars.{$index}.chassis_no" => 'Duplicate chassis number for this company.',
+                    "cars.{$index}.chassis_no" => 'This chassis number is already used.',
                 ]);
             }
             $seenChassis[$chassis] = true;
@@ -975,7 +974,7 @@ class LandTripService
             if ($chassis !== null) {
                 if (isset($seenChassis[$chassis])) {
                     throw ValidationException::withMessages([
-                        "cars.{$index}.chassis_no" => 'Duplicate chassis number on this land trip.',
+                        "cars.{$index}.chassis_no" => 'This chassis number is already used.',
                     ]);
                 }
                 $seenChassis[$chassis] = true;
@@ -1019,6 +1018,16 @@ class LandTripService
                 'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
                 'sort_order' => (int) ($row['sort_order'] ?? 0),
             ];
+        }
+
+        $occupied = $this->occupiedChassisSet($trip->cars()->pluck('id')->all());
+        foreach ($normalized as $index => $payload) {
+            $chassis = $payload['chassis_no'] ?? null;
+            if ($chassis && isset($occupied[$chassis])) {
+                throw ValidationException::withMessages([
+                    "cars.{$index}.chassis_no" => 'This chassis number is already used.',
+                ]);
+            }
         }
 
         $trip->cars()->delete();
@@ -1177,6 +1186,28 @@ class LandTripService
             'cars',
             'creator:id,name',
         ];
+    }
+
+    /**
+     * @param  list<int>  $ignoreIds
+     * @return array<string, true>
+     */
+    private function occupiedChassisSet(array $ignoreIds = []): array
+    {
+        $query = LandTripCar::query()->whereNotNull('chassis_no');
+        if ($ignoreIds !== []) {
+            $query->whereNotIn('id', $ignoreIds);
+        }
+
+        $seen = [];
+        foreach ($query->pluck('chassis_no') as $value) {
+            $normalized = $this->normalizeChassis($value);
+            if ($normalized !== null) {
+                $seen[$normalized] = true;
+            }
+        }
+
+        return $seen;
     }
 
     private function findOrCreateCar(string $chassis, ?string $description): Car
