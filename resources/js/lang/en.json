@@ -30,6 +30,8 @@
   },
   "auth": {
     "sign_in": "Sign in",
+    "sign_in_kicker": "Sign in",
+    "welcome_back": "Welcome back!",
     "sign_in_subtitle": "Enter your credentials to access the Shipping ERP dashboard.",
     "create_account": "Create account",
     "create_account_subtitle": "Set up your workspace access in a few seconds.",

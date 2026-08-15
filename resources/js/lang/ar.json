@@ -30,6 +30,8 @@
   },
   "auth": {
     "sign_in": "تسجيل الدخول",
+    "sign_in_kicker": "تسجيل الدخول",
+    "welcome_back": "مرحباً بعودتك!",
     "sign_in_subtitle": "أدخل بياناتك للوصول إلى لوحة نظام الشحن.",
     "create_account": "إنشاء حساب",
     "create_account_subtitle": "جهّز وصولك إلى مساحة العمل خلال ثوانٍ.",

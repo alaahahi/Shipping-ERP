@@ -1,1 +1,0 @@
-import{I as o,U as s,V as r,W as n,H as u}from"./app-Bg4CBy1c.js";const e=u(s());function h(){const a=()=>{e.value=s(),r(e.value)},t=()=>{e.value=n(e.value==="dark"?"light":"dark")};return o(a),{theme:e,toggleTheme:t,sync:a}}export{h as u};
