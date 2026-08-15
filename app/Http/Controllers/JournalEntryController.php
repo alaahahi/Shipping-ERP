@@ -99,6 +99,18 @@ class JournalEntryController extends Controller
         ]);
     }
 
+    public function print(JournalEntry $journal): Response
+    {
+        Gate::authorize('view', $journal);
+
+        $journal->load(['lines.account:id,code,name,currency', 'creator:id,name']);
+
+        return Inertia::render('Journals/Print', [
+            'entry' => $this->transformEntry($journal),
+            'printedAt' => ApplicationTimezone::formatNowLabel(),
+        ]);
+    }
+
     public function edit(JournalEntry $journal): Response
     {
         Gate::authorize('update', $journal);
@@ -207,6 +219,7 @@ class JournalEntryController extends Controller
             'voided_by' => $entry->voider?->name,
             'voided_at' => ApplicationTimezone::formatDateTime($entry->voided_at),
             'void_reason' => $entry->void_reason,
+            'attachment_url' => $entry->attachmentUrl(),
             'total_debit' => number_format((float) $entry->lines->sum('debit'), 2, '.', ''),
             'total_credit' => number_format((float) $entry->lines->sum('credit'), 2, '.', ''),
             'lines' => $entry->lines->map(fn ($line) => [

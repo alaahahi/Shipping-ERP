@@ -87,6 +87,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('whatsapp-settings.update');
 
     Route::resource('accounts', AccountController::class);
+    Route::post('/accounts/{account}/dashboard-flag', [AccountController::class, 'toggleDashboard'])
+        ->name('accounts.dashboard.toggle');
+    Route::post('/accounts/{account}/movements', [AccountController::class, 'storeMovement'])
+        ->name('accounts.movements.store');
+    Route::post('/accounts/{account}/journals/{journal}', [AccountController::class, 'updateMovement'])
+        ->name('accounts.journals.update');
+    Route::post('/accounts/{account}/journals/{journal}/void', [AccountController::class, 'voidMovement'])
+        ->name('accounts.journals.void');
 
     Route::resource('ships', ShipController::class);
     Route::resource('companies', CompanyController::class);
@@ -252,6 +260,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/journals', [JournalEntryController::class, 'index'])->name('journals.index');
     Route::get('/journals/create', [JournalEntryController::class, 'create'])->name('journals.create');
     Route::post('/journals', [JournalEntryController::class, 'store'])->name('journals.store');
+    Route::get('/journals/{journal}/print', [JournalEntryController::class, 'print'])->name('journals.print');
     Route::get('/journals/{journal}', [JournalEntryController::class, 'show'])->name('journals.show');
     Route::get('/journals/{journal}/edit', [JournalEntryController::class, 'edit'])->name('journals.edit');
     Route::put('/journals/{journal}', [JournalEntryController::class, 'update'])->name('journals.update');

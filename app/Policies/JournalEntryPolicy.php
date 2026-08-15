@@ -37,4 +37,9 @@ class JournalEntryPolicy
     {
         return $user->can(Permission::AccountingManage->value) && $journalEntry->isPosted();
     }
+
+    public function updateMeta(User $user, JournalEntry $journalEntry): bool
+    {
+        return $user->can(Permission::AccountingManage->value) && $journalEntry->isPosted();
+    }
 }

@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\Ship;
 use App\Models\Voyage;
+use App\Services\AccountService;
 use App\Services\CompanyLedgerService;
 use App\Services\VoyageReportService;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private readonly VoyageReportService $voyageReportService,
-        private readonly CompanyLedgerService $companyLedgerService
+        private readonly CompanyLedgerService $companyLedgerService,
+        private readonly AccountService $accountService
     ) {}
 
     public function index(Request $request): Response
@@ -48,6 +50,9 @@ class DashboardController extends Controller
             'monthOverview' => ($canReports || $canVoyages)
                 ? $this->voyageReportService->overview()
                 : null,
+            'pinnedAccounts' => $user?->can('accounting.view')
+                ? $this->accountService->dashboardShortcuts()
+                : [],
             'companyDebts' => $canVoyages
                 ? $this->companyLedgerService->debtorCards()
                 : null,

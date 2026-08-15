@@ -20,6 +20,7 @@ const form = useForm({
     parent_id: null,
     description: '',
     is_active: true,
+    show_on_dashboard: false,
 });
 
 const submit = () => form.post(route('accounts.store'));
@@ -72,6 +73,11 @@ const submit = () => form.post(route('accounts.store'));
                     <label class="form-erp-label">{{ t('accounts.description') }}</label>
                     <textarea v-model="form.description" class="form-control form-erp-control" rows="3" />
                     <InputError :message="form.errors.description" />
+                </div>
+                <div class="col-12 form-check">
+                    <input id="show_on_dashboard" v-model="form.show_on_dashboard" class="form-check-input" type="checkbox" />
+                    <label for="show_on_dashboard" class="form-check-label">{{ t('accounts.show_on_dashboard') }}</label>
+                    <p class="small text-secondary mb-0">{{ t('accounts.show_on_dashboard_help') }}</p>
                 </div>
             </div>
             <div class="d-flex justify-content-end gap-2 mt-4">

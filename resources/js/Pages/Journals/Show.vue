@@ -44,6 +44,9 @@ const voidEntry = (id) => {
         <div class="mb-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
             <Link :href="route('journals.index')" class="text-decoration-none small fw-semibold">← {{ t('journals.back') }}</Link>
             <div class="d-flex gap-2">
+                <Link :href="route('journals.print', entry.id)" class="btn btn-erp-ghost">
+                    {{ t('common.print') }}
+                </Link>
                 <Link
                     v-if="canManage && entry.status === 'draft'"
                     :href="route('journals.edit', entry.id)"

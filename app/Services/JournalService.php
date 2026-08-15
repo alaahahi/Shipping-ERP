@@ -7,7 +7,10 @@ use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class JournalService
@@ -145,7 +148,57 @@ class JournalService
             'void_reason' => $reason,
         ]);
 
+        Log::info('Journal entry voided', [
+            'journal_entry_id' => $entry->id,
+            'voucher_number' => $entry->voucher_number,
+            'voided_by' => $actor->id,
+            'void_reason' => $reason,
+        ]);
+
         return $entry->fresh(['lines.account', 'creator:id,name', 'voider:id,name']);
+    }
+
+    /**
+     * Posted entries may change description and attachment only — never amounts or accounts.
+     *
+     * @param  array{description: string, remove_attachment?: bool}  $data
+     */
+    public function updatePostedMeta(JournalEntry $entry, array $data, ?UploadedFile $attachment = null): JournalEntry
+    {
+        if (! $entry->isPosted()) {
+            throw ValidationException::withMessages([
+                'status' => 'Only posted entries can be updated this way.',
+            ]);
+        }
+
+        $entry->update([
+            'description' => $data['description'],
+        ]);
+
+        if (! empty($data['remove_attachment']) && ! $attachment) {
+            $this->deleteStoredAttachment($entry);
+            $entry->update(['attachment_path' => null]);
+        }
+
+        if ($attachment) {
+            $this->storeAttachment($entry, $attachment);
+        }
+
+        return $entry->fresh(['lines.account']);
+    }
+
+    public function storeAttachment(JournalEntry $entry, UploadedFile $file): void
+    {
+        $this->deleteStoredAttachment($entry);
+        $path = $file->store('journal-attachments/'.$entry->id, 'public');
+        $entry->update(['attachment_path' => $path]);
+    }
+
+    private function deleteStoredAttachment(JournalEntry $entry): void
+    {
+        if ($entry->attachment_path && Storage::disk('public')->exists($entry->attachment_path)) {
+            Storage::disk('public')->delete($entry->attachment_path);
+        }
     }
 
     public function nextVoucherNumber(): string

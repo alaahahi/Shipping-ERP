@@ -99,7 +99,7 @@ const destroy = (account) => {
                                 </Link>
                             </td>
                             <td :style="account.parent ? { paddingInlineStart: '0.75rem' } : {}">
-                                <Link :href="route('accounts.show', account.id)" class="text-decoration-none text-body">
+                                <Link :href="route('accounts.show', account.id)" class="text-decoration-none fw-semibold">
                                     {{ account.name }}
                                 </Link>
                                 <div v-if="account.parent" class="small text-secondary">
@@ -112,6 +112,13 @@ const destroy = (account) => {
                                     :label="t('accounts.system')"
                                     :dot="false"
                                 />
+                                <StatusBadge
+                                    v-if="account.show_on_dashboard"
+                                    class="ms-1"
+                                    tone="success"
+                                    :label="t('accounts.pinned')"
+                                    :dot="false"
+                                />
                             </td>
                             <td>{{ account.type_label }}</td>
                             <td>
@@ -122,7 +129,7 @@ const destroy = (account) => {
                                 />
                             </td>
                             <td class="text-end font-monospace">
-                                <Link :href="route('accounts.show', account.id)" class="text-decoration-none text-body">
+                                <Link :href="route('accounts.show', account.id)" class="text-decoration-none">
                                     {{ account.balance }}
                                 </Link>
                             </td>

@@ -6,16 +6,20 @@ use App\Enums\AccountType;
 use App\Enums\Currency;
 use App\Enums\JournalStatus;
 use App\Models\Account;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AccountService
 {
     public function __construct(
-        private readonly CompanyReceivableAccountService $companyReceivableAccounts
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts,
+        private readonly JournalService $journalService
     ) {}
 
     /**
@@ -55,7 +59,8 @@ class AccountService
      *     currency: string,
      *     parent_id?: int|null,
      *     description?: string|null,
-     *     is_active?: bool
+     *     is_active?: bool,
+     *     show_on_dashboard?: bool
      * }  $data
      */
     public function create(array $data): Account
@@ -71,6 +76,7 @@ class AccountService
                 'parent_id' => $data['parent_id'] ?? null,
                 'description' => $data['description'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
+                'show_on_dashboard' => $data['show_on_dashboard'] ?? false,
                 'is_system' => false,
             ]);
         });
@@ -84,7 +90,8 @@ class AccountService
      *     currency: string,
      *     parent_id?: int|null,
      *     description?: string|null,
-     *     is_active?: bool
+     *     is_active?: bool,
+     *     show_on_dashboard?: bool
      * }  $data
      */
     public function update(Account $account, array $data): Account
@@ -112,6 +119,7 @@ class AccountService
                 'parent_id' => $data['parent_id'] ?? null,
                 'description' => $data['description'] ?? null,
                 'is_active' => $data['is_active'] ?? $account->is_active,
+                'show_on_dashboard' => $data['show_on_dashboard'] ?? $account->show_on_dashboard,
             ]);
 
             return $account->fresh('parent:id,code,name');
@@ -148,6 +156,152 @@ class AccountService
     }
 
     /**
+     * @return list<array{id: int, label: string}>
+     */
+    public function counterpartOptions(Account $account): array
+    {
+        return Account::query()
+            ->where('is_active', true)
+            ->whereKeyNot($account->id)
+            ->where('currency', $account->currency)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn (Account $item) => [
+                'id' => $item->id,
+                'label' => "{$item->code} — {$item->name}",
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, code: string, name: string, currency: string, balance: string}>
+     */
+    public function dashboardShortcuts(): array
+    {
+        return Account::query()
+            ->where('is_active', true)
+            ->where('show_on_dashboard', true)
+            ->orderBy('code')
+            ->get()
+            ->map(fn (Account $account) => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'currency' => $account->currency->value,
+                'balance' => $this->balance($account),
+            ])
+            ->all();
+    }
+
+    public function toggleDashboard(Account $account): Account
+    {
+        $account->update([
+            'show_on_dashboard' => ! $account->show_on_dashboard,
+        ]);
+
+        return $account->fresh();
+    }
+
+    /**
+     * Receipt: Dr this account / Cr counterpart.
+     * Payment: Dr counterpart / Cr this account.
+     *
+     * @param  array{type: string, counterpart_account_id: int, amount: float|int|string, entry_date: string, description?: string|null}  $data
+     */
+    public function postMovement(Account $account, array $data, User $actor, ?UploadedFile $attachment = null): JournalEntry
+    {
+        $amount = round((float) $data['amount'], 2);
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Amount must be greater than zero.',
+            ]);
+        }
+
+        $counterpart = Account::query()
+            ->whereKey($data['counterpart_account_id'])
+            ->where('is_active', true)
+            ->first();
+
+        if (! $counterpart) {
+            throw ValidationException::withMessages([
+                'counterpart_account_id' => 'Select a valid account.',
+            ]);
+        }
+
+        if ($counterpart->id === $account->id) {
+            throw ValidationException::withMessages([
+                'counterpart_account_id' => 'Choose a different account.',
+            ]);
+        }
+
+        if ($counterpart->currency !== $account->currency) {
+            throw ValidationException::withMessages([
+                'counterpart_account_id' => 'Both accounts must use the same currency.',
+            ]);
+        }
+
+        $isReceipt = ($data['type'] ?? '') === 'receipt';
+        $label = $isReceipt ? 'Receipt' : 'Payment';
+        $description = trim((string) ($data['description'] ?? ''));
+        if ($description === '') {
+            $description = sprintf('%s · %s ↔ %s', $label, $account->code, $counterpart->code);
+        }
+
+        $thisLine = [
+            'account_id' => $account->id,
+            'debit' => $isReceipt ? $amount : 0,
+            'credit' => $isReceipt ? 0 : $amount,
+            'memo' => $label,
+        ];
+        $otherLine = [
+            'account_id' => $counterpart->id,
+            'debit' => $isReceipt ? 0 : $amount,
+            'credit' => $isReceipt ? $amount : 0,
+            'memo' => $label,
+        ];
+
+        return DB::transaction(function () use ($account, $data, $actor, $description, $thisLine, $otherLine, $attachment): JournalEntry {
+            $draft = $this->journalService->createDraft([
+                'entry_date' => $data['entry_date'],
+                'currency' => $account->currency->value,
+                'reference' => null,
+                'description' => $description,
+                'lines' => [$thisLine, $otherLine],
+            ], $actor);
+
+            $posted = $this->journalService->post($draft, $actor);
+
+            if ($attachment) {
+                $this->journalService->storeAttachment($posted, $attachment);
+            }
+
+            return $posted->fresh();
+        });
+    }
+
+    public function assertTouchesAccount(Account $account, JournalEntry $entry): void
+    {
+        $touches = $entry->lines()->where('account_id', $account->id)->exists();
+
+        if (! $touches) {
+            abort(404);
+        }
+    }
+
+    /**
+     * @param  array{description: string, remove_attachment?: bool}  $data
+     */
+    public function updateMovementMeta(JournalEntry $entry, array $data, ?UploadedFile $attachment = null): JournalEntry
+    {
+        return $this->journalService->updatePostedMeta($entry, $data, $attachment);
+    }
+
+    public function voidMovement(JournalEntry $entry, User $actor, ?string $reason = null): JournalEntry
+    {
+        return $this->journalService->void($entry, $actor, $reason);
+    }
+
+    /**
      * Balance is always derived from posted journal lines.
      */
     public function balance(Account $account): string
@@ -158,12 +312,13 @@ class AccountService
     /**
      * Posted ledger for one account with opening / running / closing balances.
      *
-     * @param  array{date_from?: string|null, date_to?: string|null}  $filters
+     * @param  array{date_from?: string|null, date_to?: string|null, voucher?: string|null, description?: string|null, amount?: float|int|string|null}  $filters
      * @return array{
      *     opening_balance: string,
      *     closing_balance: string,
      *     period_debit: string,
      *     period_credit: string,
+     *     period_net: string,
      *     lines: LengthAwarePaginator
      * }
      */
@@ -171,8 +326,18 @@ class AccountService
     {
         $dateFrom = $this->nullableDate($filters['date_from'] ?? null);
         $dateTo = $this->nullableDate($filters['date_to'] ?? null);
+        $search = [
+            'voucher' => trim((string) ($filters['voucher'] ?? '')),
+            'description' => trim((string) ($filters['description'] ?? '')),
+            'amount' => $filters['amount'] ?? null,
+        ];
+        $hasSearch = $search['voucher'] !== ''
+            || $search['description'] !== ''
+            || ($search['amount'] !== null && $search['amount'] !== '');
 
-        $opening = $this->signedBalance($account, beforeDate: $dateFrom);
+        $opening = (! $hasSearch && $dateFrom)
+            ? $this->signedBalance($account, beforeDate: $dateFrom)
+            : 0.0;
 
         $page = max(1, (int) request()->integer('page', 1));
         $offset = ($page - 1) * $perPage;
@@ -181,12 +346,13 @@ class AccountService
             $account,
             dateFrom: $dateFrom,
             dateTo: $dateTo,
-            limit: $offset
+            limit: $offset,
+            search: $search
         );
 
         $running = $opening + $this->signedFromTotals($account, $priorTotals['debit'], $priorTotals['credit']);
 
-        $paginator = $this->postedLinesQuery($account, $dateFrom, $dateTo)
+        $paginator = $this->postedLinesQuery($account, $dateFrom, $dateTo, search: $search)
             ->paginate($perPage)
             ->withQueryString()
             ->through(function (JournalLine $line) use ($account, &$running): array {
@@ -203,13 +369,16 @@ class AccountService
                     'description' => $entry?->description,
                     'reference' => $entry?->reference,
                     'memo' => $line->memo,
+                    'attachment_url' => $entry?->attachmentUrl(),
+                    'has_attachment' => filled($entry?->attachment_path),
+                    'counterpart' => $this->counterpartAccount($line),
                     'debit' => $this->formatAmount($debit),
                     'credit' => $this->formatAmount($credit),
                     'balance' => $this->formatAmount($running),
                 ];
             });
 
-        $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo);
+        $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo, search: $search);
         $closing = $opening + $this->signedFromTotals(
             $account,
             $periodTotals['debit'],
@@ -221,6 +390,7 @@ class AccountService
             'closing_balance' => $this->formatAmount($closing),
             'period_debit' => $this->formatAmount($periodTotals['debit']),
             'period_credit' => $this->formatAmount($periodTotals['credit']),
+            'period_net' => $this->formatAmount($periodTotals['credit'] - $periodTotals['debit']),
             'lines' => $paginator,
         ];
     }
@@ -243,9 +413,10 @@ class AccountService
         ?string $dateFrom = null,
         ?string $dateTo = null,
         ?string $beforeDate = null,
-        ?int $limit = null
+        ?int $limit = null,
+        array $search = []
     ): array {
-        $query = $this->postedLinesQuery($account, $dateFrom, $dateTo, $beforeDate);
+        $query = $this->postedLinesQuery($account, $dateFrom, $dateTo, $beforeDate, $search);
 
         if ($limit !== null) {
             if ($limit <= 0) {
@@ -280,8 +451,13 @@ class AccountService
         Account $account,
         ?string $dateFrom = null,
         ?string $dateTo = null,
-        ?string $beforeDate = null
+        ?string $beforeDate = null,
+        array $search = []
     ): Builder {
+        $voucher = trim((string) ($search['voucher'] ?? ''));
+        $description = trim((string) ($search['description'] ?? ''));
+        $amount = $search['amount'] ?? null;
+
         return JournalLine::query()
             ->select('journal_lines.*')
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
@@ -292,10 +468,60 @@ class AccountService
             ->when($beforeDate, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '<', $beforeDate))
             ->when($dateFrom, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '>=', $dateFrom))
             ->when($dateTo, fn (Builder $query) => $query->whereDate('journal_entries.entry_date', '<=', $dateTo))
+            ->when($voucher !== '', function (Builder $query) use ($voucher): void {
+                $query->where('journal_entries.voucher_number', 'like', '%'.$this->escapeLike($voucher).'%');
+            })
+            ->when($description !== '', function (Builder $query) use ($description): void {
+                $like = '%'.$this->escapeLike($description).'%';
+                $query->where(function (Builder $inner) use ($like): void {
+                    $inner
+                        ->where('journal_entries.description', 'like', $like)
+                        ->orWhere('journal_lines.memo', 'like', $like);
+                });
+            })
+            ->when($amount !== null && $amount !== '', function (Builder $query) use ($amount): void {
+                $value = round((float) $amount, 2);
+                $query->where(function (Builder $inner) use ($value): void {
+                    $inner
+                        ->where('journal_lines.debit', $value)
+                        ->orWhere('journal_lines.credit', $value);
+                });
+            })
             ->orderBy('journal_entries.entry_date')
             ->orderBy('journal_entries.id')
             ->orderBy('journal_lines.id')
-            ->with(['journalEntry:id,voucher_number,entry_date,description,reference,currency,status']);
+            ->with([
+                'journalEntry:id,voucher_number,entry_date,description,reference,currency,status,attachment_path',
+                'journalEntry.lines:id,journal_entry_id,account_id',
+                'journalEntry.lines.account:id,code,name',
+            ]);
+    }
+
+    /**
+     * @return array{id: int, code: string, name: string, label: string}|null
+     */
+    private function counterpartAccount(JournalLine $line): ?array
+    {
+        $counterpart = $line->journalEntry?->lines
+            ?->first(fn (JournalLine $other): bool => (int) $other->account_id !== (int) $line->account_id);
+
+        $account = $counterpart?->account;
+
+        if (! $account) {
+            return null;
+        }
+
+        return [
+            'id' => $account->id,
+            'code' => $account->code,
+            'name' => $account->name,
+            'label' => $account->code.' — '.$account->name,
+        ];
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $value);
     }
 
     private function signedFromTotals(Account $account, float $debit, float $credit): float

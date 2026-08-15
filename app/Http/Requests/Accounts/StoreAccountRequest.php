@@ -28,6 +28,7 @@ class StoreAccountRequest extends FormRequest
             'parent_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['sometimes', 'boolean'],
+            'show_on_dashboard' => ['sometimes', 'boolean'],
         ];
     }
 }

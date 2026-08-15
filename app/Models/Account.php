@@ -24,6 +24,7 @@ class Account extends Model
         'accountable_id',
         'is_system',
         'is_active',
+        'show_on_dashboard',
         'description',
     ];
 
@@ -34,6 +35,7 @@ class Account extends Model
             'currency' => Currency::class,
             'is_system' => 'boolean',
             'is_active' => 'boolean',
+            'show_on_dashboard' => 'boolean',
         ];
     }
 

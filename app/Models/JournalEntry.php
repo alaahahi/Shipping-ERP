@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class JournalEntry extends Model
 {
@@ -19,6 +20,7 @@ class JournalEntry extends Model
         'currency',
         'reference',
         'description',
+        'attachment_path',
         'status',
         'created_by',
         'posted_by',
@@ -72,5 +74,14 @@ class JournalEntry extends Model
     public function isVoid(): bool
     {
         return $this->status === JournalStatus::Void;
+    }
+
+    public function attachmentUrl(): ?string
+    {
+        if (! $this->attachment_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->attachment_path);
     }
 }

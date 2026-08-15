@@ -97,7 +97,10 @@
     "company_debts_total": "Total",
     "company_debts_none": "No open company receivables.",
     "debt_high": "Higher debt",
-    "debt_low": "Lower debt"
+    "debt_low": "Lower debt",
+    "pinned_accounts": "Quick accounts",
+    "pinned_accounts_help": "Accounts you flagged for fast access to the ledger from the home page.",
+    "open_ledger": "Open ledger"
   },
   "common": {
     "search": "Search",
@@ -280,8 +283,36 @@
     "closing": "Closing balance",
     "date_from": "From date",
     "date_to": "To date",
+    "search_voucher": "Voucher no.",
+    "search_description": "Description",
+    "search_amount": "Amount",
+    "source_account": "From account",
+    "period_net": "Net (credit − debit)",
+    "open_original": "Open original",
     "ledger_help": "Posted vouchers only. Balances are calculated from journal lines and never stored.",
-    "ledger_none": "No posted activity in this period."
+    "ledger_none": "No posted activity in this period.",
+    "movement": "Receipt / payment",
+    "movement_help": "Receipt = debit this account (it received the value). Payment = credit this account (the value left it).",
+    "receipt_help": "Receipt: this account is debit because it received the value.",
+    "payment_help": "Payment: this account is credit because the value left it.",
+    "debit_meaning": "Who received the value",
+    "credit_meaning": "Who paid / the value left",
+    "receipt": "Receipt",
+    "payment": "Payment",
+    "counterpart": "From account",
+    "select_counterpart": "Select account",
+    "post_movement": "Post movement",
+    "edit_movement": "Edit movement",
+    "edit_movement_help": "Amount and accounts stay locked after posting. You can edit the description and attach an image. Delete voids the voucher without erasing history.",
+    "attach_image": "Attach image",
+    "view_image": "View image",
+    "remove_image": "Remove image",
+    "void_confirm": "Void voucher {voucher}? It stays in the accounting history and leaves this ledger.",
+    "show_on_dashboard": "Show on dashboard",
+    "show_on_dashboard_help": "Pin this account on the home page for quick ledger access.",
+    "pinned": "Pinned",
+    "pin_dashboard": "Pin to dashboard",
+    "unpin_dashboard": "Unpin from dashboard"
   },
   "journals": {
     "title": "Journal Entries",
@@ -307,7 +338,9 @@
     "all_statuses": "All statuses",
     "search_placeholder": "Search voucher / reference",
     "select_account": "Select account",
-    "void_reason": "Void reason (optional):"
+    "void_reason": "Void reason (optional):",
+    "print_voucher": "Print voucher",
+    "printed_at": "Printed at"
   },
   "ships": {
     "title": "Ships",

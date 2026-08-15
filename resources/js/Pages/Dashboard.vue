@@ -12,6 +12,7 @@ defineProps({
     stats: { type: Object, default: () => ({}) },
     monthOverview: { type: Object, default: null },
     companyDebts: { type: Object, default: null },
+    pinnedAccounts: { type: Array, default: () => [] },
     recentVoyages: { type: Array, default: () => [] },
 });
 
@@ -103,6 +104,32 @@ const userName = computed(() => page.props.auth?.user?.name ?? '');
                 <div class="erp-stat">
                     <div class="erp-stat-label">{{ t('voyage_settlements.profit_usd') }}</div>
                     <p class="erp-stat-value" style="font-size: 1.15rem">{{ monthOverview.profit_usd }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="can('accounting.view') && pinnedAccounts.length" class="mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+                <div>
+                    <h3 class="erp-panel-title mb-1">{{ t('dashboard.pinned_accounts') }}</h3>
+                    <p class="small text-secondary mb-0">{{ t('dashboard.pinned_accounts_help') }}</p>
+                </div>
+            </div>
+            <div class="row g-2 g-md-3">
+                <div
+                    v-for="account in pinnedAccounts"
+                    :key="account.id"
+                    class="col-6 col-md-4 col-lg-3 col-xl-2"
+                >
+                    <Link
+                        :href="route('accounts.show', account.id)"
+                        class="erp-debt-card is-mid text-decoration-none"
+                    >
+                        <div class="erp-debt-card-name">{{ account.code }} — {{ account.name }}</div>
+                        <div class="erp-debt-card-amount">
+                            <MoneyAmount :value="account.balance" :currency="account.currency" tone="balance" />
+                        </div>
+                    </Link>
                 </div>
             </div>
         </div>

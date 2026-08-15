@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Enums\AccountType;
 use App\Enums\Currency;
 use App\Http\Requests\Accounts\AccountLedgerRequest;
+use App\Http\Requests\Accounts\StoreAccountMovementRequest;
 use App\Http\Requests\Accounts\StoreAccountRequest;
+use App\Http\Requests\Accounts\UpdateAccountMovementRequest;
 use App\Http\Requests\Accounts\UpdateAccountRequest;
 use App\Models\Account;
+use App\Models\JournalEntry;
 use App\Services\AccountService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +50,7 @@ class AccountController extends Controller
                 ] : null,
                 'is_system' => $account->is_system,
                 'is_active' => $account->is_active,
+                'show_on_dashboard' => $account->show_on_dashboard,
                 'balance' => $this->accountService->balance($account),
             ]);
 
@@ -90,6 +94,9 @@ class AccountController extends Controller
         $filters = [
             'date_from' => $request->validated('date_from'),
             'date_to' => $request->validated('date_to'),
+            'voucher' => $request->validated('voucher'),
+            'description' => $request->validated('description'),
+            'amount' => $request->validated('amount'),
         ];
 
         $ledger = $this->accountService->ledger($account, $filters);
@@ -104,17 +111,69 @@ class AccountController extends Controller
                 'currency' => $account->currency->value,
                 'is_system' => $account->is_system,
                 'is_active' => $account->is_active,
+                'show_on_dashboard' => $account->show_on_dashboard,
                 'description' => $account->description,
                 'balance' => $this->accountService->balance($account),
             ],
             'filters' => $filters,
-            'opening_balance' => $ledger['opening_balance'],
-            'closing_balance' => $ledger['closing_balance'],
             'period_debit' => $ledger['period_debit'],
             'period_credit' => $ledger['period_credit'],
+            'period_net' => $ledger['period_net'],
             'lines' => $ledger['lines'],
+            'counterpartAccounts' => $this->accountService->counterpartOptions($account),
             'canManage' => $request->user()?->can('accounting.manage') ?? false,
         ]);
+    }
+
+    public function storeMovement(StoreAccountMovementRequest $request, Account $account): RedirectResponse
+    {
+        Gate::authorize('create', JournalEntry::class);
+
+        $this->accountService->postMovement(
+            $account,
+            $request->validated(),
+            $request->user(),
+            $request->file('attachment')
+        );
+
+        return redirect()
+            ->route('accounts.show', $account)
+            ->with('success', 'Movement posted.');
+    }
+
+    public function updateMovement(UpdateAccountMovementRequest $request, Account $account, JournalEntry $journal): RedirectResponse
+    {
+        Gate::authorize('updateMeta', $journal);
+        $this->accountService->assertTouchesAccount($account, $journal);
+        $this->accountService->updateMovementMeta(
+            $journal,
+            $request->safe()->except('attachment'),
+            $request->file('attachment')
+        );
+
+        return redirect()
+            ->route('accounts.show', $account)
+            ->with('success', 'Movement updated.');
+    }
+
+    public function voidMovement(Request $request, Account $account, JournalEntry $journal): RedirectResponse
+    {
+        Gate::authorize('void', $journal);
+        $this->accountService->assertTouchesAccount($account, $journal);
+
+        $request->validate([
+            'void_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->accountService->voidMovement(
+            $journal,
+            $request->user(),
+            $request->string('void_reason')->toString() ?: 'Deleted from account ledger'
+        );
+
+        return redirect()
+            ->route('accounts.show', $account)
+            ->with('success', 'Movement voided.');
     }
 
     public function edit(Account $account): Response
@@ -131,6 +190,7 @@ class AccountController extends Controller
                 'parent_id' => $account->parent_id,
                 'description' => $account->description,
                 'is_active' => $account->is_active,
+                'show_on_dashboard' => $account->show_on_dashboard,
                 'is_system' => $account->is_system,
             ],
             ...$this->formOptions(),
@@ -146,6 +206,15 @@ class AccountController extends Controller
         return redirect()
             ->route('accounts.index')
             ->with('success', 'Account updated successfully.');
+    }
+
+    public function toggleDashboard(Account $account): RedirectResponse
+    {
+        Gate::authorize('update', $account);
+
+        $this->accountService->toggleDashboard($account);
+
+        return back();
     }
 
     public function destroy(Account $account): RedirectResponse

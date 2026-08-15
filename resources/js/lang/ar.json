@@ -97,7 +97,10 @@
     "company_debts_total": "المجموع",
     "company_debts_none": "لا توجد ذمم مدينة مفتوحة على الشركات.",
     "debt_high": "دين مرتفع",
-    "debt_low": "دين منخفض"
+    "debt_low": "دين منخفض",
+    "pinned_accounts": "حسابات سريعة",
+    "pinned_accounts_help": "حسابات اخترتها للوصول السريع إلى الكشف من الصفحة الرئيسية.",
+    "open_ledger": "فتح الكشف"
   },
   "common": {
     "search": "بحث",
@@ -280,8 +283,36 @@
     "closing": "رصيد ختامي",
     "date_from": "من تاريخ",
     "date_to": "إلى تاريخ",
+    "search_voucher": "رقم الحركة",
+    "search_description": "الوصف",
+    "search_amount": "المبلغ",
+    "source_account": "مصدر المبلغ",
+    "period_net": "الناتج",
+    "open_original": "فتح الأصل",
     "ledger_help": "يُعرض فقط القيود المرحلة. الرصيد يُحسب من القيود ولا يُخزَّن.",
-    "ledger_none": "لا توجد حركات مرحلة في هذه الفترة."
+    "ledger_none": "لا توجد حركات مرحلة في هذه الفترة.",
+    "movement": "حركة قبض / دفع",
+    "movement_help": "القبض = مدين هذا الحساب (استلم القيمة). الدفع = دائن هذا الحساب (خرجت منه القيمة).",
+    "receipt_help": "قبض: هذا الحساب مدين لأنه استلم القيمة.",
+    "payment_help": "دفع: هذا الحساب دائن لأن القيمة خرجت منه.",
+    "debit_meaning": "من استلم القيمة",
+    "credit_meaning": "من دفع / خرجت منه القيمة",
+    "receipt": "قبض",
+    "payment": "دفع",
+    "counterpart": "من حساب",
+    "select_counterpart": "اختر الحساب",
+    "post_movement": "ترحيل الحركة",
+    "edit_movement": "تعديل الحركة",
+    "edit_movement_help": "المبلغ والحسابات لا تُغيَّر بعد الترحيل. يمكن تعديل الوصف وإرفاق صورة. الحذف يُبطل القيد دون مسح التاريخ.",
+    "attach_image": "إرفاق صورة",
+    "view_image": "عرض الصورة",
+    "remove_image": "إزالة الصورة",
+    "void_confirm": "إبطال السند {voucher}؟ يبقى في السجل المحاسبي ولا يظهر في الكشف.",
+    "show_on_dashboard": "إظهار في الصفحة الرئيسية",
+    "show_on_dashboard_help": "يظهر الحساب في لوحة التحكم للوصول السريع إلى الكشف.",
+    "pinned": "مثبّت",
+    "pin_dashboard": "تثبيت في الرئيسية",
+    "unpin_dashboard": "إزالة من الرئيسية"
   },
   "journals": {
     "title": "القيود اليومية",
@@ -307,7 +338,9 @@
     "all_statuses": "كل الحالات",
     "search_placeholder": "ابحث برقم السند / المرجع",
     "select_account": "اختر حساباً",
-    "void_reason": "سبب الإلغاء (اختياري):"
+    "void_reason": "سبب الإلغاء (اختياري):",
+    "print_voucher": "طباعة الوصل",
+    "printed_at": "طُبع في"
   },
   "ships": {
     "title": "السفن",

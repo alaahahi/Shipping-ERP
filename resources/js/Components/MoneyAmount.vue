@@ -34,7 +34,11 @@ const amountClass = computed(() => {
     }
 
     if (props.tone === 'credit') {
-        return numeric.value > 0 ? 'erp-amount erp-amount-credit' : 'erp-amount';
+        if (props.showZero || numeric.value > 0) {
+            return 'erp-amount erp-amount-credit';
+        }
+
+        return 'erp-amount';
     }
 
     if (props.tone === 'balance') {

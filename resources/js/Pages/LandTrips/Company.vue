@@ -90,6 +90,7 @@ const loadedCars = ref([...(props.cars.data ?? [])]);
 const currentPage = ref(props.cars.current_page ?? 1);
 const lastPage = ref(props.cars.last_page ?? 1);
 const loadingMore = ref(false);
+const deletingSelected = ref(false);
 const loadMoreSentinel = ref(null);
 const didScrollHighlight = ref(false);
 const replaceLoadedCars = ref(true);
@@ -253,8 +254,10 @@ const scrollToHighlight = async () => {
 const mergeLoadedCars = (paginator) => {
     const pageNum = paginator.current_page ?? 1;
     const rows = paginator.data ?? [];
+    const shouldReplace = replaceLoadedCars.value
+        || (pageNum <= 1 && !loadingMore.value && loadedCars.value.length === 0);
 
-    if (replaceLoadedCars.value) {
+    if (shouldReplace) {
         loadedCars.value = [...rows];
         currentPage.value = paginator.current_page ?? 1;
         lastPage.value = paginator.last_page ?? 1;
@@ -271,6 +274,8 @@ const mergeLoadedCars = (paginator) => {
             ...loadedCars.value,
             ...rows.filter((car) => !seen.has(car.id)),
         ];
+        currentPage.value = paginator.current_page ?? currentPage.value;
+        lastPage.value = paginator.last_page ?? lastPage.value;
     }
 };
 
@@ -284,7 +289,7 @@ watch(
 );
 
 const loadMore = async () => {
-    if (loadingMore.value || filtering.value || !hasMoreCars.value) {
+    if (loadingMore.value || filtering.value || deletingSelected.value || !hasMoreCars.value) {
         return;
     }
 
@@ -435,6 +440,7 @@ const applyLocation = (carIds = []) => {
 
     const snapshot = loadedCars.value.map((car) => ({ ...car }));
     applyLocationLocally(carIds, moveForm.location_status_id);
+    replaceLoadedCars.value = true;
 
     moveForm.scope = 'selected';
     moveForm.car_ids = carIds;
@@ -445,6 +451,7 @@ const applyLocation = (carIds = []) => {
         only: ['cars', 'statusSummary', 'locationLog', 'importLog'],
         onSuccess: () => {
             selectedIds.value = [];
+            mergeLoadedCars(props.cars);
             toastMessage.value = t('land_trips.location_updated');
         },
         onError: () => {
@@ -452,8 +459,6 @@ const applyLocation = (carIds = []) => {
         },
     });
 };
-
-const deletingSelected = ref(false);
 
 const deleteSelected = () => {
     if (!selectedCount.value) {
@@ -467,6 +472,7 @@ const deleteSelected = () => {
     const carIds = [...selectedIds.value];
     const snapshot = loadedCars.value.map((car) => ({ ...car }));
     loadedCars.value = loadedCars.value.filter((car) => !carIds.includes(car.id) && !carIds.includes(Number(car.id)));
+    replaceLoadedCars.value = true;
     deletingSelected.value = true;
 
     router.delete(route('land-trips.companies.cars.destroy', props.company.id), {
@@ -476,6 +482,7 @@ const deleteSelected = () => {
         only: ['cars', 'statusSummary', 'locationLog'],
         onSuccess: () => {
             selectedIds.value = [];
+            mergeLoadedCars(props.cars);
             toastMessage.value = t('land_trips.cars_deleted');
         },
         onError: () => {
@@ -654,7 +661,7 @@ const savePrice = (car, value) => {
 
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
 
-            <LandTripCarCheck v-show="hubTab === 'check'" :active="hubTab === 'check'" :company-id="company.id" />
+            <LandTripCarCheck v-if="hubTab === 'check'" :active="true" :company-id="company.id" />
 
             <div v-show="hubTab === 'cars'" class="erp-card p-0 overflow-hidden land-hub-workspace">
                 <div class="land-hub-toolbar">
@@ -867,7 +874,7 @@ const savePrice = (car, value) => {
                     </table>
                 </div>
 
-                <div v-if="loadedCars.length" class="land-hub-pager">
+                <div v-if="loadedCars.length || hasMoreCars" class="land-hub-pager">
                     <div
                         v-if="hasMoreCars"
                         ref="loadMoreSentinel"

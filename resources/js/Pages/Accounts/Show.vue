@@ -1,31 +1,96 @@
 <script setup>
+import AccountMovementModal from '@/Components/AccountMovementModal.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { fbButton, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink, fbSuccessButton } from '@/flowbite';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     account: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
-    opening_balance: { type: String, required: true },
-    closing_balance: { type: String, required: true },
     period_debit: { type: String, required: true },
     period_credit: { type: String, required: true },
+    period_net: { type: String, required: true },
     lines: { type: Object, required: true },
+    counterpartAccounts: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
+const movementOpen = ref(false);
+const movementType = ref('receipt');
+const previewUrl = ref(null);
 
 const filterForm = useForm({
     date_from: props.filters.date_from ?? '',
     date_to: props.filters.date_to ?? '',
+    voucher: props.filters.voucher ?? '',
+    description: props.filters.description ?? '',
+    amount: props.filters.amount ?? '',
 });
+
+const editingLine = ref(null);
+const editForm = useForm({
+    description: '',
+    attachment: null,
+    remove_attachment: false,
+});
+
+const toggleDashboard = () => {
+    router.post(route('accounts.dashboard.toggle', props.account.id), {}, {
+        preserveScroll: true,
+    });
+};
 
 const applyFilters = () => {
     filterForm.get(route('accounts.show', props.account.id), {
         preserveState: true,
         replace: true,
+    });
+};
+
+const openMovement = (type) => {
+    movementType.value = type;
+    movementOpen.value = true;
+};
+
+const openEdit = (line) => {
+    editingLine.value = line;
+    editForm.clearErrors();
+    editForm.description = line.description || '';
+    editForm.attachment = null;
+    editForm.remove_attachment = false;
+};
+
+const onEditFile = (event) => {
+    editForm.attachment = event.target.files?.[0] ?? null;
+    editForm.remove_attachment = false;
+};
+
+const saveEdit = () => {
+    if (!editingLine.value) {
+        return;
+    }
+
+    editForm.post(route('accounts.journals.update', [props.account.id, editingLine.value.journal_entry_id]), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            editingLine.value = null;
+        },
+    });
+};
+
+const voidLine = (line) => {
+    if (!window.confirm(t('accounts.void_confirm', { voucher: line.voucher_number }))) {
+        return;
+    }
+
+    router.post(route('accounts.journals.void', [props.account.id, line.journal_entry_id]), {}, {
+        preserveScroll: true,
     });
 };
 </script>
@@ -35,17 +100,46 @@ const applyFilters = () => {
     <AppLayout>
         <template #header>{{ t('accounts.ledger') }} · {{ account.code }}</template>
 
-        <div class="mb-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
-            <Link :href="route('accounts.index')" class="text-decoration-none small fw-semibold">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <Link :href="route('accounts.index')" class="text-sm font-semibold text-teal-700 no-underline dark:text-teal-400">
                 ← {{ t('accounts.back') }}
             </Link>
-            <Link
-                v-if="canManage"
-                :href="route('accounts.edit', account.id)"
-                class="btn btn-sm btn-erp-ghost"
+            <div class="flex flex-wrap gap-2">
+                <button
+                    v-if="canManage"
+                    type="button"
+                    :class="fbGhostButton"
+                    @click="toggleDashboard"
+                >
+                    {{ account.show_on_dashboard ? t('accounts.unpin_dashboard') : t('accounts.pin_dashboard') }}
+                </button>
+                <Link
+                    v-if="canManage"
+                    :href="route('accounts.edit', account.id)"
+                    :class="fbGhostButton"
+                >
+                    {{ t('common.edit') }}
+                </Link>
+            </div>
+        </div>
+
+        <div v-if="canManage" class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+                type="button"
+                :class="fbSuccessButton"
+                class="min-h-12 text-base"
+                @click="openMovement('receipt')"
             >
-                {{ t('common.edit') }}
-            </Link>
+                {{ t('accounts.receipt') }}
+            </button>
+            <button
+                type="button"
+                :class="fbDangerButton"
+                class="min-h-12 text-base"
+                @click="openMovement('payment')"
+            >
+                {{ t('accounts.payment') }}
+            </button>
         </div>
 
         <div class="erp-hero mb-3">
@@ -53,89 +147,116 @@ const applyFilters = () => {
             <h2 class="erp-hero-title">{{ account.code }} — {{ account.name }}</h2>
             <p class="erp-hero-subtitle">
                 {{ account.type_label }} · {{ account.currency }} · {{ t('accounts.balance') }}:
-                <MoneyAmount :value="account.balance" tone="balance" />
+                <span class="account-ledger-hero-balance">
+                    <MoneyAmount :value="account.balance" tone="balance" />
+                </span>
             </p>
         </div>
 
-        <div class="row g-3 mb-3">
-            <div class="col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('accounts.opening') }}</div>
-                    <p class="erp-stat-value" style="font-size: 1.2rem">
-                        <MoneyAmount :value="opening_balance" tone="balance" />
-                    </p>
-                </div>
+        <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="erp-stat account-ledger-inflow">
+                <div class="erp-stat-label">{{ t('journals.debit') }}</div>
+                <p class="erp-stat-hint mb-1">{{ t('accounts.debit_meaning') }}</p>
+                <p class="erp-stat-value" style="font-size: 1.2rem">
+                    <MoneyAmount :value="period_debit" tone="debit" show-zero />
+                </p>
             </div>
-            <div class="col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('accounts.closing') }}</div>
-                    <p class="erp-stat-value" style="font-size: 1.2rem">
-                        <MoneyAmount :value="closing_balance" tone="balance" />
-                    </p>
-                </div>
+            <div class="erp-stat account-ledger-outflow">
+                <div class="erp-stat-label">{{ t('journals.credit') }}</div>
+                <p class="erp-stat-hint mb-1">{{ t('accounts.credit_meaning') }}</p>
+                <p class="erp-stat-value" style="font-size: 1.2rem">
+                    <MoneyAmount :value="period_credit" tone="credit" show-zero />
+                </p>
             </div>
-            <div class="col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('journals.debit') }}</div>
-                    <p class="erp-stat-value" style="font-size: 1.2rem">
-                        <MoneyAmount :value="period_debit" tone="debit" show-zero />
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('journals.credit') }}</div>
-                    <p class="erp-stat-value" style="font-size: 1.2rem">
-                        <MoneyAmount :value="period_credit" tone="credit" show-zero />
-                    </p>
-                </div>
+            <div class="erp-stat account-ledger-net">
+                <div class="erp-stat-label">{{ t('accounts.period_net') }}</div>
+                <p class="erp-stat-value" style="font-size: 1.2rem">
+                    <MoneyAmount :value="period_net" tone="credit" show-zero />
+                </p>
             </div>
         </div>
 
         <div class="erp-card p-0 overflow-hidden mb-3">
-            <form class="erp-toolbar row g-2 mx-0" @submit.prevent="applyFilters">
-                <div class="col-md-3">
-                    <label class="form-erp-label">{{ t('accounts.date_from') }}</label>
-                    <input v-model="filterForm.date_from" type="date" class="form-control form-erp-control" />
+            <form class="erp-toolbar is-compact row g-1 mx-0 align-items-center" @submit.prevent="applyFilters">
+                <div class="col-6 col-lg">
+                    <input
+                        v-model="filterForm.date_from"
+                        type="date"
+                        class="form-control form-erp-control"
+                        :aria-label="t('accounts.date_from')"
+                        :title="t('accounts.date_from')"
+                    />
                 </div>
-                <div class="col-md-3">
-                    <label class="form-erp-label">{{ t('accounts.date_to') }}</label>
-                    <input v-model="filterForm.date_to" type="date" class="form-control form-erp-control" />
+                <div class="col-6 col-lg">
+                    <input
+                        v-model="filterForm.date_to"
+                        type="date"
+                        class="form-control form-erp-control"
+                        :aria-label="t('accounts.date_to')"
+                        :title="t('accounts.date_to')"
+                    />
                 </div>
-                <div class="col-md-6 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-erp-ghost">{{ t('common.filter') }}</button>
+                <div class="col-6 col-lg">
+                    <input
+                        v-model="filterForm.voucher"
+                        type="search"
+                        class="form-control form-erp-control"
+                        :placeholder="t('accounts.search_voucher')"
+                    />
+                </div>
+                <div class="col-6 col-lg">
+                    <input
+                        v-model="filterForm.description"
+                        type="search"
+                        class="form-control form-erp-control"
+                        :placeholder="t('accounts.search_description')"
+                    />
+                </div>
+                <div class="col-6 col-lg">
+                    <input
+                        v-model="filterForm.amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="form-control form-erp-control"
+                        :placeholder="t('accounts.search_amount')"
+                    />
+                </div>
+                <div class="col-6 col-lg-auto">
+                    <button type="submit" class="btn btn-sm btn-erp-ghost w-100">{{ t('common.filter') }}</button>
+                </div>
+                <div class="col-auto">
                     <Link :href="route('accounts.show', account.id)" class="btn btn-sm btn-erp-ghost">
                         {{ t('common.reset') }}
                     </Link>
                 </div>
             </form>
-            <div class="px-4 pb-3">
-                <p class="small text-secondary mb-0">{{ t('accounts.ledger_help') }}</p>
-            </div>
         </div>
 
         <div class="erp-card p-0 overflow-hidden">
             <div class="table-responsive">
-                <table class="table erp-table align-middle mb-0">
+                <table class="table erp-table account-ledger-table align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">{{ t('common.date') }}</th>
                             <th>{{ t('journals.voucher') }}</th>
                             <th>{{ t('common.description') }}</th>
-                            <th class="text-end">{{ t('journals.debit') }}</th>
-                            <th class="text-end">{{ t('journals.credit') }}</th>
-                            <th class="text-end pe-4">{{ t('accounts.balance') }}</th>
+                            <th>{{ t('accounts.source_account') }}</th>
+                            <th class="text-end">
+                                {{ t('journals.debit') }}
+                                <div class="normal-case font-normal text-xs opacity-80">{{ t('accounts.debit_meaning') }}</div>
+                            </th>
+                            <th class="text-end">
+                                {{ t('journals.credit') }}
+                                <div class="normal-case font-normal text-xs opacity-80">{{ t('accounts.credit_meaning') }}</div>
+                            </th>
+                            <th class="text-end">{{ t('accounts.balance') }}</th>
+                            <th class="pe-4 text-end">{{ t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr class="table-light">
-                            <td class="ps-4" colspan="5">{{ t('accounts.opening') }}</td>
-                            <td class="text-end pe-4">
-                                <MoneyAmount :value="opening_balance" tone="balance" />
-                            </td>
-                        </tr>
                         <tr v-if="lines.data.length === 0">
-                            <td colspan="6" class="text-center text-secondary py-4">{{ t('accounts.ledger_none') }}</td>
+                            <td colspan="8" class="text-center text-secondary py-4">{{ t('accounts.ledger_none') }}</td>
                         </tr>
                         <tr v-for="line in lines.data" :key="line.id">
                             <td class="ps-4">{{ line.entry_date }}</td>
@@ -150,6 +271,19 @@ const applyFilters = () => {
                             <td>
                                 <div>{{ line.description }}</div>
                                 <div v-if="line.memo" class="small text-secondary">{{ line.memo }}</div>
+                                <button
+                                    v-if="line.attachment_url"
+                                    type="button"
+                                    :class="fbGhostButton"
+                                    class="mt-1 !px-2 !py-0.5 text-xs"
+                                    @click="previewUrl = line.attachment_url"
+                                >
+                                    {{ t('accounts.view_image') }}
+                                </button>
+                            </td>
+                            <td>
+                                <span v-if="line.counterpart">{{ line.counterpart.label }}</span>
+                                <span v-else class="text-secondary">—</span>
                             </td>
                             <td class="text-end">
                                 <MoneyAmount :value="line.debit" tone="debit" />
@@ -157,14 +291,37 @@ const applyFilters = () => {
                             <td class="text-end">
                                 <MoneyAmount :value="line.credit" tone="credit" />
                             </td>
-                            <td class="text-end pe-4">
+                            <td class="text-end">
                                 <MoneyAmount :value="line.balance" tone="balance" />
                             </td>
-                        </tr>
-                        <tr class="table-light fw-semibold">
-                            <td class="ps-4" colspan="5">{{ t('accounts.closing') }}</td>
-                            <td class="text-end pe-4">
-                                <MoneyAmount :value="closing_balance" tone="balance" />
+                            <td class="pe-2 text-end">
+                                <div class="inline-flex flex-wrap justify-end gap-1">
+                                    <Link
+                                        :href="route('journals.print', line.journal_entry_id)"
+                                        :class="fbGhostButton"
+                                        class="!px-2 !py-1 text-xs"
+                                    >
+                                        {{ t('common.print') }}
+                                    </Link>
+                                    <button
+                                        v-if="canManage"
+                                        type="button"
+                                        :class="fbGhostButton"
+                                        class="!px-2 !py-1 text-xs"
+                                        @click="openEdit(line)"
+                                    >
+                                        {{ t('common.edit') }}
+                                    </button>
+                                    <button
+                                        v-if="canManage"
+                                        type="button"
+                                        :class="fbDangerButton"
+                                        class="!w-auto !px-2 !py-1 text-xs"
+                                        @click="voidLine(line)"
+                                    >
+                                        {{ t('common.delete') }}
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -196,6 +353,96 @@ const applyFilters = () => {
                     {{ t('common.next') }}
                 </Link>
                 <span v-else></span>
+            </div>
+        </div>
+
+        <AccountMovementModal
+            :show="movementOpen"
+            :type="movementType"
+            :account-id="account.id"
+            :counterpart-accounts="counterpartAccounts"
+            @close="movementOpen = false"
+        />
+
+        <div v-if="previewUrl" class="erp-modal-backdrop" @click.self="previewUrl = null">
+            <div
+                class="erp-modal-dialog erp-card p-0 overflow-hidden"
+                style="width: min(900px, 100%)"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="t('accounts.view_image')"
+            >
+                <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom">
+                    <h3 class="h5 erp-display mb-0">{{ t('accounts.view_image') }}</h3>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a
+                            :href="previewUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :class="fbGhostButton"
+                        >
+                            {{ t('accounts.open_original') }}
+                        </a>
+                        <button type="button" :class="fbGhostButton" @click="previewUrl = null">
+                            {{ t('common.cancel') }}
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <img :src="previewUrl" :alt="t('accounts.view_image')" class="mx-auto max-h-[75vh] w-auto max-w-full rounded-lg" />
+                </div>
+            </div>
+        </div>
+
+        <div v-if="editingLine" class="erp-modal-backdrop" @click.self="editingLine = null">
+            <div
+                class="erp-modal-dialog erp-card p-0 overflow-hidden"
+                style="width: min(560px, 100%)"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="t('accounts.edit_movement')"
+            >
+                <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom">
+                    <div>
+                        <h3 class="h5 erp-display mb-1">{{ t('accounts.edit_movement') }}</h3>
+                        <p class="small text-secondary mb-0">{{ t('accounts.edit_movement_help') }}</p>
+                    </div>
+                    <button type="button" :class="fbGhostButton" @click="editingLine = null">
+                        {{ t('common.cancel') }}
+                    </button>
+                </div>
+                <form class="p-3" @submit.prevent="saveEdit">
+                    <div class="mb-3">
+                        <label :class="fbLabel" for="edit-description">{{ t('common.description') }}</label>
+                        <textarea id="edit-description" v-model="editForm.description" rows="3" maxlength="255" :class="fbInput" required />
+                        <InputError :message="editForm.errors.description" />
+                    </div>
+                    <div class="mb-4">
+                        <label :class="fbLabel" for="edit-file">{{ t('accounts.attach_image') }}</label>
+                        <input id="edit-file" type="file" accept="image/*" :class="fbInput" @change="onEditFile" />
+                        <InputError :message="editForm.errors.attachment" />
+                        <div v-if="editingLine.attachment_url && !editForm.remove_attachment" class="mt-2 flex items-center gap-3">
+                            <button type="button" :class="fbLink" @click="previewUrl = editingLine.attachment_url">
+                                {{ t('accounts.view_image') }}
+                            </button>
+                            <button type="button" class="text-sm text-red-600 dark:text-red-400" @click="editForm.remove_attachment = true">
+                                {{ t('accounts.remove_image') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap justify-end gap-2">
+                        <Link
+                            :href="route('journals.print', editingLine.journal_entry_id)"
+                            :class="fbGhostButton"
+                        >
+                            {{ t('common.print') }}
+                        </Link>
+                        <button type="button" :class="fbGhostButton" @click="editingLine = null">{{ t('common.cancel') }}</button>
+                        <button type="submit" :class="fbButton" class="!w-auto" :disabled="editForm.processing">
+                            {{ editForm.processing ? t('common.saving') : t('common.save') }}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </AppLayout>

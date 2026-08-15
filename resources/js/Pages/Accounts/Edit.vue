@@ -21,6 +21,7 @@ const form = useForm({
     parent_id: props.account.parent_id,
     description: props.account.description ?? '',
     is_active: props.account.is_active,
+    show_on_dashboard: props.account.show_on_dashboard,
 });
 
 const submit = () => form.put(route('accounts.update', props.account.id));
@@ -74,6 +75,11 @@ const submit = () => form.put(route('accounts.update', props.account.id));
                 <div class="col-12 form-check">
                     <input id="is_active" v-model="form.is_active" class="form-check-input" type="checkbox" />
                     <label for="is_active" class="form-check-label">{{ t('common.active') }}</label>
+                </div>
+                <div class="col-12 form-check">
+                    <input id="show_on_dashboard" v-model="form.show_on_dashboard" class="form-check-input" type="checkbox" />
+                    <label for="show_on_dashboard" class="form-check-label">{{ t('accounts.show_on_dashboard') }}</label>
+                    <p class="small text-secondary mb-0">{{ t('accounts.show_on_dashboard_help') }}</p>
                 </div>
             </div>
             <div class="d-flex justify-content-end gap-2 mt-4">
