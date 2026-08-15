@@ -1,9 +1,7 @@
 <script setup>
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
 defineProps({
     mustVerifyEmail: {
@@ -14,97 +12,81 @@ defineProps({
     },
 });
 
+const { t } = useI18n();
 const user = usePage().props.auth.user;
 
 const form = useForm({
     name: user.name,
     email: user.email,
 });
+
+const submit = () => {
+    form.patch(route('profile.update'), { preserveScroll: true });
+};
 </script>
 
 <template>
-    <section>
-        <header>
-            <h2 class="text-lg font-medium text-gray-900">
-                Profile Information
-            </h2>
-
-            <p class="mt-1 text-sm text-gray-600">
-                Update your account's profile information and email address.
-            </p>
+    <section class="erp-card p-4 h-100">
+        <header class="mb-4">
+            <h2 class="h5 erp-display mb-1">{{ t('profile.info_title') }}</h2>
+            <p class="text-secondary small mb-0">{{ t('profile.info_help') }}</p>
         </header>
 
-        <form
-            @submit.prevent="form.patch(route('profile.update'))"
-            class="mt-6 space-y-6"
-        >
+        <form class="d-grid gap-3" @submit.prevent="submit">
             <div>
-                <InputLabel for="name" value="Name" />
-
-                <TextInput
+                <label for="name" class="form-erp-label">{{ t('auth.full_name') }}</label>
+                <input
                     id="name"
-                    type="text"
-                    class="mt-1 block w-full"
                     v-model="form.name"
+                    type="text"
+                    class="form-control form-erp-control"
                     required
-                    autofocus
                     autocomplete="name"
-                />
-
-                <InputError class="mt-2" :message="form.errors.name" />
+                >
+                <InputError :message="form.errors.name" />
             </div>
 
             <div>
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
+                <label for="email" class="form-erp-label">{{ t('auth.email') }}</label>
+                <input
                     id="email"
-                    type="email"
-                    class="mt-1 block w-full"
                     v-model="form.email"
+                    type="email"
+                    class="form-control form-erp-control"
                     required
                     autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
+                >
+                <InputError :message="form.errors.email" />
             </div>
 
-            <div v-if="mustVerifyEmail && user.email_verified_at === null">
-                <p class="mt-2 text-sm text-gray-800">
-                    Your email address is unverified.
+            <div v-if="mustVerifyEmail && user.email_verified_at === null" class="small">
+                <p class="mb-2">
+                    {{ t('profile.unverified') }}
                     <Link
                         :href="route('verification.send')"
                         method="post"
                         as="button"
-                        class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        class="btn btn-link btn-sm p-0 align-baseline"
                     >
-                        Click here to re-send the verification email.
+                        {{ t('profile.resend_verification') }}
                     </Link>
                 </p>
-
-                <div
-                    v-show="status === 'verification-link-sent'"
-                    class="mt-2 text-sm font-medium text-green-600"
-                >
-                    A new verification link has been sent to your email address.
-                </div>
+                <p v-if="status === 'verification-link-sent'" class="text-success mb-0">
+                    {{ t('profile.verify_sent') }}
+                </p>
             </div>
 
-            <div class="flex items-center gap-4">
-                <PrimaryButton :disabled="form.processing">Save</PrimaryButton>
-
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-1">
+                <button type="submit" class="btn btn-erp" :disabled="form.processing">
+                    {{ form.processing ? t('common.saving') : t('common.save') }}
+                </button>
                 <Transition
-                    enter-active-class="transition ease-in-out"
+                    enter-active-class="transition-opacity"
                     enter-from-class="opacity-0"
-                    leave-active-class="transition ease-in-out"
+                    leave-active-class="transition-opacity"
                     leave-to-class="opacity-0"
                 >
-                    <p
-                        v-if="form.recentlySuccessful"
-                        class="text-sm text-gray-600"
-                    >
-                        Saved.
-                    </p>
+                    <span v-if="form.recentlySuccessful" class="small text-success">{{ t('profile.saved') }}</span>
                 </Transition>
             </div>
         </form>

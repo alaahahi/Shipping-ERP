@@ -303,13 +303,17 @@ async function loadDbInsights() {
 }
 
 async function runVacuum() {
+    if (!window.confirm('تفريغ المساحة الحرة يصغّر ملف قاعدة البيانات ولا يحذف بيانات. المتابعة؟')) {
+        return;
+    }
+
     vacuuming.value = true;
     try {
         const { data } = await axios.post(route('settings.system.db.vacuum'));
         alert(data.message + (data.saved ? ` | وُفِّر: ${formatDbBytes(data.saved)}` : ''));
         await loadDbInsights();
     } catch {
-        alert('فشل VACUUM');
+        alert('فشل تفريغ المساحة الحرة');
     } finally {
         vacuuming.value = false;
     }
@@ -732,19 +736,6 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                 </div>
             </div>
 
-            <!-- Vacuum hint -->
-            <div v-if="dbData && dbData.free_bytes > 10 * 1024 * 1024"
-                class="erp-card p-4 d-flex flex-wrap align-items-center gap-3"
-                style="border-color: #f59e0b;">
-                <span class="flex-grow-1 fw-semibold" style="color:#f59e0b;">
-                    ⚠️ {{ formatDbBytes(dbData.free_bytes) }} مساحة حرة — شغّل VACUUM لتصغير ملف قاعدة البيانات
-                </span>
-                <button type="button" class="btn btn-warning" :disabled="vacuuming" @click="runVacuum">
-                    <span v-if="vacuuming" class="spinner-border spinner-border-sm me-1"></span>
-                    {{ vacuuming ? 'جارٍ التنفيذ…' : '🗜️ VACUUM' }}
-                </button>
-            </div>
-
             <!-- DB Insights card -->
             <div class="erp-card p-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -752,9 +743,26 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         <h2 class="h5 erp-display mb-1">🗄️ تخزين قاعدة البيانات</h2>
                         <p class="text-secondary small mb-0">توزيع الحجم على مستوى الجداول</p>
                     </div>
-                    <button type="button" class="btn btn-erp-ghost btn-sm" :disabled="dbLoading" @click="loadDbInsights">
-                        {{ dbLoading ? '…' : '↻ تحديث' }}
-                    </button>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            :disabled="vacuuming || dbLoading"
+                            @click="runVacuum"
+                        >
+                            <span v-if="vacuuming" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ vacuuming ? 'جارٍ التفريغ…' : 'تفريغ المساحة الحرة' }}
+                        </button>
+                        <button type="button" class="btn btn-erp-ghost btn-sm" :disabled="dbLoading" @click="loadDbInsights">
+                            {{ dbLoading ? '…' : '↻ تحديث' }}
+                        </button>
+                    </div>
+                </div>
+                <div
+                    v-if="dbData && (dbData.free_bytes ?? 0) > 0"
+                    class="alert alert-warning py-2 px-3 small mb-3"
+                >
+                    {{ formatDbBytes(dbData.free_bytes) }} مساحة حرة داخل الملف — التفريغ يصغّر قاعدة البيانات دون حذف بيانات.
                 </div>
 
                 <div v-if="dbLoading" class="text-center py-4">

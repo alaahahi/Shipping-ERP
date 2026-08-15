@@ -2707,3 +2707,36 @@ body:has(.erp-print-shell) {
         border-width: 2px;
     }
 }
+
+.erp-profile-avatar {
+    width: 4.25rem;
+    height: 4.25rem;
+    border-radius: 1rem;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-family: var(--erp-font-display);
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: linear-gradient(160deg, var(--erp-primary) 0%, #115e59 100%);
+}
+
+.erp-profile-danger {
+    border-color: color-mix(in srgb, var(--erp-danger) 28%, var(--erp-border));
+}
+
+.erp-profile-danger .erp-display {
+    color: var(--erp-danger);
+}
+
+.erp-modal-dialog.is-narrow {
+    width: min(28rem, 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .erp-profile-avatar {
+        background: var(--erp-primary);
+    }
+}

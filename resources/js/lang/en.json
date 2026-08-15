@@ -216,6 +216,26 @@
     "save_changes": "Save changes",
     "delete_confirm": "Delete user \"{name}\"?"
   },
+  "profile": {
+    "title": "Profile",
+    "kicker": "Account",
+    "subtitle": "Update your name, email, and password for this workspace.",
+    "no_role": "No role assigned",
+    "info_title": "Profile information",
+    "info_help": "This name appears in logs, receipts, and the header.",
+    "password_title": "Password",
+    "password_help": "Use a strong password you do not reuse elsewhere.",
+    "current_password": "Current password",
+    "saved": "Saved.",
+    "unverified": "Your email is not verified.",
+    "resend_verification": "Resend verification email",
+    "verify_sent": "A new verification link was sent to your email.",
+    "danger_title": "Delete account",
+    "danger_help": "This permanently deletes your login. Operational and accounting records stay in the system.",
+    "delete_account": "Delete account",
+    "delete_confirm_title": "Confirm account deletion",
+    "delete_confirm_text": "Enter your password to permanently delete your account. This cannot be undone."
+  },
   "roles": {
     "title": "Roles & Permissions",
     "system_roles": "System roles",

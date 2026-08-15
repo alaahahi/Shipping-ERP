@@ -1,1 +1,0 @@
-import{y as o,K as s,L as r,M as n,B as u}from"./app-ZAk9Loyz.js";const e=u(s());function h(){const a=()=>{e.value=s(),r(e.value)},t=()=>{e.value=n(e.value==="dark"?"light":"dark")};return o(a),{theme:e,toggleTheme:t,sync:a}}export{h as u};
