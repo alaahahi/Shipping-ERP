@@ -10,10 +10,12 @@ use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
 use App\Http\Requests\LandTrips\TransitionLandTripRequest;
+use App\Http\Requests\LandTrips\UpdateCompanyLandCarPriceRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandManifestRequest;
 use App\Http\Requests\LandTrips\UpdateLandTripRequest;
 use App\Models\Company;
 use App\Models\LandTrip;
+use App\Models\LandTripCar;
 use App\Services\CompanyWalletService;
 use App\Services\CompanyService;
 use App\Services\CountryService;
@@ -151,6 +153,20 @@ class LandTripController extends Controller
         );
 
         return back()->with('success', "Deleted {$deleted} cars.");
+    }
+
+    public function updateCompanyCarPrice(UpdateCompanyLandCarPriceRequest $request, Company $company, LandTripCar $car): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->updateCompanyCarPrice(
+            $company,
+            $car,
+            (float) $request->validated('price'),
+            $request->user()
+        );
+
+        return back();
     }
 
     public function updateCompanyManifest(UpdateCompanyLandManifestRequest $request, Company $company): RedirectResponse

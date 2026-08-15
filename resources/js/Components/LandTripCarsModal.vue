@@ -25,6 +25,7 @@ const emptyRow = () => ({
     description: '',
     weight: '',
     notes: '',
+    price: '',
     location_status_id: props.carStatuses[0]?.id ?? '',
 });
 
@@ -62,6 +63,7 @@ const applyVoyageCar = (index, voyageCarId) => {
             consignee_name: selected.consignee_name ?? '',
             description: selected.description ?? '',
             weight: selected.weight ?? '',
+            price: row.price ?? '',
         };
     });
     emit('update:cars', next);
@@ -79,6 +81,7 @@ const fillFromVoyage = () => {
             description: car.description ?? '',
             weight: car.weight ?? '',
             notes: '',
+            price: '',
             location_status_id: props.carStatuses[0]?.id ?? '',
         })),
     );
@@ -118,13 +121,14 @@ const fillFromVoyage = () => {
                             <th>{{ t('land_trips.consignee') }}</th>
                             <th>{{ t('common.description') }}</th>
                             <th>{{ t('land_trips.location_status') }}</th>
+                            <th>{{ t('land_trips.car_price') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
                             <th class="pe-3"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="cars.length === 0">
-                            <td :colspan="voyageCars.length ? 8 : 7" class="text-center text-secondary py-4">
+                            <td :colspan="voyageCars.length ? 9 : 8" class="text-center text-secondary py-4">
                                 {{ t('land_trips.no_car_rows') }}
                             </td>
                         </tr>
@@ -185,6 +189,16 @@ const fillFromVoyage = () => {
                                         {{ stationLabel(status) }}
                                     </option>
                                 </select>
+                            </td>
+                            <td style="min-width: 110px">
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.price"
+                                    @input="updateRow(index, 'price', $event.target.value)"
+                                />
                             </td>
                             <td style="min-width: 90px">
                                 <input

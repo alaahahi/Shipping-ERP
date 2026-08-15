@@ -102,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars.location');
     Route::delete('/land-trips/companies/{company}/cars', [LandTripController::class, 'destroyCompanyCars'])
         ->name('land-trips.companies.cars.destroy');
+    Route::patch('/land-trips/companies/{company}/cars/{car}/price', [LandTripController::class, 'updateCompanyCarPrice'])
+        ->name('land-trips.companies.cars.price');
     Route::get('/land-trips/companies/{company}/location-logs', [LandTripLocationLogController::class, 'index'])
         ->name('land-trips.companies.location-logs');
     Route::post('/land-trips/companies/{company}/location-logs/undo', [LandTripLocationLogController::class, 'undo'])

@@ -23,7 +23,7 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
     highlightCarId: { type: [Number, String], default: null },
     locationLog: { type: Object, default: () => ({ can_undo: false }) },
-    wallet: { type: Object, default: () => ({ balances: [], entries: [], currencies: ['USD'] }) },
+    wallet: { type: Object, default: () => ({ balances: [], summary: null, entries: [], currencies: ['USD'] }) },
 });
 
 const page = usePage();
@@ -33,6 +33,18 @@ const success = computed(() => page.props.flash?.success);
 const showCars = ref(false);
 const selectedIds = ref([]);
 const hubTab = ref('cars');
+
+watch(hubTab, (tab) => {
+    if (tab !== 'wallet') {
+        return;
+    }
+
+    router.reload({
+        only: ['wallet'],
+        preserveState: true,
+        preserveScroll: true,
+    });
+});
 
 const filterForm = useForm({
     search: props.filters.search ?? '',
@@ -46,6 +58,7 @@ const emptyCarRow = () => ({
     consignee_name: '',
     description: '',
     weight: '',
+    price: '',
     notes: '',
     location_status_id: props.carStatuses[0]?.id ?? '',
 });
@@ -479,6 +492,26 @@ const moveOne = (carId, statusId) => {
     moveForm.location_status_id = String(statusId);
     applyLocation([carId]);
 };
+
+const savePrice = (car, value) => {
+    const price = value === '' || value === null ? '0.00' : Number(value).toFixed(2);
+    if (Number(car.price || 0).toFixed(2) === price) {
+        return;
+    }
+
+    router.patch(route('land-trips.companies.cars.price', [props.company.id, car.id]), {
+        price,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['wallet'],
+        onSuccess: () => {
+            loadedCars.value = loadedCars.value.map((row) => (
+                row.id === car.id ? { ...row, price } : row
+            ));
+        },
+    });
+};
 </script>
 
 <template>
@@ -667,12 +700,13 @@ const moveOne = (carId, statusId) => {
                                 <th>{{ t('land_trips.cmr_waybill') }}</th>
                                 <th>{{ t('land_trips.consignee') }}</th>
                                 <th>{{ t('common.description') }}</th>
+                                <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 7 : 6">
+                                <td :colspan="canManage ? 8 : 7">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -717,6 +751,20 @@ const moveOne = (carId, statusId) => {
                                 <td>{{ car.cmr_waybill || '—' }}</td>
                                 <td>{{ car.consignee_name || '—' }}</td>
                                 <td>{{ car.description || '—' }}</td>
+                                <td style="min-width: 7.5rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="form-control form-control-sm form-erp-control"
+                                        :value="car.price"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.car_price')"
+                                        @change="savePrice(car, $event.target.value)"
+                                    />
+                                    <span v-else>{{ car.price || '0.00' }}</span>
+                                </td>
                                 <td>
                                     <select
                                         v-if="canManage"

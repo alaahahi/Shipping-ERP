@@ -58,7 +58,35 @@ const destroyEntry = (entry) => {
 
 <template>
     <div class="land-wallet">
-        <p class="land-wallet-note mb-3">{{ t('land_trips.wallet_help') }}</p>
+        <p class="land-wallet-note mb-3">{{ t('land_trips.wallet_freight_help') }}</p>
+
+        <div v-if="wallet.summary" class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('land_trips.cars_total') }} · {{ wallet.summary.currency }}</div>
+                    <div class="erp-stat-value">
+                        <MoneyAmount :value="wallet.summary.cars_total" :currency="wallet.summary.currency" show-zero />
+                    </div>
+                    <div class="small text-secondary mt-1">{{ wallet.summary.cars_count }} {{ t('land_trips.cars') }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('land_trips.wallet_payments') }} · {{ wallet.summary.currency }}</div>
+                    <div class="erp-stat-value">
+                        <MoneyAmount :value="wallet.summary.paid" :currency="wallet.summary.currency" show-zero />
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="erp-stat">
+                    <div class="erp-stat-label">{{ t('land_trips.wallet_remaining') }} · {{ wallet.summary.currency }}</div>
+                    <div class="erp-stat-value">
+                        <MoneyAmount :value="wallet.summary.remaining" :currency="wallet.summary.currency" tone="balance" show-zero />
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="row g-3 mb-3">
             <div v-for="row in wallet.balances" :key="row.currency" class="col-6 col-md-3">

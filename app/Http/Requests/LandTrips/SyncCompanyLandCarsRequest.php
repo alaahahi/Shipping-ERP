@@ -26,6 +26,7 @@ class SyncCompanyLandCarsRequest extends FormRequest
             'cars.*.consignee_name' => ['nullable', 'string', 'max:180'],
             'cars.*.description' => ['nullable', 'string', 'max:255'],
             'cars.*.weight' => ['nullable', 'numeric', 'min:0'],
+            'cars.*.price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'cars.*.notes' => ['nullable', 'string', 'max:1000'],
             'cars.*.location_status_id' => ['nullable', 'integer', 'exists:land_trip_car_statuses,id'],
             'cars.*.sort_order' => ['nullable', 'integer', 'min:0'],

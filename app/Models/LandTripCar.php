@@ -20,6 +20,7 @@ class LandTripCar extends Model
         'consignee_name',
         'description',
         'weight',
+        'price',
         'notes',
         'sort_order',
     ];
@@ -28,6 +29,7 @@ class LandTripCar extends Model
     {
         return [
             'weight' => 'decimal:3',
+            'price' => 'decimal:2',
             'sort_order' => 'integer',
         ];
     }

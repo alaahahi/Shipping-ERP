@@ -6,6 +6,7 @@ use App\Enums\CompanyWalletEntryType;
 use App\Enums\Currency;
 use App\Models\Company;
 use App\Models\CompanyWalletEntry;
+use App\Models\LandTripCar;
 use App\Models\User;
 use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
@@ -18,6 +19,7 @@ class CompanyWalletService
     /**
      * @return array{
      *     balances: list<array{currency: string, balance: string}>,
+     *     summary: array{currency: string, cars_count: int, cars_total: string, paid: string, remaining: string},
      *     entries: list<array<string, mixed>>,
      *     currencies: list<string>
      * }
@@ -33,6 +35,7 @@ class CompanyWalletService
 
         return [
             'balances' => $this->balances($company),
+            'summary' => $this->freightSummary($company),
             'entries' => $entries->map(fn (CompanyWalletEntry $entry) => $this->transform($entry))->values()->all(),
             'currencies' => Currency::values(),
         ];
@@ -64,6 +67,44 @@ class CompanyWalletService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{
+     *     currency: string,
+     *     cars_count: int,
+     *     cars_total: string,
+     *     paid: string,
+     *     remaining: string
+     * }
+     */
+    public function freightSummary(Company $company): array
+    {
+        $currency = Currency::USD->value;
+
+        $carsTotal = (float) LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->sum('price');
+
+        $carsCount = (int) LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->count();
+
+        $paid = (float) CompanyWalletEntry::query()
+            ->where('company_id', $company->id)
+            ->where('currency', $currency)
+            ->where('type', CompanyWalletEntryType::Deposit->value)
+            ->sum('amount');
+
+        $remaining = round($carsTotal - $paid, 2);
+
+        return [
+            'currency' => $currency,
+            'cars_count' => $carsCount,
+            'cars_total' => number_format($carsTotal, 2, '.', ''),
+            'paid' => number_format($paid, 2, '.', ''),
+            'remaining' => number_format($remaining, 2, '.', ''),
+        ];
     }
 
     public function balanceFor(Company $company, Currency $currency): float

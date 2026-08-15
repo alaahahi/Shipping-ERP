@@ -549,6 +549,29 @@ class LandTripService
         });
     }
 
+    public function updateCompanyCarPrice(Company $company, LandTripCar $car, float $price, User $actor): LandTripCar
+    {
+        $car->loadMissing('landTrip');
+
+        if ((int) $car->landTrip?->company_id !== (int) $company->id) {
+            throw ValidationException::withMessages([
+                'car' => 'This car does not belong to the selected company.',
+            ]);
+        }
+
+        $amount = round(max(0, $price), 2);
+        $car->update(['price' => $amount]);
+
+        Log::info('Land trip car price updated.', [
+            'company_id' => $company->id,
+            'car_id' => $car->id,
+            'price' => $amount,
+            'user_id' => $actor->id,
+        ]);
+
+        return $car->fresh();
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -766,6 +789,7 @@ class LandTripService
             'consignee_name' => $consignee,
             'description' => $this->nullableString($row['description'] ?? $voyageCar?->description),
             'weight' => $row['weight'] ?? $voyageCar?->weight,
+            'price' => round((float) ($row['price'] ?? 0), 2),
             'notes' => $this->nullableString($row['notes'] ?? null),
             'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
             'sort_order' => (int) ($row['sort_order'] ?? ($index + 1) * 10),
@@ -990,6 +1014,7 @@ class LandTripService
                 'consignee_name' => $consignee,
                 'description' => $row['description'] ?? $voyageCar?->description,
                 'weight' => $row['weight'] ?? $voyageCar?->weight,
+                'price' => round((float) ($row['price'] ?? 0), 2),
                 'notes' => $row['notes'] ?? null,
                 'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
                 'sort_order' => (int) ($row['sort_order'] ?? 0),
@@ -1118,6 +1143,7 @@ class LandTripService
             'consignee_name' => $car->consignee_name,
             'description' => $car->description,
             'weight' => $car->weight !== null ? (string) $car->weight : null,
+            'price' => number_format((float) $car->price, 2, '.', ''),
             'notes' => $car->notes,
             'location_status_id' => $car->location_status_id,
             'location_status_code' => $car->locationStatus?->code,
