@@ -234,6 +234,41 @@ class AccountMovementTest extends TestCase
             );
     }
 
+    public function test_ledger_excel_and_pdf_export_download(): void
+    {
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($user)
+            ->post(route('accounts.movements.store', $cash), [
+                'type' => 'receipt',
+                'counterpart_account_id' => $bank->id,
+                'amount' => 25,
+                'entry_date' => '2026-08-15',
+                'description' => 'Exportable receipt',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($user)
+            ->get(route('accounts.export.excel', $cash))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->actingAs($user)
+            ->get(route('accounts.export.pdf', $cash))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_guest_cannot_export_ledger(): void
+    {
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+
+        $this->get(route('accounts.export.excel', $cash))->assertRedirect();
+        $this->get(route('accounts.export.pdf', $cash))->assertRedirect();
+    }
+
     private function accountingUser(): User
     {
         $user = User::factory()->create();

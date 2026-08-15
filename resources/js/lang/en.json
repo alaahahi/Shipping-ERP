@@ -140,7 +140,9 @@
     "yes": "Yes",
     "none": "None",
     "optional": "optional",
-    "print": "Print"
+    "print": "Print",
+    "loading_more": "Loading more…",
+    "scroll_for_more": "Scroll to load more"
   },
   "settings": {
     "title": "Settings",
@@ -258,7 +260,6 @@
   },
   "accounts": {
     "title": "Chart of Accounts",
-    "help": "Dubai Account and Ship Clearing are AED-ready by default.",
     "add": "Add account",
     "code": "Code",
     "type": "Type",
@@ -278,6 +279,8 @@
     "system_locked": "System accounts keep fixed code, type, and currency. Dubai / Ship AED defaults are protected.",
     "delete_confirm": "Delete account {code}?",
     "ledger": "Ledger",
+    "print_pdf": "Print PDF",
+    "export_excel": "Export Excel",
     "account": "Account",
     "opening": "Opening balance",
     "closing": "Closing balance",

@@ -1,1 +1,0 @@
-import{K as o,X as s,Y as r,Z as n,G as u}from"./app-CfDks4bY.js";const e=u(s());function h(){const a=()=>{e.value=s(),r(e.value)},t=()=>{e.value=n(e.value==="dark"?"light":"dark")};return o(a),{theme:e,toggleTheme:t,sync:a}}export{h as u};

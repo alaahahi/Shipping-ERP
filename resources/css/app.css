@@ -2506,6 +2506,102 @@ html.dark .erp-table a,
     color: inherit;
 }
 
+.accounts-chart-table a.accounts-chart-link,
+.account-ledger-table a.accounts-chart-link {
+    color: #0f766e;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.accounts-chart-table a.accounts-chart-link:hover,
+.account-ledger-table a.accounts-chart-link:hover {
+    text-decoration: underline;
+}
+
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owing {
+    color: var(--erp-danger);
+}
+
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owed {
+    color: var(--erp-success);
+}
+
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-settled {
+    color: var(--erp-text-muted);
+}
+
+html.dark .accounts-chart-table a.accounts-chart-link,
+[data-theme='dark'] .accounts-chart-table a.accounts-chart-link,
+html.dark .account-ledger-table a.accounts-chart-link,
+[data-theme='dark'] .account-ledger-table a.accounts-chart-link {
+    color: #5eead4;
+}
+
+.accounts-chart-card {
+    background-color: #fff;
+}
+
+html.dark .accounts-chart-card,
+[data-theme='dark'] .accounts-chart-card {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb;
+}
+
+html.dark .accounts-chart-table,
+html.dark .accounts-chart-table thead,
+html.dark .accounts-chart-table tbody,
+html.dark .accounts-chart-table tr,
+html.dark .accounts-chart-table th,
+html.dark .accounts-chart-table td,
+html.dark .accounts-chart-table > :not(caption) > * > *,
+[data-theme='dark'] .accounts-chart-table,
+[data-theme='dark'] .accounts-chart-table thead,
+[data-theme='dark'] .accounts-chart-table tbody,
+[data-theme='dark'] .accounts-chart-table tr,
+[data-theme='dark'] .accounts-chart-table th,
+[data-theme='dark'] .accounts-chart-table td,
+[data-theme='dark'] .accounts-chart-table > :not(caption) > * > * {
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+    border-color: #374151 !important;
+    box-shadow: none !important;
+    --bs-table-bg: #1f2937;
+    --bs-table-accent-bg: transparent;
+}
+
+html.dark .accounts-chart-table thead,
+html.dark .accounts-chart-table thead tr,
+html.dark .accounts-chart-table thead th,
+html.dark .accounts-chart-table thead > * > *,
+[data-theme='dark'] .accounts-chart-table thead,
+[data-theme='dark'] .accounts-chart-table thead tr,
+[data-theme='dark'] .accounts-chart-table thead th,
+[data-theme='dark'] .accounts-chart-table thead > * > * {
+    background-color: #111827 !important;
+    color: #9ca3af !important;
+}
+
+html.dark .accounts-chart-table tbody tr:hover,
+html.dark .accounts-chart-table tbody tr:hover td,
+html.dark .accounts-chart-table tbody tr:hover > *,
+[data-theme='dark'] .accounts-chart-table tbody tr:hover,
+[data-theme='dark'] .accounts-chart-table tbody tr:hover td,
+[data-theme='dark'] .accounts-chart-table tbody tr:hover > * {
+    background-color: #374151 !important;
+}
+
+.accounts-chart-sentinel {
+    background-color: #fff;
+}
+
+html.dark .accounts-chart-sentinel,
+[data-theme='dark'] .accounts-chart-sentinel {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #9ca3af !important;
+}
+
 html.dark .text-secondary,
 html.dark .text-muted,
 [data-theme='dark'] .text-secondary,

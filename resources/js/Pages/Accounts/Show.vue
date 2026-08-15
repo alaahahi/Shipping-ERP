@@ -52,6 +52,19 @@ const applyFilters = () => {
     });
 };
 
+const exportQuery = () => ({
+    date_from: filterForm.date_from || undefined,
+    date_to: filterForm.date_to || undefined,
+    voucher: filterForm.voucher || undefined,
+    description: filterForm.description || undefined,
+    amount: filterForm.amount || undefined,
+});
+
+const exportHref = (name) => route(name, {
+    account: props.account.id,
+    ...exportQuery(),
+});
+
 const openMovement = (type) => {
     movementType.value = type;
     movementOpen.value = true;
@@ -105,6 +118,12 @@ const voidLine = (line) => {
                 ← {{ t('accounts.back') }}
             </Link>
             <div class="flex flex-wrap gap-2">
+                <a :href="exportHref('accounts.export.pdf')" :class="fbGhostButton">
+                    {{ t('accounts.print_pdf') }}
+                </a>
+                <a :href="exportHref('accounts.export.excel')" :class="fbGhostButton">
+                    {{ t('accounts.export_excel') }}
+                </a>
                 <button
                     v-if="canManage"
                     type="button"
@@ -176,57 +195,48 @@ const voidLine = (line) => {
             </div>
         </div>
 
-        <div class="erp-card p-0 overflow-hidden mb-3">
-            <form class="erp-toolbar is-compact row g-1 mx-0 align-items-center" @submit.prevent="applyFilters">
-                <div class="col-6 col-lg">
-                    <input
-                        v-model="filterForm.date_from"
-                        type="date"
-                        class="form-control form-erp-control"
-                        :aria-label="t('accounts.date_from')"
-                        :title="t('accounts.date_from')"
-                    />
-                </div>
-                <div class="col-6 col-lg">
-                    <input
-                        v-model="filterForm.date_to"
-                        type="date"
-                        class="form-control form-erp-control"
-                        :aria-label="t('accounts.date_to')"
-                        :title="t('accounts.date_to')"
-                    />
-                </div>
-                <div class="col-6 col-lg">
-                    <input
-                        v-model="filterForm.voucher"
-                        type="search"
-                        class="form-control form-erp-control"
-                        :placeholder="t('accounts.search_voucher')"
-                    />
-                </div>
-                <div class="col-6 col-lg">
-                    <input
-                        v-model="filterForm.description"
-                        type="search"
-                        class="form-control form-erp-control"
-                        :placeholder="t('accounts.search_description')"
-                    />
-                </div>
-                <div class="col-6 col-lg">
-                    <input
-                        v-model="filterForm.amount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        class="form-control form-erp-control"
-                        :placeholder="t('accounts.search_amount')"
-                    />
-                </div>
-                <div class="col-6 col-lg-auto">
-                    <button type="submit" class="btn btn-sm btn-erp-ghost w-100">{{ t('common.filter') }}</button>
-                </div>
-                <div class="col-auto">
-                    <Link :href="route('accounts.show', account.id)" class="btn btn-sm btn-erp-ghost">
+        <div class="mb-3 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+            <form
+                class="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center"
+                @submit.prevent="applyFilters"
+            >
+                <input
+                    v-model="filterForm.date_from"
+                    type="date"
+                    :class="[fbInput, '!py-2 sm:w-40']"
+                    :aria-label="t('accounts.date_from')"
+                    :title="t('accounts.date_from')"
+                />
+                <input
+                    v-model="filterForm.date_to"
+                    type="date"
+                    :class="[fbInput, '!py-2 sm:w-40']"
+                    :aria-label="t('accounts.date_to')"
+                    :title="t('accounts.date_to')"
+                />
+                <input
+                    v-model="filterForm.voucher"
+                    type="search"
+                    :class="[fbInput, '!py-2 sm:min-w-[8rem] sm:flex-1']"
+                    :placeholder="t('accounts.search_voucher')"
+                />
+                <input
+                    v-model="filterForm.description"
+                    type="search"
+                    :class="[fbInput, '!py-2 sm:min-w-[8rem] sm:flex-1']"
+                    :placeholder="t('accounts.search_description')"
+                />
+                <input
+                    v-model="filterForm.amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    :class="[fbInput, '!py-2 sm:w-32']"
+                    :placeholder="t('accounts.search_amount')"
+                />
+                <div class="flex flex-wrap gap-2">
+                    <button type="submit" :class="[fbButton, '!w-auto !px-3 !py-2']">{{ t('common.filter') }}</button>
+                    <Link :href="route('accounts.show', account.id)" :class="[fbGhostButton, '!w-auto']">
                         {{ t('common.reset') }}
                     </Link>
                 </div>
@@ -263,7 +273,7 @@ const voidLine = (line) => {
                             <td>
                                 <Link
                                     :href="route('journals.show', line.journal_entry_id)"
-                                    class="fw-semibold text-decoration-none"
+                                    class="accounts-chart-link"
                                 >
                                     {{ line.voucher_number }}
                                 </Link>
@@ -330,24 +340,24 @@ const voidLine = (line) => {
 
             <div
                 v-if="lines.prev_page_url || lines.next_page_url"
-                class="d-flex justify-content-between align-items-center p-3 border-top"
+                class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 p-3 dark:border-gray-700"
             >
                 <Link
                     v-if="lines.prev_page_url"
                     :href="lines.prev_page_url"
-                    class="btn btn-sm btn-erp-ghost"
+                    :class="fbGhostButton"
                     preserve-scroll
                 >
                     {{ t('common.prev') }}
                 </Link>
                 <span v-else></span>
-                <span class="small text-secondary">
+                <span class="text-sm text-gray-500 dark:text-gray-400">
                     {{ lines.from }}–{{ lines.to }} / {{ lines.total }}
                 </span>
                 <Link
                     v-if="lines.next_page_url"
                     :href="lines.next_page_url"
-                    class="btn btn-sm btn-erp-ghost"
+                    :class="fbGhostButton"
                     preserve-scroll
                 >
                     {{ t('common.next') }}

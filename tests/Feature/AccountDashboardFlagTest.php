@@ -70,6 +70,33 @@ class AccountDashboardFlagTest extends TestCase
         $this->assertTrue($cash->fresh()->show_on_dashboard);
     }
 
+    public function test_chart_index_ignores_page_query(): void
+    {
+        $this->actingAs($this->accountingUser())
+            ->get(route('accounts.index', ['page' => 2]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Accounts/Index')
+                ->where('accounts.current_page', 1)
+            );
+    }
+
+    public function test_accounts_feed_returns_json_page(): void
+    {
+        $user = $this->accountingUser();
+
+        $this->actingAs($user)
+            ->getJson(route('accounts.feed', ['page' => 1]))
+            ->assertOk()
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonMissingPath('next_page_url')
+            ->assertJsonStructure([
+                'data',
+                'current_page',
+                'last_page',
+            ]);
+    }
+
     public function test_viewer_cannot_toggle_dashboard_flag(): void
     {
         $user = User::factory()->create();

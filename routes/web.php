@@ -86,6 +86,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/whatsapp-settings', [WhatsappNotificationController::class, 'updateSettings'])
         ->name('whatsapp-settings.update');
 
+    Route::get('/accounts/feed', [AccountController::class, 'feed'])->name('accounts.feed');
+    Route::get('/accounts/{account}/export/excel', [AccountController::class, 'exportExcel'])->name('accounts.export.excel');
+    Route::get('/accounts/{account}/export/pdf', [AccountController::class, 'exportPdf'])->name('accounts.export.pdf');
     Route::resource('accounts', AccountController::class);
     Route::post('/accounts/{account}/dashboard-flag', [AccountController::class, 'toggleDashboard'])
         ->name('accounts.dashboard.toggle');

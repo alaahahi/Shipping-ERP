@@ -11,51 +11,32 @@ use App\Http\Requests\Accounts\UpdateAccountMovementRequest;
 use App\Http\Requests\Accounts\UpdateAccountRequest;
 use App\Models\Account;
 use App\Models\JournalEntry;
+use App\Services\AccountLedgerExportService;
 use App\Services\AccountService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AccountController extends Controller
 {
     public function __construct(
-        private readonly AccountService $accountService
+        private readonly AccountService $accountService,
+        private readonly AccountLedgerExportService $accountLedgerExportService
     ) {}
 
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Account::class);
 
-        $filters = [
-            'search' => $request->string('search')->toString(),
-            'type' => $request->string('type')->toString(),
-            'currency' => $request->string('currency')->toString(),
-        ];
-
-        $accounts = $this->accountService
-            ->paginate($filters)
-            ->through(fn (Account $account) => [
-                'id' => $account->id,
-                'code' => $account->code,
-                'name' => $account->name,
-                'type' => $account->type->value,
-                'type_label' => $account->type->label(),
-                'currency' => $account->currency->value,
-                'parent' => $account->parent ? [
-                    'id' => $account->parent->id,
-                    'code' => $account->parent->code,
-                    'name' => $account->parent->name,
-                ] : null,
-                'is_system' => $account->is_system,
-                'is_active' => $account->is_active,
-                'show_on_dashboard' => $account->show_on_dashboard,
-                'balance' => $this->accountService->balance($account),
-            ]);
+        $filters = $this->chartFilters($request);
 
         return Inertia::render('Accounts/Index', [
-            'accounts' => $accounts,
+            'accounts' => $this->chartPage($filters, 1),
             'filters' => $filters,
             'types' => collect(AccountType::cases())->map(fn (AccountType $type) => [
                 'value' => $type->value,
@@ -67,6 +48,18 @@ class AccountController extends Controller
             ]),
             'canManage' => $request->user()?->can('accounting.manage') ?? false,
         ]);
+    }
+
+    public function feed(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', Account::class);
+
+        $filters = $this->chartFilters($request);
+
+        return response()->json($this->chartPage(
+            $filters,
+            max(1, $request->integer('page', 1)),
+        ));
     }
 
     public function create(): Response
@@ -91,13 +84,7 @@ class AccountController extends Controller
     {
         Gate::authorize('view', $account);
 
-        $filters = [
-            'date_from' => $request->validated('date_from'),
-            'date_to' => $request->validated('date_to'),
-            'voucher' => $request->validated('voucher'),
-            'description' => $request->validated('description'),
-            'amount' => $request->validated('amount'),
-        ];
+        $filters = $this->ledgerFilters($request);
 
         $ledger = $this->accountService->ledger($account, $filters);
 
@@ -123,6 +110,20 @@ class AccountController extends Controller
             'counterpartAccounts' => $this->accountService->counterpartOptions($account),
             'canManage' => $request->user()?->can('accounting.manage') ?? false,
         ]);
+    }
+
+    public function exportExcel(AccountLedgerRequest $request, Account $account): StreamedResponse
+    {
+        Gate::authorize('view', $account);
+
+        return $this->accountLedgerExportService->excel($account, $this->ledgerFilters($request));
+    }
+
+    public function exportPdf(AccountLedgerRequest $request, Account $account): HttpResponse
+    {
+        Gate::authorize('view', $account);
+
+        return $this->accountLedgerExportService->pdf($account, $this->ledgerFilters($request));
     }
 
     public function storeMovement(StoreAccountMovementRequest $request, Account $account): RedirectResponse
@@ -226,6 +227,73 @@ class AccountController extends Controller
         return redirect()
             ->route('accounts.index')
             ->with('success', 'Account deleted successfully.');
+    }
+
+    /**
+     * @return array{date_from: mixed, date_to: mixed, voucher: mixed, description: mixed, amount: mixed}
+     */
+    private function ledgerFilters(AccountLedgerRequest $request): array
+    {
+        return [
+            'date_from' => $request->validated('date_from'),
+            'date_to' => $request->validated('date_to'),
+            'voucher' => $request->validated('voucher'),
+            'description' => $request->validated('description'),
+            'amount' => $request->validated('amount'),
+        ];
+    }
+
+    /**
+     * @return array{search: string, type: string, currency: string}
+     */
+    private function chartFilters(Request $request): array
+    {
+        return [
+            'search' => $request->string('search')->toString(),
+            'type' => $request->string('type')->toString(),
+            'currency' => $request->string('currency')->toString(),
+        ];
+    }
+
+    /**
+     * @param  array{search?: string, type?: string, currency?: string}  $filters
+     * @return array{data: list<array<string, mixed>>, current_page: int, last_page: int}
+     */
+    private function chartPage(array $filters, int $page = 1): array
+    {
+        $paginator = $this->accountService
+            ->paginate($filters, 30, $page)
+            ->through(fn (Account $account) => $this->chartRow($account));
+
+        return [
+            'data' => array_values($paginator->items()),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function chartRow(Account $account): array
+    {
+        return [
+            'id' => $account->id,
+            'code' => $account->code,
+            'name' => $account->name,
+            'type' => $account->type->value,
+            'type_label' => $account->type->label(),
+            'currency' => $account->currency->value,
+            'parent' => $account->parent ? [
+                'id' => $account->parent->id,
+                'code' => $account->parent->code,
+                'name' => $account->parent->name,
+            ] : null,
+            'is_system' => $account->is_system,
+            'is_active' => $account->is_active,
+            'show_on_dashboard' => $account->show_on_dashboard,
+            'balance' => $this->accountService->balance($account),
+        ];
     }
 
     /**

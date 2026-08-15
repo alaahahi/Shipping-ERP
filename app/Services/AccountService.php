@@ -25,7 +25,7 @@ class AccountService
     /**
      * @param  array{search?: string|null, type?: string|null, currency?: string|null}  $filters
      */
-    public function paginate(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    public function paginate(array $filters = [], int $perPage = 20, ?int $page = null): LengthAwarePaginator
     {
         $query = Account::query()
             ->with('parent:id,code,name')
@@ -48,7 +48,14 @@ class AccountService
             $query->where('currency', $filters['currency']);
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $paginator = $query->paginate(
+            $perPage,
+            ['*'],
+            'page',
+            $page ?? max(1, (int) request()->integer('page', 1)),
+        );
+
+        return $paginator->appends(collect($filters)->filter()->all());
     }
 
     /**
@@ -356,26 +363,7 @@ class AccountService
             ->paginate($perPage)
             ->withQueryString()
             ->through(function (JournalLine $line) use ($account, &$running): array {
-                $debit = (float) $line->debit;
-                $credit = (float) $line->credit;
-                $running += $this->signedFromTotals($account, $debit, $credit);
-                $entry = $line->journalEntry;
-
-                return [
-                    'id' => $line->id,
-                    'entry_date' => $entry?->entry_date?->format('Y-m-d'),
-                    'voucher_number' => $entry?->voucher_number,
-                    'journal_entry_id' => $entry?->id,
-                    'description' => $entry?->description,
-                    'reference' => $entry?->reference,
-                    'memo' => $line->memo,
-                    'attachment_url' => $entry?->attachmentUrl(),
-                    'has_attachment' => filled($entry?->attachment_path),
-                    'counterpart' => $this->counterpartAccount($line),
-                    'debit' => $this->formatAmount($debit),
-                    'credit' => $this->formatAmount($credit),
-                    'balance' => $this->formatAmount($running),
-                ];
+                return $this->mapLedgerLine($account, $line, $running);
             });
 
         $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo, search: $search);
@@ -392,6 +380,99 @@ class AccountService
             'period_credit' => $this->formatAmount($periodTotals['credit']),
             'period_net' => $this->formatAmount($periodTotals['credit'] - $periodTotals['debit']),
             'lines' => $paginator,
+        ];
+    }
+
+    /**
+     * Full posted ledger for Excel / PDF (not paginated).
+     *
+     * @param  array{date_from?: string|null, date_to?: string|null, voucher?: string|null, description?: string|null, amount?: float|int|string|null}  $filters
+     * @return array{
+     *     account: array{id: int, code: string, name: string, type_label: string, currency: string},
+     *     filters: array<string, mixed>,
+     *     opening_balance: string,
+     *     closing_balance: string,
+     *     period_debit: string,
+     *     period_credit: string,
+     *     period_net: string,
+     *     lines: list<array<string, mixed>>
+     * }
+     */
+    public function ledgerExport(Account $account, array $filters = []): array
+    {
+        $dateFrom = $this->nullableDate($filters['date_from'] ?? null);
+        $dateTo = $this->nullableDate($filters['date_to'] ?? null);
+        $search = [
+            'voucher' => trim((string) ($filters['voucher'] ?? '')),
+            'description' => trim((string) ($filters['description'] ?? '')),
+            'amount' => $filters['amount'] ?? null,
+        ];
+        $hasSearch = $search['voucher'] !== ''
+            || $search['description'] !== ''
+            || ($search['amount'] !== null && $search['amount'] !== '');
+
+        $opening = (! $hasSearch && $dateFrom)
+            ? $this->signedBalance($account, beforeDate: $dateFrom)
+            : 0.0;
+
+        $running = $opening;
+        $lines = $this->postedLinesQuery($account, $dateFrom, $dateTo, search: $search)
+            ->get()
+            ->map(function (JournalLine $line) use ($account, &$running): array {
+                return $this->mapLedgerLine($account, $line, $running);
+            })
+            ->values()
+            ->all();
+
+        $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo, search: $search);
+        $closing = $opening + $this->signedFromTotals(
+            $account,
+            $periodTotals['debit'],
+            $periodTotals['credit']
+        );
+
+        return [
+            'account' => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type_label' => $account->type->label(),
+                'currency' => $account->currency->value,
+            ],
+            'filters' => $filters,
+            'opening_balance' => $this->formatAmount($opening),
+            'closing_balance' => $this->formatAmount($closing),
+            'period_debit' => $this->formatAmount($periodTotals['debit']),
+            'period_credit' => $this->formatAmount($periodTotals['credit']),
+            'period_net' => $this->formatAmount($periodTotals['credit'] - $periodTotals['debit']),
+            'lines' => $lines,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapLedgerLine(Account $account, JournalLine $line, float &$running): array
+    {
+        $debit = (float) $line->debit;
+        $credit = (float) $line->credit;
+        $running += $this->signedFromTotals($account, $debit, $credit);
+        $entry = $line->journalEntry;
+
+        return [
+            'id' => $line->id,
+            'entry_date' => $entry?->entry_date?->format('Y-m-d'),
+            'voucher_number' => $entry?->voucher_number,
+            'journal_entry_id' => $entry?->id,
+            'description' => $entry?->description,
+            'reference' => $entry?->reference,
+            'memo' => $line->memo,
+            'attachment_url' => $entry?->attachmentUrl(),
+            'has_attachment' => filled($entry?->attachment_path),
+            'counterpart' => $this->counterpartAccount($line),
+            'debit' => $this->formatAmount($debit),
+            'credit' => $this->formatAmount($credit),
+            'balance' => $this->formatAmount($running),
         ];
     }
 
