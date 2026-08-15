@@ -60,48 +60,37 @@ const destroyEntry = (entry) => {
     <div class="land-wallet">
         <p class="land-wallet-note mb-3">{{ t('land_trips.wallet_freight_help') }}</p>
 
-        <div v-if="wallet.summary" class="row g-3 mb-3">
-            <div class="col-6 col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('land_trips.cars_total') }} · {{ wallet.summary.currency }}</div>
-                    <div class="erp-stat-value">
-                        <MoneyAmount :value="wallet.summary.cars_total" :currency="wallet.summary.currency" show-zero />
-                    </div>
-                    <div class="small text-secondary mt-1">{{ wallet.summary.cars_count }} {{ t('land_trips.cars') }}</div>
+        <div class="land-wallet-stats mb-3">
+            <div v-if="wallet.summary" class="erp-stat">
+                <div class="erp-stat-label">{{ t('land_trips.cars_total') }} · {{ wallet.summary.currency }}</div>
+                <div class="erp-stat-value">
+                    <MoneyAmount :value="wallet.summary.cars_total" :currency="wallet.summary.currency" show-zero />
+                </div>
+                <div class="erp-stat-hint">{{ wallet.summary.cars_count }} {{ t('land_trips.cars') }}</div>
+            </div>
+            <div v-if="wallet.summary" class="erp-stat">
+                <div class="erp-stat-label">{{ t('land_trips.wallet_payments') }} · {{ wallet.summary.currency }}</div>
+                <div class="erp-stat-value">
+                    <MoneyAmount :value="wallet.summary.paid" :currency="wallet.summary.currency" show-zero />
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('land_trips.wallet_payments') }} · {{ wallet.summary.currency }}</div>
-                    <div class="erp-stat-value">
-                        <MoneyAmount :value="wallet.summary.paid" :currency="wallet.summary.currency" show-zero />
-                    </div>
+            <div v-if="wallet.summary" class="erp-stat">
+                <div class="erp-stat-label">{{ t('land_trips.wallet_remaining') }} · {{ wallet.summary.currency }}</div>
+                <div class="erp-stat-value">
+                    <MoneyAmount :value="wallet.summary.remaining" :currency="wallet.summary.currency" tone="balance" show-zero />
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('land_trips.wallet_remaining') }} · {{ wallet.summary.currency }}</div>
-                    <div class="erp-stat-value">
-                        <MoneyAmount :value="wallet.summary.remaining" :currency="wallet.summary.currency" tone="balance" show-zero />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div v-for="row in wallet.balances" :key="row.currency" class="col-6 col-md-3">
-                <div class="erp-stat">
-                    <div class="erp-stat-label">{{ t('land_trips.wallet_balance') }} · {{ row.currency }}</div>
-                    <div class="erp-stat-value">
-                        <MoneyAmount :value="row.balance" :currency="row.currency" show-zero />
-                    </div>
+            <div v-for="row in wallet.balances" :key="row.currency" class="erp-stat">
+                <div class="erp-stat-label">{{ t('land_trips.wallet_balance') }} · {{ row.currency }}</div>
+                <div class="erp-stat-value">
+                    <MoneyAmount :value="row.balance" :currency="row.currency" show-zero />
                 </div>
             </div>
         </div>
 
         <form v-if="canManage" class="erp-form-panel mb-3" @submit.prevent>
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
+            <div class="land-wallet-form">
+                <div>
                     <label class="form-erp-label" for="wallet-amount">{{ t('common.amount') }}</label>
                     <input
                         id="wallet-amount"
@@ -114,21 +103,21 @@ const destroyEntry = (entry) => {
                     />
                     <InputError :message="form.errors.amount" />
                 </div>
-                <div class="col-md-2">
+                <div>
                     <label class="form-erp-label" for="wallet-currency">{{ t('common.currency') }}</label>
                     <select id="wallet-currency" v-model="form.currency" class="form-select form-erp-control">
                         <option v-for="code in wallet.currencies" :key="code" :value="code">{{ code }}</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="land-wallet-form-notes">
                     <label class="form-erp-label" for="wallet-notes">{{ t('common.notes') }}</label>
                     <input id="wallet-notes" v-model="form.notes" type="text" class="form-control form-erp-control" maxlength="255" />
                 </div>
-                <div class="col-md-3 d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-erp" :disabled="form.processing" @click="submit('deposit')">
+                <div class="land-wallet-actions">
+                    <button type="button" class="btn btn-erp land-wallet-btn" :disabled="form.processing" @click="submit('deposit')">
                         {{ t('land_trips.wallet_deposit') }}
                     </button>
-                    <button type="button" class="btn btn-erp-ghost" :disabled="form.processing" @click="submit('withdraw')">
+                    <button type="button" class="btn btn-erp-ghost land-wallet-btn" :disabled="form.processing" @click="submit('withdraw')">
                         {{ t('land_trips.wallet_withdraw') }}
                     </button>
                 </div>
