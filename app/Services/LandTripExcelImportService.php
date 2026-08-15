@@ -160,67 +160,17 @@ class LandTripExcelImportService
 
         $parsed = $this->parseFile(Storage::disk('local')->path($path), $trip);
 
-        return DB::transaction(function () use ($trip, $parsed): array {
-            $trip->load('cars');
-            $existing = $trip->cars->keyBy(fn ($car) => strtoupper((string) $car->chassis_no));
-            $imported = 0;
-            $updated = 0;
-            $skipped = 0;
-            $merged = [];
-
-            foreach ($parsed['rows'] as $row) {
-                if ($row['status'] !== 'ready') {
-                    $skipped++;
-
-                    continue;
-                }
-
-                $chassis = $row['chassis_no'];
-                if ($existing->has($chassis)) {
-                    $updated++;
-                } else {
-                    $imported++;
-                }
-
-                $merged[$chassis] = [
-                    'voyage_car_id' => $existing->get($chassis)?->voyage_car_id,
-                    'chassis_no' => $chassis,
-                    'cmr_waybill' => $row['cmr_waybill'],
-                    'consignee_name' => $row['consignee_name'],
-                    'description' => $row['description'],
-                    'weight' => $existing->get($chassis)?->weight,
-                    'notes' => $existing->get($chassis)?->notes,
-                    'location_status_id' => $row['location_status_id'],
-                    'sort_order' => $row['row_number'],
-                ];
-            }
-
-            foreach ($existing as $chassis => $car) {
-                if (! isset($merged[$chassis])) {
-                    $merged[$chassis] = [
-                        'voyage_car_id' => $car->voyage_car_id,
-                        'chassis_no' => $car->chassis_no,
-                        'cmr_waybill' => $car->cmr_waybill,
-                        'consignee_name' => $car->consignee_name,
-                        'description' => $car->description,
-                        'weight' => $car->weight,
-                        'notes' => $car->notes,
-                        'location_status_id' => $car->location_status_id,
-                        'sort_order' => $car->sort_order,
-                    ];
-                }
-            }
-
-            $this->landTripService->syncCars($trip, array_values($merged));
-
-            session()->forget([self::SESSION_PATH, self::SESSION_NAME, self::SESSION_TRIP_ID]);
-
-            return [
-                'imported' => $imported,
-                'updated' => $updated,
-                'skipped' => $skipped,
-            ];
+        $result = DB::transaction(function () use ($trip, $parsed): array {
+            return $this->landTripService->upsertCompanyImportedCars(
+                $trip->company,
+                $trip,
+                $parsed['rows'],
+            );
         });
+
+        session()->forget([self::SESSION_PATH, self::SESSION_NAME, self::SESSION_TRIP_ID]);
+
+        return $result;
     }
 
     /**
@@ -236,45 +186,70 @@ class LandTripExcelImportService
     {
         $spreadsheet = IOFactory::load($absolutePath);
         $sheet = $spreadsheet->getSheetByName('Sorted Inventory') ?? $spreadsheet->getSheet(0);
-        $rows = $sheet->toArray(null, true, false, false);
+        $rows = $sheet->toArray(null, true, true, false);
+
+        $raw = [];
+        foreach ($rows as $index => $row) {
+            $raw[] = [
+                'row_number' => $index + 1,
+                'cells' => array_map(static fn ($value) => trim((string) ($value ?? '')), $row),
+            ];
+        }
 
         $defaultConsignee = null;
         $columns = null;
-        $preview = [];
-        $ready = 0;
-        $skipped = 0;
-        $unmatchedStatus = 0;
+        $headerRowNumber = null;
 
-        foreach ($rows as $index => $row) {
-            $rowNumber = $index + 1;
-            $cells = array_map(static fn ($value) => trim((string) ($value ?? '')), $row);
-
+        foreach ($raw as $item) {
+            $cells = $item['cells'];
             if ($this->isEmptyRow($cells)) {
-                continue;
-            }
-
-            if ($defaultConsignee === null && $this->looksLikeConsigneeHeader($cells)) {
-                $defaultConsignee = trim($cells[0]);
-
                 continue;
             }
 
             if ($this->isHeaderRow($cells)) {
                 $columns = $this->mapColumns($cells);
-
+                $headerRowNumber = $item['row_number'];
                 continue;
             }
 
-            if ($columns === null) {
+            if ($defaultConsignee === null && $this->looksLikeConsigneeHeader($cells)) {
+                $defaultConsignee = trim($cells[0] ?? '');
+            }
+        }
+
+        $columns = $this->completeColumns($columns, $raw, $headerRowNumber);
+
+        $preview = [];
+        $ready = 0;
+        $skipped = 0;
+        $unmatchedStatus = 0;
+        $consignee = $defaultConsignee ?: ($trip->company?->name ?? 'Consignee');
+
+        foreach ($raw as $item) {
+            $rowNumber = $item['row_number'];
+            $cells = $item['cells'];
+
+            if ($this->isEmptyRow($cells) || $rowNumber === $headerRowNumber) {
+                continue;
+            }
+
+            if ($this->looksLikeConsigneeHeader($cells) || $this->looksLikeSummaryRow($cells)) {
                 continue;
             }
 
             $model = $this->cell($cells, $columns['model'] ?? null);
             $cmr = $this->cell($cells, $columns['cmr'] ?? null);
-            $chassis = $this->normalizeChassis($this->cell($cells, $columns['vin'] ?? null));
+            $serial = $this->cell($cells, $columns['serial'] ?? null);
             $statusText = $this->cell($cells, $columns['status'] ?? null);
+            $chassis = $this->normalizeChassis($this->cell($cells, $columns['vin'] ?? null))
+                ?? $this->firstChassisInRow($cells);
 
             if ($chassis === null && $model === '' && $cmr === '') {
+                if ($serial !== '' && is_numeric($serial)) {
+                    $skipped++;
+                    $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, null, $statusText, null, null, null, 'Missing chassis / VIN');
+                }
+
                 continue;
             }
 
@@ -290,10 +265,11 @@ class LandTripExcelImportService
                 $unmatchedStatus++;
             }
 
-            $consignee = $defaultConsignee ?: ($trip->company?->name ?? 'Consignee');
+            $sortOrder = ctype_digit($serial) ? (int) $serial : $rowNumber;
+
             $ready++;
             $preview[] = $this->previewRow(
-                $rowNumber,
+                $sortOrder,
                 'ready',
                 $model,
                 $cmr,
@@ -323,16 +299,28 @@ class LandTripExcelImportService
     private function looksLikeConsigneeHeader(array $cells): bool
     {
         $first = trim($cells[0] ?? '');
-        if ($first === '' || is_numeric($first)) {
+        if ($first === '' || is_numeric($first) || $this->isHeaderRow($cells)) {
             return false;
         }
 
+        $rest = array_slice($cells, 1);
+        foreach ($rest as $cell) {
+            if (trim((string) $cell) !== '') {
+                return false;
+            }
+        }
+
+        return $this->normalizeChassis($first) === null && ! $this->looksLikeSummaryRow($cells);
+    }
+
+    /**
+     * @param  list<string>  $cells
+     */
+    private function looksLikeSummaryRow(array $cells): bool
+    {
         $joined = implode(' ', array_filter($cells));
-        if ($this->isHeaderRow($cells)) {
-            return false;
-        }
 
-        return ! preg_match('/(corolla|elantra|byd|vehicle|vin|cmr)/i', $joined);
+        return (bool) preg_match('/\d+\s+(corolla|elantra|byd|cross)/i', $joined);
     }
 
     /**
@@ -342,7 +330,12 @@ class LandTripExcelImportService
     {
         foreach ($cells as $cell) {
             $value = strtolower($cell);
-            if (str_contains($value, 'vehicle model') || str_contains($value, 'vin number') || str_contains($value, 'cmr')) {
+            if (
+                str_contains($value, 'vehicle model')
+                || str_contains($value, 'vin number')
+                || preg_match('/\bvin\b/', $value)
+                || (str_contains($value, 'cmr') && str_contains($value, 'waybill'))
+            ) {
                 return true;
             }
         }
@@ -365,20 +358,105 @@ class LandTripExcelImportService
                 $map['model'] = $index;
             } elseif (str_contains($value, 'cmr') || str_contains($value, 'waybill')) {
                 $map['cmr'] = $index;
-            } elseif (str_contains($value, 'vin')) {
+            } elseif (preg_match('/\bvin\b/', $value) || str_contains($value, 'chassis')) {
                 $map['vin'] = $index;
-            } elseif ($value === '#' || $value === 'no') {
+            } elseif ($value === '#' || $value === 'no' || $value === 'no.') {
                 $map['serial'] = $index;
-            } elseif ($index >= 4 && ! isset($map['status'])) {
+            } elseif (str_contains($value, 'status') || str_contains($value, 'location')) {
                 $map['status'] = $index;
             }
         }
 
-        if (! isset($map['status'])) {
-            $map['status'] = 4;
+        return $map;
+    }
+
+    /**
+     * @param  array<string, int>|null  $columns
+     * @param  list<array{row_number: int, cells: list<string>}>  $raw
+     * @return array<string, int>
+     */
+    private function completeColumns(?array $columns, array $raw, ?int $headerRowNumber): array
+    {
+        $columns ??= [];
+        $inferred = $this->inferColumns($raw, $headerRowNumber);
+
+        foreach ($inferred as $key => $index) {
+            if (! isset($columns[$key])) {
+                $columns[$key] = $index;
+            }
         }
 
-        return $map;
+        if (! isset($columns['status'])) {
+            $columns['status'] = ($columns['vin'] ?? 3) + 1;
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param  list<array{row_number: int, cells: list<string>}>  $raw
+     * @return array<string, int>
+     */
+    private function inferColumns(array $raw, ?int $headerRowNumber): array
+    {
+        $serialLike = 0;
+        $vinAt = [2 => 0, 3 => 0];
+        $samples = 0;
+
+        foreach ($raw as $item) {
+            if ($item['row_number'] === $headerRowNumber) {
+                continue;
+            }
+
+            $cells = $item['cells'];
+            if ($this->isEmptyRow($cells) || $this->looksLikeConsigneeHeader($cells) || $this->looksLikeSummaryRow($cells)) {
+                continue;
+            }
+
+            $samples++;
+            if (preg_match('/^\d{1,4}$/', $cells[0] ?? '')) {
+                $serialLike++;
+            }
+            if ($this->normalizeChassis($cells[3] ?? '') !== null) {
+                $vinAt[3]++;
+            }
+            if ($this->normalizeChassis($cells[2] ?? '') !== null) {
+                $vinAt[2]++;
+            }
+        }
+
+        if ($samples > 0 && $serialLike >= ($samples / 2) && $vinAt[3] >= $vinAt[2]) {
+            return [
+                'serial' => 0,
+                'model' => 1,
+                'cmr' => 2,
+                'vin' => 3,
+                'status' => 4,
+            ];
+        }
+
+        return [
+            'model' => 0,
+            'cmr' => 1,
+            'vin' => 2,
+            'serial' => 3,
+            'status' => 4,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $cells
+     */
+    private function firstChassisInRow(array $cells): ?string
+    {
+        foreach ($cells as $cell) {
+            $chassis = $this->normalizeChassis($cell);
+            if ($chassis !== null) {
+                return $chassis;
+            }
+        }
+
+        return null;
     }
 
     /**

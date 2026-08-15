@@ -87,29 +87,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-3 dark:border-slate-700 dark:bg-slate-900">
+    <section class="company-country-card mb-3 overflow-hidden">
         <div class="grid lg:grid-cols-12">
             <div class="lg:col-span-8">
                 <div class="flex items-center justify-between px-4 pt-4 pb-2">
                     <div>
-                        <h3 class="h6 erp-display mb-0">{{ t('land_trips.cars_by_country') }}</h3>
-                        <p class="small text-secondary mb-0">{{ t('land_trips.cars_by_country_help') }}</p>
+                        <h3 class="company-country-title mb-0">{{ t('land_trips.cars_by_country') }}</h3>
+                        <p class="company-country-help mb-0">{{ t('land_trips.cars_by_country_help') }}</p>
                     </div>
                 </div>
                 <div ref="mapEl" class="company-country-map"></div>
             </div>
-            <div class="lg:col-span-4 border-top lg:border-top-0 lg:border-start border-slate-200 dark:border-slate-700 p-4">
-                <p class="small text-secondary fw-semibold mb-3">{{ t('land_trips.country_totals') }}</p>
-                <div v-if="!countries.length" class="text-secondary small">{{ t('land_trips.no_country_cars') }}</div>
+            <div class="company-country-list lg:col-span-4 p-4">
+                <p class="company-country-help fw-semibold mb-3">{{ t('land_trips.country_totals') }}</p>
+                <div v-if="!countries.length" class="company-country-help">{{ t('land_trips.no_country_cars') }}</div>
                 <ul v-else class="list-unstyled mb-0 d-grid gap-3">
                     <li v-for="country in countries" :key="country.id" class="d-flex justify-content-between align-items-start gap-2">
                         <div>
-                            <div class="fw-semibold">{{ country.label }}</div>
-                            <div class="small text-secondary">
+                            <div class="company-country-name">{{ country.label }}</div>
+                            <div class="company-country-help">
                                 {{ (country.locations ?? []).filter((item) => Number(item.count) > 0).map((item) => item.label).join(' · ') }}
                             </div>
                         </div>
-                        <span class="badge rounded-pill text-bg-light border">{{ country.cars_count }}</span>
+                        <span class="company-country-count">{{ country.cars_count }}</span>
                     </li>
                 </ul>
             </div>

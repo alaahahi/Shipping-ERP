@@ -441,6 +441,77 @@ class LandTripService
     }
 
     /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{imported: int, updated: int, skipped: int}
+     */
+    public function upsertCompanyImportedCars(?Company $company, LandTrip $trip, array $rows): array
+    {
+        if ($company === null || (int) $trip->company_id !== (int) $company->id) {
+            throw ValidationException::withMessages([
+                'file' => 'Imported cars must belong to the selected company.',
+            ]);
+        }
+
+        $this->assertEditable($trip);
+
+        $existing = LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->get()
+            ->keyBy(fn (LandTripCar $car) => strtoupper((string) $car->chassis_no));
+
+        $imported = 0;
+        $updated = 0;
+        $skipped = 0;
+        $seen = [];
+
+        foreach ($rows as $row) {
+            if (($row['status'] ?? '') !== 'ready') {
+                $skipped++;
+
+                continue;
+            }
+
+            $chassis = $this->normalizeChassis($row['chassis_no'] ?? null);
+            if ($chassis === null || isset($seen[$chassis])) {
+                $skipped++;
+
+                continue;
+            }
+            $seen[$chassis] = true;
+
+            $payload = [
+                'chassis_no' => $chassis,
+                'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
+                'consignee_name' => trim((string) ($row['consignee_name'] ?? '')) ?: $company->name,
+                'description' => $this->nullableString($row['description'] ?? null),
+                'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
+                'sort_order' => (int) ($row['row_number'] ?? 0),
+            ];
+
+            if ($existing->has($chassis)) {
+                $car = $existing->get($chassis);
+                if (empty($payload['location_status_id'])) {
+                    $payload['location_status_id'] = $car->location_status_id;
+                }
+                $car->update($payload);
+                $updated++;
+
+                continue;
+            }
+
+            $payload['car_id'] = $this->findOrCreateCar($chassis, $payload['description'])->id;
+            $trip->cars()->create($payload);
+            $imported++;
+        }
+
+        return [
+            'imported' => $imported,
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ];
+    }
+
+    /**
      * @param  list<int>  $carIds
      */
     public function deleteCompanyCars(Company $company, array $carIds, User $actor): int
