@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LandTrips\ConfirmImportLandTripCarsRequest;
 use App\Http\Requests\LandTrips\ImportLandTripCarsRequest;
+use App\Http\Requests\LandTrips\ResetImportLandTripCarsRequest;
 use App\Models\LandTrip;
 use App\Services\LandTripExcelImportService;
+use App\Services\LandTripService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -13,7 +16,8 @@ use Inertia\Response;
 class LandTripImportController extends Controller
 {
     public function __construct(
-        private readonly LandTripExcelImportService $importService
+        private readonly LandTripExcelImportService $importService,
+        private readonly LandTripService $landTripService,
     ) {}
 
     public function create(LandTrip $land_trip): Response
@@ -36,6 +40,7 @@ class LandTripImportController extends Controller
                 'company_id' => $land_trip->company_id,
             ],
             'preview' => $preview,
+            'carStatuses' => $this->landTripService->carStatusOptions(),
         ]);
     }
 
@@ -50,11 +55,20 @@ class LandTripImportController extends Controller
             ->with('success', 'Excel uploaded. Review the preview then confirm import.');
     }
 
-    public function confirm(LandTrip $land_trip): RedirectResponse
+    public function reset(ResetImportLandTripCarsRequest $request, LandTrip $land_trip): RedirectResponse
     {
         Gate::authorize('update', $land_trip);
 
-        $result = $this->importService->confirm($land_trip, request()->user());
+        $this->importService->forgetUpload();
+
+        return redirect()->route('land-trips.import', $land_trip);
+    }
+
+    public function confirm(ConfirmImportLandTripCarsRequest $request, LandTrip $land_trip): RedirectResponse
+    {
+        Gate::authorize('update', $land_trip);
+
+        $result = $this->importService->confirm($land_trip, $request->user(), $request->validated('rows'));
 
         return redirect()
             ->route('land-trips.companies.show', $land_trip->company_id)

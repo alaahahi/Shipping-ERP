@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
+use App\Models\LandTripCarStatus;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,16 @@ class LandTripExcelImportService
             'path' => $path,
             'original_name' => $file->getClientOriginalName(),
         ];
+    }
+
+    public function forgetUpload(): void
+    {
+        $path = session(self::SESSION_PATH);
+        if (is_string($path) && $path !== '' && Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->delete($path);
+        }
+
+        session()->forget([self::SESSION_PATH, self::SESSION_NAME, self::SESSION_TRIP_ID]);
     }
 
     /**
@@ -104,9 +115,12 @@ class LandTripExcelImportService
      * @return array{
      *     original_name: string|null,
      *     default_consignee: string|null,
+     *     occupied_chassis: list<string>,
+     *     company_chassis: list<string>,
      *     ready: int,
      *     skipped: int,
      *     unmatched_status: int,
+     *     invalid: int,
      *     rows: list<array<string, mixed>>
      * }
      */
@@ -132,46 +146,111 @@ class LandTripExcelImportService
         return [
             'original_name' => session(self::SESSION_NAME),
             'default_consignee' => $parsed['default_consignee'],
+            'occupied_chassis' => array_keys($this->occupiedElsewhere($trip)),
+            'company_chassis' => array_keys($this->occupiedOnCompany($trip)),
             'ready' => $parsed['ready'],
             'skipped' => $parsed['skipped'],
             'unmatched_status' => $parsed['unmatched_status'],
-            'rows' => array_slice($parsed['rows'], 0, 120),
+            'invalid' => $parsed['invalid'],
+            'rows' => $parsed['rows'],
         ];
     }
 
     /**
+     * @param  list<array<string, mixed>>  $rows
      * @return array{imported: int, updated: int, skipped: int}
      */
-    public function confirm(LandTrip $trip, User $actor): array
+    public function confirm(LandTrip $trip, User $actor, array $rows): array
     {
-        $path = session(self::SESSION_PATH);
-        if (! $path || ! Storage::disk('local')->exists($path)) {
-            throw ValidationException::withMessages([
-                'file' => 'No Excel file found. Upload a file first.',
-            ]);
-        }
-
-        if ((int) session(self::SESSION_TRIP_ID) !== (int) $trip->id) {
-            throw ValidationException::withMessages([
-                'file' => 'Uploaded file belongs to another land trip. Upload again.',
-            ]);
-        }
-
         $trip->loadMissing('company');
 
-        $parsed = $this->parseFile(Storage::disk('local')->path($path), $trip);
+        $evaluated = $this->evaluateRows($trip, $rows);
+        $readyRows = array_values(array_filter(
+            $evaluated['rows'],
+            static fn (array $row): bool => ($row['status'] ?? '') === 'ready'
+        ));
 
-        $result = DB::transaction(function () use ($trip, $parsed): array {
+        if ($readyRows === []) {
+            throw ValidationException::withMessages([
+                'rows' => 'No valid cars to import. Fix chassis numbers in the preview first.',
+            ]);
+        }
+
+        $result = DB::transaction(function () use ($trip, $readyRows): array {
             return $this->landTripService->upsertCompanyImportedCars(
                 $trip->company,
                 $trip,
-                $parsed['rows'],
+                $readyRows,
             );
         });
 
-        session()->forget([self::SESSION_PATH, self::SESSION_NAME, self::SESSION_TRIP_ID]);
+        $this->forgetUpload();
 
         return $result;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{
+     *     ready: int,
+     *     skipped: int,
+     *     unmatched_status: int,
+     *     invalid: int,
+     *     rows: list<array<string, mixed>>
+     * }
+     */
+    public function evaluateRows(LandTrip $trip, array $rows): array
+    {
+        $occupied = $this->occupiedElsewhere($trip);
+        $companyChassis = $this->occupiedOnCompany($trip);
+        $seen = [];
+        $preview = [];
+        $ready = 0;
+        $skipped = 0;
+        $unmatchedStatus = 0;
+        $invalid = 0;
+        $consigneeFallback = $trip->company?->name ?? 'Consignee';
+
+        foreach (array_values($rows) as $index => $row) {
+            $evaluated = $this->evaluateRow(
+                is_array($row) ? $row : [],
+                $index,
+                $occupied,
+                $companyChassis,
+                $seen,
+                $consigneeFallback,
+            );
+
+            if (($evaluated['status_text'] ?? '') !== '' && empty($evaluated['location_status_id'])) {
+                $unmatchedStatus++;
+            }
+
+            if (($evaluated['reason_code'] ?? null) === 'invalid_chassis') {
+                $invalid++;
+            }
+
+            if ($evaluated['status'] === 'ready') {
+                $ready++;
+            } else {
+                $skipped++;
+            }
+
+            $normalized = $evaluated['normalized_chassis'] ?? null;
+            if (is_string($normalized) && $normalized !== '' && ! in_array($evaluated['reason_code'], ['chassis_used', 'duplicate_in_file'], true)) {
+                $seen[$normalized] = true;
+            }
+
+            unset($evaluated['normalized_chassis']);
+            $preview[] = $evaluated;
+        }
+
+        return [
+            'ready' => $ready,
+            'skipped' => $skipped,
+            'unmatched_status' => $unmatchedStatus,
+            'invalid' => $invalid,
+            'rows' => $preview,
+        ];
     }
 
     /**
@@ -180,6 +259,7 @@ class LandTripExcelImportService
      *     ready: int,
      *     skipped: int,
      *     unmatched_status: int,
+     *     invalid: int,
      *     rows: list<array<string, mixed>>
      * }
      */
@@ -210,6 +290,7 @@ class LandTripExcelImportService
             if ($this->isHeaderRow($cells)) {
                 $columns = $this->mapColumns($cells);
                 $headerRowNumber = $item['row_number'];
+
                 continue;
             }
 
@@ -219,34 +300,14 @@ class LandTripExcelImportService
         }
 
         $columns = $this->completeColumns($columns, $raw, $headerRowNumber);
-
-        $occupiedElsewhere = [];
-        $companyId = (int) $trip->company_id;
-        if ($companyId > 0) {
-            foreach (
-                LandTripCar::query()
-                    ->whereNotNull('chassis_no')
-                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $companyId))
-                    ->pluck('chassis_no') as $value
-            ) {
-                $normalized = $this->normalizeChassis((string) $value);
-                if ($normalized !== null) {
-                    $occupiedElsewhere[$normalized] = true;
-                }
-            }
-        }
-
-        $preview = [];
-        $ready = 0;
-        $skipped = 0;
-        $unmatchedStatus = 0;
         $consignee = $defaultConsignee ?: ($trip->company?->name ?? 'Consignee');
+        $extracted = [];
 
         foreach ($raw as $item) {
             $rowNumber = $item['row_number'];
             $cells = $item['cells'];
 
-            if ($this->isEmptyRow($cells) || $rowNumber === $headerRowNumber) {
+            if ($this->isEmptyRow($cells) || $this->isHeaderRow($cells) || $rowNumber === $headerRowNumber) {
                 continue;
             }
 
@@ -258,63 +319,148 @@ class LandTripExcelImportService
             $cmr = $this->cell($cells, $columns['cmr'] ?? null);
             $serial = $this->cell($cells, $columns['serial'] ?? null);
             $statusText = $this->cell($cells, $columns['status'] ?? null);
-            $chassis = $this->normalizeChassis($this->cell($cells, $columns['vin'] ?? null))
-                ?? $this->firstChassisInRow($cells);
+            $chassisRaw = $this->rawVinFromRow($cells, $columns['vin'] ?? null);
 
-            if ($chassis === null && $model === '' && $cmr === '') {
-                if ($serial !== '' && is_numeric($serial)) {
-                    $skipped++;
-                    $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, null, $statusText, null, null, null, 'Missing chassis / VIN');
+            if ($model === '' && $cmr === '' && $chassisRaw === '' && $statusText === '') {
+                if ($serial === '' || ! is_numeric($serial)) {
+                    continue;
                 }
-
-                continue;
-            }
-
-            if ($chassis === null) {
-                $skipped++;
-                $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, null, $statusText, null, null, null, 'Missing chassis / VIN');
-
-                continue;
-            }
-
-            if (isset($occupiedElsewhere[$chassis])) {
-                $skipped++;
-                $preview[] = $this->previewRow($rowNumber, 'skipped', $model, $cmr, $chassis, $statusText, null, null, null, 'Chassis already used');
-
-                continue;
-            }
-
-            $status = $this->statusService->resolveByText($statusText);
-            if ($statusText !== '' && ! $status) {
-                $unmatchedStatus++;
             }
 
             $sortOrder = ctype_digit($serial) ? (int) $serial : $rowNumber;
 
-            $ready++;
-            $preview[] = $this->previewRow(
-                $sortOrder,
-                'ready',
-                $model,
-                $cmr,
-                $chassis,
-                $statusText,
-                $status?->id,
-                $status?->localizedName(),
-                $status?->row_tone?->value,
-                null,
-                $consignee,
-                $status?->code,
-            );
+            $extracted[] = [
+                'row_number' => $sortOrder,
+                'description' => $this->sanitizeDescription($model),
+                'cmr_waybill' => $this->sanitizeCmr($cmr),
+                'chassis_no' => $this->sanitizeChassis($chassisRaw),
+                'status_text' => $statusText,
+                'consignee_name' => $consignee,
+            ];
         }
 
+        $evaluated = $this->evaluateRows($trip, $extracted);
+        $evaluated['default_consignee'] = $defaultConsignee;
+
+        return $evaluated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, true>  $occupied
+     * @param  array<string, true>  $companyChassis
+     * @param  array<string, true>  $seen
+     * @return array<string, mixed>
+     */
+    private function evaluateRow(array $row, int $index, array $occupied, array $companyChassis, array $seen, string $consigneeFallback): array
+    {
+        $rawChassis = trim((string) ($row['chassis_no'] ?? ''));
+        [$normalized, $chassisError] = $this->inspectChassis($rawChassis);
+        $description = $this->sanitizeDescription($row['description'] ?? '');
+        $statusText = trim((string) ($row['status_text'] ?? ''));
+        $status = $this->resolveStatus($row);
+        $reasonCode = null;
+
+        if ($chassisError === 'missing_chassis') {
+            $reasonCode = 'missing_chassis';
+        } elseif ($normalized !== null && isset($occupied[$normalized])) {
+            $reasonCode = 'chassis_used';
+        } elseif ($normalized !== null && isset($seen[$normalized])) {
+            $reasonCode = 'duplicate_in_file';
+        } elseif (mb_strlen($description) > 255) {
+            $reasonCode = 'description_too_long';
+        } elseif ($normalized !== null && isset($companyChassis[$normalized])) {
+            $reasonCode = 'already_in_company';
+        } elseif ($chassisError === 'invalid_chassis') {
+            $reasonCode = 'invalid_chassis';
+        }
+
+        $blocking = in_array($reasonCode, ['missing_chassis', 'chassis_used', 'duplicate_in_file', 'description_too_long'], true);
+        $ready = $normalized !== null && ! $blocking;
+
         return [
-            'default_consignee' => $defaultConsignee,
-            'ready' => $ready,
-            'skipped' => $skipped,
-            'unmatched_status' => $unmatchedStatus,
-            'rows' => $preview,
+            'row_number' => (int) ($row['row_number'] ?? ($index + 1)),
+            'status' => $ready ? 'ready' : 'skipped',
+            'reason_code' => $reasonCode,
+            'reason' => $reasonCode,
+            'description' => $description,
+            'cmr_waybill' => $this->sanitizeCmr($row['cmr_waybill'] ?? ''),
+            'chassis_no' => $normalized ?? '',
+            'normalized_chassis' => $normalized,
+            'status_text' => $statusText,
+            'location_status_id' => $status?->id,
+            'location_status_code' => $status?->code,
+            'location_status_label' => $status?->localizedName(),
+            'location_status_tone' => $status?->row_tone?->value,
+            'consignee_name' => trim((string) ($row['consignee_name'] ?? '')) ?: $consigneeFallback,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function resolveStatus(array $row): ?LandTripCarStatus
+    {
+        if (! empty($row['location_status_id'])) {
+            $status = LandTripCarStatus::query()->find((int) $row['location_status_id']);
+            if ($status instanceof LandTripCarStatus) {
+                return $status;
+            }
+        }
+
+        return $this->statusService->resolveByText($row['status_text'] ?? null);
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function occupiedElsewhere(LandTrip $trip): array
+    {
+        $companyId = (int) $trip->company_id;
+        if ($companyId < 1) {
+            return [];
+        }
+
+        $occupied = [];
+        foreach (
+            LandTripCar::query()
+                ->whereNotNull('chassis_no')
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $companyId))
+                ->pluck('chassis_no') as $value
+        ) {
+            $normalized = $this->sanitizeChassis((string) $value);
+            if ($normalized !== '') {
+                $occupied[$normalized] = true;
+            }
+        }
+
+        return $occupied;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function occupiedOnCompany(LandTrip $trip): array
+    {
+        $companyId = (int) $trip->company_id;
+        if ($companyId < 1) {
+            return [];
+        }
+
+        $occupied = [];
+        foreach (
+            LandTripCar::query()
+                ->whereNotNull('chassis_no')
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $companyId))
+                ->pluck('chassis_no') as $value
+        ) {
+            $normalized = $this->sanitizeChassis((string) $value);
+            if ($normalized !== '') {
+                $occupied[$normalized] = true;
+            }
+        }
+
+        return $occupied;
     }
 
     /**
@@ -334,7 +480,7 @@ class LandTripExcelImportService
             }
         }
 
-        return $this->normalizeChassis($first) === null && ! $this->looksLikeSummaryRow($cells);
+        return $this->validChassis($first) === null && ! $this->looksLikeSummaryRow($cells);
     }
 
     /**
@@ -342,9 +488,14 @@ class LandTripExcelImportService
      */
     private function looksLikeSummaryRow(array $cells): bool
     {
+        if ($this->firstChassisInRow($cells) !== null) {
+            return false;
+        }
+
         $joined = implode(' ', array_filter($cells));
 
-        return (bool) preg_match('/\d+\s+(corolla|elantra|byd|cross)/i', $joined);
+        return (bool) preg_match('/\b(total|subtotal|count)\b/i', $joined)
+            || (bool) preg_match('/^\s*\d+\s+(corolla|elantra|byd|cross)\b/i', $joined);
     }
 
     /**
@@ -441,10 +592,10 @@ class LandTripExcelImportService
             if (preg_match('/^\d{1,4}$/', $cells[0] ?? '')) {
                 $serialLike++;
             }
-            if ($this->normalizeChassis($cells[3] ?? '') !== null) {
+            if ($this->validChassis($cells[3] ?? '') !== null) {
                 $vinAt[3]++;
             }
-            if ($this->normalizeChassis($cells[2] ?? '') !== null) {
+            if ($this->validChassis($cells[2] ?? '') !== null) {
                 $vinAt[2]++;
             }
         }
@@ -471,10 +622,33 @@ class LandTripExcelImportService
     /**
      * @param  list<string>  $cells
      */
+    private function rawVinFromRow(array $cells, ?int $vinIndex): string
+    {
+        $fromCol = $this->cell($cells, $vinIndex);
+        if ($fromCol !== '') {
+            return $fromCol;
+        }
+
+        foreach ($cells as $index => $cell) {
+            if ($vinIndex !== null && $index === $vinIndex) {
+                continue;
+            }
+
+            if ($this->validChassis($cell) !== null) {
+                return trim($cell);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<string>  $cells
+     */
     private function firstChassisInRow(array $cells): ?string
     {
         foreach ($cells as $cell) {
-            $chassis = $this->normalizeChassis($cell);
+            $chassis = $this->validChassis($cell);
             if ($chassis !== null) {
                 return $chassis;
             }
@@ -509,43 +683,48 @@ class LandTripExcelImportService
         return true;
     }
 
-    private function normalizeChassis(string $value): ?string
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function inspectChassis(?string $value): array
     {
-        $chassis = strtoupper((string) preg_replace('/\s+/', '', trim($value)));
+        $chassis = $this->sanitizeChassis($value);
+        if ($chassis === '') {
+            return [null, 'missing_chassis'];
+        }
 
-        return strlen($chassis) < 8 ? null : $chassis;
+        if (strlen($chassis) !== 17) {
+            return [$chassis, 'invalid_chassis'];
+        }
+
+        return [$chassis, null];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function previewRow(
-        int $rowNumber,
-        string $status,
-        string $model,
-        string $cmr,
-        ?string $chassis,
-        string $statusText,
-        ?int $locationStatusId,
-        ?string $locationStatusLabel,
-        ?string $locationStatusTone = null,
-        ?string $reason = null,
-        ?string $consigneeName = null,
-        ?string $locationStatusCode = null
-    ): array {
-        return [
-            'row_number' => $rowNumber,
-            'status' => $status,
-            'reason' => $reason,
-            'description' => $model,
-            'cmr_waybill' => $cmr,
-            'chassis_no' => $chassis,
-            'status_text' => $statusText,
-            'location_status_id' => $locationStatusId,
-            'location_status_code' => $locationStatusCode,
-            'location_status_label' => $locationStatusLabel,
-            'location_status_tone' => $locationStatusTone,
-            'consignee_name' => $consigneeName,
-        ];
+    private function sanitizeChassis(?string $value): string
+    {
+        return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $value));
+    }
+
+    private function sanitizeCmr(?string $value): string
+    {
+        $cleaned = (string) preg_replace('/[^A-Za-z0-9\s\-\/]/', '', (string) $value);
+        $cleaned = (string) preg_replace('/\s+/', ' ', $cleaned);
+
+        return trim($cleaned);
+    }
+
+    private function sanitizeDescription(?string $value): string
+    {
+        $cleaned = (string) preg_replace('/[^\p{Arabic}A-Za-z\s]/u', '', (string) $value);
+        $cleaned = (string) preg_replace('/\s+/u', ' ', $cleaned);
+
+        return trim($cleaned);
+    }
+
+    private function validChassis(string $value): ?string
+    {
+        $chassis = $this->sanitizeChassis($value);
+
+        return strlen($chassis) < 8 ? null : $chassis;
     }
 }

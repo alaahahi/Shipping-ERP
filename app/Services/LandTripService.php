@@ -238,9 +238,11 @@ class LandTripService
     }
 
     /**
-     * @param  array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null}  $filters
+     * @param  array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null, sort?: string|null}  $filters
      */
-    public function paginateCompanyCars(Company $company, array $filters = [], int $perPage = 10, ?int $page = null): LengthAwarePaginator
+    public const COMPANY_CARS_PER_PAGE = 50;
+
+    public function paginateCompanyCars(Company $company, array $filters = [], int $perPage = self::COMPANY_CARS_PER_PAGE, ?int $page = null): LengthAwarePaginator
     {
         $query = $this->companyCarsQuery($company, $filters);
 
@@ -249,23 +251,23 @@ class LandTripService
             $query->orderByRaw('CASE WHEN land_trip_cars.id = ? THEN 0 ELSE 1 END', [$highlightId]);
         }
 
+        $this->applyCompanyCarSort($query, $filters);
+
         return $query
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
     }
 
     /**
-     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null}  $filters
      * @return Collection<int, LandTripCar>
      */
     public function listCompanyCarsForExport(Company $company, array $filters = []): Collection
     {
-        return $this->companyCarsQuery($company, $filters)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        $query = $this->companyCarsQuery($company, $filters);
+        $this->applyCompanyCarSort($query, $filters);
+
+        return $query->get();
     }
 
     /**
@@ -274,6 +276,7 @@ class LandTripService
     private function companyCarsQuery(Company $company, array $filters = []): Builder
     {
         $query = LandTripCar::query()
+            ->select('land_trip_cars.*')
             ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
             ->with([
                 'locationStatus:id,code,name,name_ar,name_ckb,row_tone,color',
@@ -284,20 +287,64 @@ class LandTripService
             $search = trim((string) $filters['search']);
             $query->where(function ($builder) use ($search): void {
                 $builder
-                    ->where('chassis_no', 'like', "%{$search}%")
-                    ->orWhere('consignee_name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('cmr_waybill', 'like', "%{$search}%");
+                    ->where('land_trip_cars.chassis_no', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.consignee_name', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.description', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.cmr_waybill', 'like', "%{$search}%");
             });
         }
 
         if (! empty($filters['location_status_id'])) {
-            $query->where('location_status_id', $filters['location_status_id']);
+            $query->where('land_trip_cars.location_status_id', $filters['location_status_id']);
         } else {
             $this->excludeArchivedCars($query);
         }
 
         return $query;
+    }
+
+    public function normalizeCompanyCarSort(?string $sort): string
+    {
+        return in_array($sort, ['location', 'oldest', 'sequence', 'newest'], true) ? $sort : 'newest';
+    }
+
+    /**
+     * @param  array{sort?: string|null}  $filters
+     */
+    private function applyCompanyCarSort(Builder $query, array $filters): void
+    {
+        $sort = $this->normalizeCompanyCarSort($filters['sort'] ?? null);
+
+        if ($sort === 'location') {
+            $query
+                ->leftJoin('land_trip_car_statuses as car_location_sort', 'car_location_sort.id', '=', 'land_trip_cars.location_status_id')
+                ->orderByRaw('CASE WHEN land_trip_cars.location_status_id IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('car_location_sort.sort_order')
+                ->orderBy('land_trip_cars.created_at')
+                ->orderBy('land_trip_cars.id');
+
+            return;
+        }
+
+        if ($sort === 'oldest') {
+            $query
+                ->orderBy('land_trip_cars.created_at')
+                ->orderBy('land_trip_cars.id');
+
+            return;
+        }
+
+        if ($sort === 'sequence') {
+            $query
+                ->orderBy('land_trip_cars.sort_order')
+                ->orderByDesc('land_trip_cars.id');
+
+            return;
+        }
+
+        $query
+            ->orderByDesc('land_trip_cars.created_at')
+            ->orderByDesc('land_trip_cars.id');
     }
 
     /**
@@ -333,8 +380,8 @@ class LandTripService
 
         $query->where(function (Builder $builder) use ($archiveIds): void {
             $builder
-                ->whereNull('location_status_id')
-                ->orWhereNotIn('location_status_id', $archiveIds);
+                ->whereNull('land_trip_cars.location_status_id')
+                ->orWhereNotIn('land_trip_cars.location_status_id', $archiveIds);
         });
     }
 
@@ -442,7 +489,7 @@ class LandTripService
 
     /**
      * @param  list<array<string, mixed>>  $rows
-     * @return array{imported: int, updated: int, skipped: int}
+     * @return array{imported: int, updated: int, skipped: int, created_ids: list<int>}
      */
     public function upsertCompanyImportedCars(?Company $company, LandTrip $trip, array $rows): array
     {
@@ -462,6 +509,7 @@ class LandTripService
         $imported = 0;
         $updated = 0;
         $skipped = 0;
+        $createdIds = [];
         $seen = [];
 
         foreach ($rows as $row) {
@@ -511,7 +559,8 @@ class LandTripService
             }
 
             $payload['car_id'] = $this->findOrCreateCar($chassis, $payload['description'])->id;
-            $trip->cars()->create($payload);
+            $created = $trip->cars()->create($payload);
+            $createdIds[] = (int) $created->id;
             $imported++;
         }
 
@@ -519,6 +568,7 @@ class LandTripService
             'imported' => $imported,
             'updated' => $updated,
             'skipped' => $skipped,
+            'created_ids' => $createdIds,
         ];
     }
 
@@ -1220,7 +1270,7 @@ class LandTripService
 
     private function normalizeChassis(mixed $value): ?string
     {
-        $chassis = strtoupper(trim((string) ($value ?? '')));
+        $chassis = strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? ''))));
 
         return $chassis === '' ? null : $chassis;
     }

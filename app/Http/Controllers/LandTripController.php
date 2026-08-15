@@ -16,9 +16,10 @@ use App\Http\Requests\LandTrips\UpdateLandTripRequest;
 use App\Models\Company;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
-use App\Services\CompanyWalletService;
 use App\Services\CompanyService;
+use App\Services\CompanyWalletService;
 use App\Services\CountryService;
+use App\Services\LandTripCarImportLogService;
 use App\Services\LandTripCarLocationChangeService;
 use App\Services\LandTripExcelImportService;
 use App\Services\LandTripPostingService;
@@ -80,6 +81,7 @@ class LandTripController extends Controller
             'search' => $request->string('search')->toString(),
             'location_status_id' => $request->string('location_status_id')->toString(),
             'highlight_car_id' => $request->integer('highlight') ?: null,
+            'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
         ]);
 
         $user = $request->user();
@@ -96,6 +98,7 @@ class LandTripController extends Controller
             'filters' => [
                 'search' => $filters['search'],
                 'location_status_id' => $filters['location_status_id'],
+                'sort' => $this->landTripService->normalizeCompanyCarSort($filters['sort'] ?? null),
             ],
             'highlightCarId' => $filters['highlight_car_id'],
             'canManage' => $user?->can(Permission::LandTripsManage->value) ?? false,
@@ -111,6 +114,7 @@ class LandTripController extends Controller
         $filters = [
             'search' => $request->string('search')->toString(),
             'location_status_id' => $request->string('location_status_id')->toString(),
+            'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
         ];
 
         $cars = $this->landTripService
@@ -194,6 +198,7 @@ class LandTripController extends Controller
         return $this->importService->exportCompanyCars($company, [
             'search' => $request->string('search')->toString(),
             'location_status_id' => $request->string('location_status_id')->toString(),
+            'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
         ]);
     }
 

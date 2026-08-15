@@ -123,6 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('land-trips', LandTripController::class);
     Route::get('/land-trips/{land_trip}/import', [LandTripImportController::class, 'create'])->name('land-trips.import');
     Route::post('/land-trips/{land_trip}/import/preview', [LandTripImportController::class, 'preview'])->name('land-trips.import.preview');
+    Route::post('/land-trips/{land_trip}/import/reset', [LandTripImportController::class, 'reset'])->name('land-trips.import.reset');
     Route::post('/land-trips/{land_trip}/import/confirm', [LandTripImportController::class, 'confirm'])->name('land-trips.import.confirm');
     Route::post('/land-trips/{land_trip}/cars', [LandTripController::class, 'syncCars'])
         ->name('land-trips.cars.sync');

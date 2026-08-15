@@ -49,6 +49,7 @@ watch(hubTab, (tab) => {
 const filterForm = useForm({
     search: props.filters.search ?? '',
     location_status_id: props.filters.location_status_id ?? '',
+    sort: props.filters.sort || 'sequence',
 });
 
 const emptyCarRow = () => ({
@@ -58,7 +59,7 @@ const emptyCarRow = () => ({
     consignee_name: '',
     description: '',
     weight: '',
-    price: '',
+    price: 0,
     notes: '',
     location_status_id: props.carStatuses[0]?.id ?? '',
 });
@@ -100,6 +101,7 @@ const companyUrl = (overrides = {}) => {
     const locationId = overrides.location_status_id !== undefined
         ? overrides.location_status_id
         : filterForm.location_status_id;
+    const sort = overrides.sort !== undefined ? overrides.sort : filterForm.sort;
     const highlight = overrides.highlight !== undefined ? overrides.highlight : props.highlightCarId;
 
     if (String(search ?? '').trim() !== '') {
@@ -107,6 +109,9 @@ const companyUrl = (overrides = {}) => {
     }
     if (locationId) {
         params.set('location_status_id', String(locationId));
+    }
+    if (sort && sort !== 'sequence') {
+        params.set('sort', String(sort));
     }
     if (highlight) {
         params.set('highlight', String(highlight));
@@ -135,6 +140,9 @@ const exportHref = computed(() => {
     }
     if (filterForm.location_status_id) {
         params.set('location_status_id', String(filterForm.location_status_id));
+    }
+    if (filterForm.sort && filterForm.sort !== 'sequence') {
+        params.set('sort', String(filterForm.sort));
     }
     const query = params.toString();
 
@@ -216,6 +224,12 @@ watch(
         filterTimer = setTimeout(() => applyFilters(), 350);
     },
 );
+watch(
+    () => filterForm.sort,
+    () => {
+        applyFilters();
+    },
+);
 onBeforeUnmount(() => {
     clearTimeout(filterTimer);
     loadMoreObserver?.disconnect();
@@ -279,6 +293,7 @@ const loadMore = async () => {
                 page: currentPage.value + 1,
                 search: filterForm.search || undefined,
                 location_status_id: filterForm.location_status_id || undefined,
+                sort: filterForm.sort && filterForm.sort !== 'sequence' ? filterForm.sort : undefined,
             },
         });
         currentPage.value = data.current_page ?? currentPage.value + 1;
@@ -493,9 +508,17 @@ const moveOne = (carId, statusId) => {
     applyLocation([carId]);
 };
 
+const integerPrice = (value) => {
+    if (value === '' || value === null || value === undefined) {
+        return 0;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : 0;
+};
+
 const savePrice = (car, value) => {
-    const price = value === '' || value === null ? '0.00' : Number(value).toFixed(2);
-    if (Number(car.price || 0).toFixed(2) === price) {
+    const price = integerPrice(value);
+    if (integerPrice(car.price) === price) {
         return;
     }
 
@@ -631,6 +654,7 @@ const savePrice = (car, value) => {
                         </button>
                     </div>
 
+                    <div class="land-hub-toolbar">
                     <form class="land-hub-search" @submit.prevent>
                         <label class="visually-hidden" for="land-hub-search">{{ t('land_trips.search_cars') }}</label>
                         <input
@@ -642,6 +666,19 @@ const savePrice = (car, value) => {
                             autocomplete="off"
                         />
                     </form>
+                    <div class="land-hub-sort">
+                        <label class="visually-hidden" for="land-hub-sort">{{ t('land_trips.sort_cars') }}</label>
+                        <select
+                            id="land-hub-sort"
+                            v-model="filterForm.sort"
+                            class="form-select form-erp-control"
+                        >
+                            <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
+                            <option value="location">{{ t('land_trips.sort_location') }}</option>
+                            <option value="oldest">{{ t('land_trips.sort_oldest') }}</option>
+                        </select>
+                    </div>
+                    </div>
 
                     <div v-if="canManage" class="land-hub-bulk">
                         <label class="form-erp-label mb-0 land-hub-bulk-label" for="land-hub-move">
@@ -756,14 +793,15 @@ const savePrice = (car, value) => {
                                         v-if="canManage"
                                         type="number"
                                         min="0"
-                                        step="0.01"
-                                        class="form-control form-control-sm form-erp-control"
-                                        :value="car.price"
+                                        step="1"
+                                        inputmode="numeric"
+                                        class="form-control form-control-sm form-erp-control land-hub-price-input"
+                                        :value="integerPrice(car.price)"
                                         :disabled="moveForm.processing || deletingSelected"
                                         :aria-label="t('land_trips.car_price')"
                                         @change="savePrice(car, $event.target.value)"
                                     />
-                                    <span v-else>{{ car.price || '0.00' }}</span>
+                                    <span v-else>{{ integerPrice(car.price) }}</span>
                                 </td>
                                 <td>
                                     <select

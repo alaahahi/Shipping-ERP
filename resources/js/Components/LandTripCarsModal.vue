@@ -25,9 +25,17 @@ const emptyRow = () => ({
     description: '',
     weight: '',
     notes: '',
-    price: '',
+    price: 0,
     location_status_id: props.carStatuses[0]?.id ?? '',
 });
+
+const integerPrice = (value) => {
+    if (value === '' || value === null || value === undefined) {
+        return 0;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : 0;
+};
 
 const rowStyle = (row) => {
     const status = props.carStatuses.find((item) => String(item.id) === String(row.location_status_id));
@@ -63,7 +71,7 @@ const applyVoyageCar = (index, voyageCarId) => {
             consignee_name: selected.consignee_name ?? '',
             description: selected.description ?? '',
             weight: selected.weight ?? '',
-            price: row.price ?? '',
+            price: integerPrice(row.price),
         };
     });
     emit('update:cars', next);
@@ -81,7 +89,7 @@ const fillFromVoyage = () => {
             description: car.description ?? '',
             weight: car.weight ?? '',
             notes: '',
-            price: '',
+            price: 0,
             location_status_id: props.carStatuses[0]?.id ?? '',
         })),
     );
@@ -193,11 +201,12 @@ const fillFromVoyage = () => {
                             <td style="min-width: 110px">
                                 <input
                                     type="number"
-                                    step="0.01"
+                                    step="1"
                                     min="0"
-                                    class="form-control form-erp-control form-control-sm"
-                                    :value="row.price"
-                                    @input="updateRow(index, 'price', $event.target.value)"
+                                    inputmode="numeric"
+                                    class="form-control form-erp-control form-control-sm land-hub-price-input"
+                                    :value="integerPrice(row.price)"
+                                    @change="updateRow(index, 'price', integerPrice($event.target.value))"
                                 />
                             </td>
                             <td style="min-width: 90px">
