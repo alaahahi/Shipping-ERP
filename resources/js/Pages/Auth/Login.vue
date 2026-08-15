@@ -90,7 +90,7 @@ const submit = () => {
                     <button
                         id="authLocaleButton"
                         type="button"
-                        class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:text-slate-200"
+                        class="login-chip"
                         data-dropdown-toggle="authLocaleMenu"
                     >
                         {{ currentLocale.toUpperCase() }}
@@ -111,7 +111,7 @@ const submit = () => {
                 </div>
                 <button
                     type="button"
-                    class="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:text-slate-200"
+                    class="login-chip"
                     :aria-label="theme === 'dark' ? t('appearance.toggle_light') : t('appearance.toggle_dark')"
                     @click="toggleTheme"
                 >
@@ -142,10 +142,11 @@ const submit = () => {
                             id="email"
                             v-model="form.email"
                             type="email"
+                            name="email"
                             autocomplete="username"
                             required
                             autofocus
-                            class="login-input h-12 w-full rounded-full px-5 text-sm"
+                            class="login-input rounded-full px-5 text-sm"
                             @focus="isTyping = true"
                             @blur="isTyping = false"
                         >
@@ -154,18 +155,22 @@ const submit = () => {
 
                     <div class="space-y-2">
                         <label class="text-sm font-medium text-slate-800 dark:text-slate-200" for="password">{{ t('auth.password') }}</label>
-                        <div class="relative">
+                        <div class="relative z-10">
                             <input
                                 id="password"
                                 v-model="form.password"
                                 :type="showPassword ? 'text' : 'password'"
+                                name="password"
                                 autocomplete="current-password"
                                 required
-                                class="login-input h-12 w-full rounded-full px-5 pe-12 text-sm"
+                                class="login-input rounded-full px-5 pe-12 text-sm"
+                                @focus="isTyping = true"
+                                @blur="isTyping = false"
                             >
                             <button
                                 type="button"
-                                class="absolute inset-y-0 end-0 flex items-center pe-4 text-slate-400 hover:text-slate-700"
+                                class="login-eye"
+                                tabindex="-1"
                                 :aria-label="t('auth.password')"
                                 @click="showPassword = !showPassword"
                             >
