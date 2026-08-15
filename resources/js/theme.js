@@ -25,6 +25,7 @@ export function applyTheme(theme) {
     const root = document.documentElement;
 
     root.setAttribute('data-theme', resolved);
+    root.classList.toggle('dark', resolved === 'dark');
     root.style.colorScheme = resolved;
 }
 

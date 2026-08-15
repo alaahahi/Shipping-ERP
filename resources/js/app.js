@@ -1,13 +1,14 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { applyDocumentLocale, createAppI18n } from './i18n';
 import { applyTheme, readStoredTheme } from './theme';
+import { bootFlowbite } from './flowbite';
 
 import 'bootstrap';
 
@@ -26,12 +27,19 @@ createInertiaApp({
         applyDocumentLocale(initialLocale);
         applyTheme(readStoredTheme());
 
-        return createApp({ render: () => h(App, props) })
+        const vueApp = createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(createPinia())
             .use(i18n)
             .use(ZiggyVue)
             .mount(el);
+
+        bootFlowbite();
+        router.on('navigate', () => {
+            requestAnimationFrame(() => bootFlowbite());
+        });
+
+        return vueApp;
     },
     progress: {
         color: '#0f766e',

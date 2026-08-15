@@ -1,0 +1,18 @@
+---
+description: Use Flowbite for Vue UI components and interactive controls.
+globs: resources/js/**/*.{vue,js}
+alwaysApply: true
+---
+
+# Flowbite UI
+
+Use the `flowbite` package for new and updated Vue UI.
+
+- Style forms, buttons, alerts, dropdowns, modals, and tabs with Flowbite Tailwind classes.
+- Reuse helpers from `resources/js/flowbite.js` (`fbInput`, `fbButton`, `fbLabel`, `fbLink`, `fbAlertSuccess`, `fbCheckbox`).
+- Keep ERP teal (`teal-700` / brand `#0f766e`), not default Flowbite blue.
+- Interactive widgets (`data-dropdown-toggle`, modal, tooltip) rely on `bootFlowbite()` after Inertia navigation. Do not skip `initFlowbite`.
+- Support `dark:` variants. Theme uses both `data-theme="dark"` and the `dark` class on `<html>`.
+- Support RTL with logical classes (`ms-`, `me-`, `ps-`, `pe-`, `start`, `end`).
+- Do not mix Bootstrap `form-control` / `btn-erp` on pages already migrated to Flowbite.
+- Do not add `flowbite-vue` unless explicitly requested; this project uses `flowbite` + Vue templates.
