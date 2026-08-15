@@ -10,9 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('land_trip_car_statuses', function (Blueprint $table) {
-            $table->string('color', 7)->default('#64748B')->after('row_tone');
-        });
+        if (! Schema::hasColumn('land_trip_car_statuses', 'color')) {
+            Schema::table('land_trip_car_statuses', function (Blueprint $table) {
+                $table->string('color', 7)->default('#64748B')->after('row_tone');
+            });
+        }
 
         DB::table('land_trip_car_statuses')
             ->where('row_tone', LandTripCarRowTone::Yellow->value)
@@ -45,8 +47,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('land_trip_car_statuses', function (Blueprint $table) {
-            $table->dropColumn('color');
-        });
+        if (Schema::hasColumn('land_trip_car_statuses', 'color')) {
+            Schema::table('land_trip_car_statuses', function (Blueprint $table) {
+                $table->dropColumn('color');
+            });
+        }
     }
 };

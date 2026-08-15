@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('company_wallet_entries')) {
+            return;
+        }
+
         Schema::create('company_wallet_entries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained('companies')->restrictOnDelete();
