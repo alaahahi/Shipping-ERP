@@ -78,6 +78,11 @@ class Company extends Model
         return $this->hasMany(LandTripCarLocationChange::class);
     }
 
+    public function landTripCarImports(): HasMany
+    {
+        return $this->hasMany(LandTripCarImport::class);
+    }
+
     public function walletEntries(): HasMany
     {
         return $this->hasMany(CompanyWalletEntry::class);

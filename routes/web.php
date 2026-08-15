@@ -16,6 +16,7 @@ use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LandTripCarStatusController;
 use App\Http\Controllers\LandTripController;
 use App\Http\Controllers\LandTripImportController;
+use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
@@ -108,6 +109,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.location-logs');
     Route::post('/land-trips/companies/{company}/location-logs/undo', [LandTripLocationLogController::class, 'undo'])
         ->name('land-trips.companies.location-logs.undo');
+    Route::get('/land-trips/companies/{company}/import-logs', [LandTripImportLogController::class, 'index'])
+        ->name('land-trips.companies.import-logs');
+    Route::post('/land-trips/companies/{company}/import-logs/undo', [LandTripImportLogController::class, 'undo'])
+        ->name('land-trips.companies.import-logs.undo');
     Route::put('/land-trips/companies/{company}/manifest', [LandTripController::class, 'updateCompanyManifest'])
         ->name('land-trips.companies.manifest.update');
     Route::get('/land-trips/companies/{company}/import', [LandTripController::class, 'companyImport'])

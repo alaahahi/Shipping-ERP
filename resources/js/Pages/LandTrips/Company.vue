@@ -23,6 +23,7 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
     highlightCarId: { type: [Number, String], default: null },
     locationLog: { type: Object, default: () => ({ can_undo: false }) },
+    importLog: { type: Object, default: () => ({ can_undo: false }) },
     wallet: { type: Object, default: () => ({ balances: [], summary: null, entries: [], currencies: ['USD'] }) },
 });
 
@@ -49,7 +50,7 @@ watch(hubTab, (tab) => {
 const filterForm = useForm({
     search: props.filters.search ?? '',
     location_status_id: props.filters.location_status_id ?? '',
-    sort: props.filters.sort || 'sequence',
+    sort: props.filters.sort || 'newest',
 });
 
 const emptyCarRow = () => ({
@@ -110,7 +111,7 @@ const companyUrl = (overrides = {}) => {
     if (locationId) {
         params.set('location_status_id', String(locationId));
     }
-    if (sort && sort !== 'sequence') {
+    if (sort && sort !== 'newest') {
         params.set('sort', String(sort));
     }
     if (highlight) {
@@ -126,7 +127,7 @@ watch(success, (message) => {
     if (!message) {
         return;
     }
-    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message))) {
+    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message)) || /excel import undone/i.test(String(message))) {
         return;
     }
     toastMessage.value = message;
@@ -141,7 +142,7 @@ const exportHref = computed(() => {
     if (filterForm.location_status_id) {
         params.set('location_status_id', String(filterForm.location_status_id));
     }
-    if (filterForm.sort && filterForm.sort !== 'sequence') {
+    if (filterForm.sort && filterForm.sort !== 'newest') {
         params.set('sort', String(filterForm.sort));
     }
     const query = params.toString();
@@ -200,7 +201,7 @@ const applyFilters = () => {
     selectedIds.value = [];
     replaceLoadedCars.value = true;
     router.get(
-        companyUrl({ page: 1 }),
+        companyUrl(),
         {},
         {
             preserveState: true,
@@ -293,7 +294,7 @@ const loadMore = async () => {
                 page: currentPage.value + 1,
                 search: filterForm.search || undefined,
                 location_status_id: filterForm.location_status_id || undefined,
-                sort: filterForm.sort && filterForm.sort !== 'sequence' ? filterForm.sort : undefined,
+                sort: filterForm.sort && filterForm.sort !== 'newest' ? filterForm.sort : undefined,
             },
         });
         currentPage.value = data.current_page ?? currentPage.value + 1;
@@ -492,10 +493,23 @@ const undoLastLocation = () => {
     router.post(route('land-trips.companies.location-logs.undo', props.company.id), {}, {
         preserveScroll: true,
         preserveState: true,
-        only: ['cars', 'statusSummary', 'locationLog'],
+        only: ['cars', 'statusSummary', 'locationLog', 'importLog'],
         onSuccess: () => {
             selectedIds.value = [];
             toastMessage.value = t('land_trips.location_undone');
+        },
+    });
+};
+
+const undoLastImport = () => {
+    replaceLoadedCars.value = true;
+    router.post(route('land-trips.companies.import-logs.undo', props.company.id), {}, {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['cars', 'statusSummary', 'locationLog', 'importLog'],
+        onSuccess: () => {
+            selectedIds.value = [];
+            toastMessage.value = t('land_trips.import_undone');
         },
     });
 };

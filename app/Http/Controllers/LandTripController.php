@@ -41,6 +41,7 @@ class LandTripController extends Controller
         private readonly CountryService $countryService,
         private readonly CompanyService $companyService,
         private readonly LandTripCarLocationChangeService $locationChangeService,
+        private readonly LandTripCarImportLogService $importLogService,
         private readonly CompanyWalletService $walletService
     ) {}
 
@@ -87,7 +88,7 @@ class LandTripController extends Controller
         $user = $request->user();
 
         $cars = $this->landTripService
-            ->paginateCompanyCars($company, $filters, 10, 1)
+            ->paginateCompanyCars($company, $filters, LandTripService::COMPANY_CARS_PER_PAGE, 1)
             ->through(fn ($car) => $this->landTripService->transformCar($car));
 
         return Inertia::render('LandTrips/Company', [
@@ -103,6 +104,7 @@ class LandTripController extends Controller
             'highlightCarId' => $filters['highlight_car_id'],
             'canManage' => $user?->can(Permission::LandTripsManage->value) ?? false,
             'locationLog' => $this->locationChangeService->meta($company),
+            'importLog' => $this->importLogService->meta($company),
             'wallet' => $this->walletService->payload($company),
         ]);
     }
@@ -118,7 +120,7 @@ class LandTripController extends Controller
         ];
 
         $cars = $this->landTripService
-            ->paginateCompanyCars($company, $filters, 10)
+            ->paginateCompanyCars($company, $filters, LandTripService::COMPANY_CARS_PER_PAGE)
             ->through(fn ($car) => $this->landTripService->transformCar($car));
 
         return response()->json($cars);

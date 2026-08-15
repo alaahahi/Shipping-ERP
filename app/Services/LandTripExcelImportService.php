@@ -30,7 +30,8 @@ class LandTripExcelImportService
 
     public function __construct(
         private readonly LandTripService $landTripService,
-        private readonly LandTripCarStatusService $statusService
+        private readonly LandTripCarStatusService $statusService,
+        private readonly LandTripCarImportLogService $importLogService
     ) {}
 
     /**
@@ -158,7 +159,7 @@ class LandTripExcelImportService
 
     /**
      * @param  list<array<string, mixed>>  $rows
-     * @return array{imported: int, updated: int, skipped: int}
+     * @return array{imported: int, updated: int, skipped: int, created_ids: list<int>}
      */
     public function confirm(LandTrip $trip, User $actor, array $rows): array
     {
@@ -176,12 +177,23 @@ class LandTripExcelImportService
             ]);
         }
 
-        $result = DB::transaction(function () use ($trip, $readyRows): array {
-            return $this->landTripService->upsertCompanyImportedCars(
+        $originalName = session(self::SESSION_NAME);
+        $result = DB::transaction(function () use ($trip, $actor, $readyRows, $originalName): array {
+            $result = $this->landTripService->upsertCompanyImportedCars(
                 $trip->company,
                 $trip,
                 $readyRows,
             );
+
+            $this->importLogService->record(
+                $trip->company,
+                $trip,
+                $actor,
+                is_string($originalName) ? $originalName : null,
+                $result,
+            );
+
+            return $result;
         });
 
         $this->forgetUpload();

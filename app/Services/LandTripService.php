@@ -21,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class LandTripService
 {
+    public const COMPANY_CARS_PER_PAGE = 50;
+
     public function __construct(
         private readonly LandTripCarStatusService $carStatusService,
         private readonly LandTripCarLocationChangeService $locationChangeService
@@ -240,8 +242,6 @@ class LandTripService
     /**
      * @param  array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null, sort?: string|null}  $filters
      */
-    public const COMPANY_CARS_PER_PAGE = 50;
-
     public function paginateCompanyCars(Company $company, array $filters = [], int $perPage = self::COMPANY_CARS_PER_PAGE, ?int $page = null): LengthAwarePaginator
     {
         $query = $this->companyCarsQuery($company, $filters);

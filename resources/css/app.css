@@ -1887,15 +1887,23 @@ a:hover {
     color: var(--erp-primary-hover);
 }
 
+.land-hub {
+    flex: 0 0 auto;
+}
+
 .land-hub-workspace {
     box-shadow: var(--erp-shadow-soft);
+    flex: 0 0 auto;
+    min-height: 0;
 }
 
 .land-hub-toolbar {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
-    padding: 1rem 1.1rem;
+    flex: 0 0 auto;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
     border-bottom: 1px solid var(--erp-border);
     background: var(--erp-surface);
 }
@@ -1970,21 +1978,34 @@ a:hover {
     color: var(--erp-text);
 }
 
-.land-hub-toolbar {
+.land-hub-filters {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.5rem 0.65rem;
+    width: 100%;
 }
 
 .land-hub-search {
-    flex: 1 1 16rem;
-    max-width: 28rem;
+    flex: 1 1 14rem;
+    max-width: 22rem;
+    min-width: 0;
 }
 
 .land-hub-sort {
-    flex: 0 1 16rem;
-    min-width: min(16rem, 100%);
+    flex: 0 1 14rem;
+    width: min(16rem, 100%);
+    max-width: 18rem;
+    min-width: 0;
+}
+
+.land-hub-search .form-erp-control,
+.land-hub-sort .form-erp-control {
+    width: 100%;
+    min-height: 2.4rem;
+    height: 2.4rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
 }
 
 .land-hub-bulk {
@@ -2055,6 +2076,28 @@ a:hover {
     cursor: pointer;
 }
 
+.land-hub-cars .land-hub-price-input.form-erp-control,
+.land-hub-cars .land-hub-row-select.form-erp-control,
+.land-hub-cars .land-hub-row-select.form-select {
+    min-height: 1.55rem;
+    height: 1.55rem;
+    padding-top: 0.05rem;
+    padding-bottom: 0.05rem;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+}
+
+.land-hub-cars .land-hub-price-input.form-erp-control {
+    padding-inline: 0.4rem;
+    min-width: 5.25rem;
+}
+
+.land-hub-cars .land-hub-row-select.form-erp-control,
+.land-hub-cars .land-hub-row-select.form-select {
+    min-width: 8.5rem;
+    padding-inline: 0.4rem 1.45rem;
+}
+
 .land-hub-price-input[type='number'] {
     appearance: textfield;
     -moz-appearance: textfield;
@@ -2065,18 +2108,6 @@ a:hover {
     appearance: none;
     -webkit-appearance: none;
     margin: 0;
-}
-
-.land-hub-row-select.form-erp-control,
-.land-hub-row-select.form-select {
-    min-width: 9rem;
-    min-height: 1.9rem;
-    height: 1.9rem;
-    padding-top: 0.1rem;
-    padding-bottom: 0.1rem;
-    padding-inline: 0.5rem 1.65rem;
-    font-size: 0.8125rem;
-    line-height: 1.2;
 }
 
 .land-hub-table .btn-sm {
@@ -3015,6 +3046,11 @@ body:has(.erp-print-shell) {
     background: var(--erp-surface);
     color: var(--erp-text);
     box-shadow: var(--erp-shadow-soft);
+    flex: 0 0 auto;
+}
+
+.company-country-card .grid {
+    align-items: start;
 }
 
 .company-country-title {
@@ -3061,7 +3097,8 @@ body:has(.erp-print-shell) {
 }
 
 .company-country-map {
-    height: 320px;
+    height: 280px;
+    max-height: 280px;
     width: 100%;
     background: #1b1b1b;
 }
