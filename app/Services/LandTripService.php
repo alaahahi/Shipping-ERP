@@ -5,24 +5,91 @@ namespace App\Services;
 use App\Enums\Currency;
 use App\Enums\LandTripStatus;
 use App\Models\Car;
+use App\Models\Company;
+use App\Models\Country;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
 use App\Models\User;
 use App\Models\Voyage;
 use App\Models\VoyageCar;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class LandTripService
 {
+    public function __construct(
+        private readonly LandTripCarStatusService $carStatusService,
+        private readonly LandTripCarLocationChangeService $locationChangeService
+    ) {}
+
     /**
-     * @param  array{search?: string|null, status?: string|null, company_id?: string|null}  $filters
+     * @param  array{search?: string|null}  $filters
      */
-    public function paginate(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    public function paginateCompanies(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $archiveIds = $this->carStatusService->archiveStatusIds();
+
+        $query = Company::query()
+            ->select('companies.*')
+            ->where('is_active', true)
+            ->withCount('landTrips')
+            ->addSelect([
+                'cars_count' => LandTripCar::query()
+                    ->selectRaw('count(*)')
+                    ->whereIn(
+                        'land_trip_id',
+                        LandTrip::query()
+                            ->select('id')
+                            ->whereColumn('land_trips.company_id', 'companies.id')
+                    )
+                    ->when($archiveIds !== [], function ($builder) use ($archiveIds): void {
+                        $builder->where(function ($inner) use ($archiveIds): void {
+                            $inner
+                                ->whereNull('location_status_id')
+                                ->orWhereNotIn('location_status_id', $archiveIds);
+                        });
+                    }),
+                'last_departure_date' => LandTrip::query()
+                    ->select('departure_date')
+                    ->whereColumn('land_trips.company_id', 'companies.id')
+                    ->latest('departure_date')
+                    ->latest('id')
+                    ->limit(1),
+            ])
+            ->orderByDesc('land_trips_count')
+            ->orderBy('name');
+
+        if (! empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($builder) use ($search): void {
+                $builder
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('contact_name', 'like', "%{$search}%")
+                    ->orWhere('contact_phone', 'like', "%{$search}%")
+                    ->orWhereExists(function ($exists) use ($search): void {
+                        $exists->selectRaw('1')
+                            ->from('land_trip_cars')
+                            ->join('land_trips', 'land_trips.id', '=', 'land_trip_cars.land_trip_id')
+                            ->whereColumn('land_trips.company_id', 'companies.id')
+                            ->where('land_trip_cars.chassis_no', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * @param  array{search?: string|null, status?: string|null}  $filters
+     */
+    public function paginateForCompany(Company $company, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         $query = LandTrip::query()
+            ->where('company_id', $company->id)
             ->with([
                 'fromCountry:id,name,name_ar',
                 'toCountry:id,name,name_ar',
@@ -39,8 +106,7 @@ class LandTripService
             $query->where(function ($builder) use ($search): void {
                 $builder
                     ->where('cmr_number', 'like', "%{$search}%")
-                    ->orWhere('driver_name', 'like', "%{$search}%")
-                    ->orWhereHas('company', fn ($company) => $company->where('name', 'like', "%{$search}%"));
+                    ->orWhere('driver_name', 'like', "%{$search}%");
             });
         }
 
@@ -48,11 +114,583 @@ class LandTripService
             $query->where('status', $filters['status']);
         }
 
-        if (! empty($filters['company_id'])) {
-            $query->where('company_id', $filters['company_id']);
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function transformCompanyHub(Company $company): array
+    {
+        $tripsCount = (int) ($company->land_trips_count ?? $company->landTrips()->count());
+        $carsCount = array_key_exists('cars_count', $company->getAttributes())
+            ? (int) ($company->cars_count ?? 0)
+            : (int) tap(
+                LandTripCar::query()->whereIn('land_trip_id', $company->landTrips()->select('id')),
+                fn ($query) => $this->excludeArchivedCars($query)
+            )->count();
+
+        $lastDeparture = $company->last_departure_date
+            ?? $company->landTrips()->latest('departure_date')->latest('id')->value('departure_date');
+
+        if ($lastDeparture instanceof \DateTimeInterface) {
+            $lastDeparture = $lastDeparture->format('Y-m-d');
+        } elseif (is_string($lastDeparture) && $lastDeparture !== '') {
+            $lastDeparture = substr($lastDeparture, 0, 10);
+        } else {
+            $lastDeparture = null;
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $palette = ['#0F766E', '#1D4ED8', '#C2410C', '#BE185D', '#6D28D9', '#0E7490'];
+        $dominantTone = 'neutral';
+        $dominantColor = $palette[((int) $company->id) % count($palette)];
+        if ($carsCount > 0) {
+            $top = collect($this->companyStatusSummary($company))
+                ->reject(fn ($item) => $item['is_archive'] ?? false)
+                ->sortByDesc('count')
+                ->first();
+            if (is_array($top) && ($top['count'] ?? 0) > 0) {
+                $dominantTone = (string) ($top['row_tone'] ?? 'neutral');
+                $dominantColor = (string) ($top['color'] ?? $dominantColor);
+            }
+        }
+
+        return [
+            'id' => $company->id,
+            'name' => $company->name,
+            'contact_name' => $company->contact_name,
+            'contact_phone' => $company->contact_phone,
+            'trips_count' => $tripsCount,
+            'cars_count' => $carsCount,
+            'last_departure_date' => $lastDeparture,
+            'card_tone' => $dominantTone,
+            'card_color' => $dominantColor,
+            'card_hue' => ((int) $company->id % 6) + 1,
+            'matched_car' => $company->matched_car ?? null,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     * @return array<int, array{id: int, chassis_no: string|null}>
+     */
+    public function matchedCarsByChassis(array $companyIds, ?string $search): array
+    {
+        $search = trim((string) $search);
+        if ($search === '' || $companyIds === []) {
+            return [];
+        }
+
+        $cars = LandTripCar::query()
+            ->select('land_trip_cars.id', 'land_trip_cars.chassis_no', 'land_trips.company_id')
+            ->join('land_trips', 'land_trips.id', '=', 'land_trip_cars.land_trip_id')
+            ->whereIn('land_trips.company_id', $companyIds)
+            ->where('land_trip_cars.chassis_no', 'like', "%{$search}%")
+            ->orderByRaw('CASE WHEN land_trip_cars.chassis_no = ? THEN 0 ELSE 1 END', [$search])
+            ->orderBy('land_trip_cars.id')
+            ->get();
+
+        $matches = [];
+        foreach ($cars as $car) {
+            $companyId = (int) $car->company_id;
+            if (isset($matches[$companyId])) {
+                continue;
+            }
+            $matches[$companyId] = [
+                'id' => (int) $car->id,
+                'chassis_no' => $car->chassis_no,
+            ];
+        }
+
+        return $matches;
+    }
+
+    public function workingTripForCompany(Company $company, User $actor): LandTrip
+    {
+        $existing = LandTrip::query()
+            ->where('company_id', $company->id)
+            ->whereNull('journal_entry_id')
+            ->where('status', '!=', LandTripStatus::Closed->value)
+            ->latest('id')
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        [$fromId, $toId] = $this->defaultCountryPair();
+
+        return LandTrip::query()->create([
+            'cmr_number' => $this->generateAutoCmr($company),
+            'driver_name' => null,
+            'from_country_id' => $fromId,
+            'to_country_id' => $toId,
+            'departure_date' => now()->toDateString(),
+            'arrival_date' => null,
+            'company_id' => $company->id,
+            'freight_amount' => 0,
+            'currency' => Currency::USD->value,
+            'status' => LandTripStatus::Draft->value,
+            'voyage_id' => null,
+            'notes' => null,
+            'created_by' => $actor->id,
+        ]);
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null}  $filters
+     */
+    public function paginateCompanyCars(Company $company, array $filters = [], int $perPage = 10, ?int $page = null): LengthAwarePaginator
+    {
+        $query = $this->companyCarsQuery($company, $filters);
+
+        $highlightId = (int) ($filters['highlight_car_id'] ?? 0);
+        if ($highlightId > 0) {
+            $query->orderByRaw('CASE WHEN land_trip_cars.id = ? THEN 0 ELSE 1 END', [$highlightId]);
+        }
+
+        return $query
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page)
+            ->withQueryString();
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @return Collection<int, LandTripCar>
+     */
+    public function listCompanyCarsForExport(Company $company, array $filters = []): Collection
+    {
+        return $this->companyCarsQuery($company, $filters)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     */
+    private function companyCarsQuery(Company $company, array $filters = []): Builder
+    {
+        $query = LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->with([
+                'locationStatus:id,code,name,name_ar,name_ckb,row_tone,color',
+                'landTrip:id,company_id,cmr_number,driver_name',
+            ]);
+
+        if (! empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($builder) use ($search): void {
+                $builder
+                    ->where('chassis_no', 'like', "%{$search}%")
+                    ->orWhere('consignee_name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('cmr_waybill', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($filters['location_status_id'])) {
+            $query->where('location_status_id', $filters['location_status_id']);
+        } else {
+            $this->excludeArchivedCars($query);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null}  $filters
+     * @return array{search?: string|null, location_status_id?: string|null, highlight_car_id?: int|null}
+     */
+    public function resolveCompanyCarFilters(Company $company, array $filters): array
+    {
+        $highlightId = (int) ($filters['highlight_car_id'] ?? 0);
+        if ($highlightId <= 0 || filled($filters['location_status_id'] ?? null)) {
+            return $filters;
+        }
+
+        $car = LandTripCar::query()
+            ->whereKey($highlightId)
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->first();
+
+        $archiveIds = $this->carStatusService->archiveStatusIds();
+        if ($car && $car->location_status_id && in_array((int) $car->location_status_id, $archiveIds, true)) {
+            $filters['location_status_id'] = (string) $car->location_status_id;
+        }
+
+        return $filters;
+    }
+
+    private function excludeArchivedCars(Builder $query): void
+    {
+        $archiveIds = $this->carStatusService->archiveStatusIds();
+        if ($archiveIds === []) {
+            return;
+        }
+
+        $query->where(function (Builder $builder) use ($archiveIds): void {
+            $builder
+                ->whereNull('location_status_id')
+                ->orWhereNotIn('location_status_id', $archiveIds);
+        });
+    }
+
+    /**
+     * @return list<array{id: int|null, code: string|null, label: string, row_tone: string, color: string, count: int}>
+     */
+    public function companyStatusSummary(Company $company): array
+    {
+        $base = LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id));
+
+        $counts = (clone $base)
+            ->selectRaw('location_status_id, COUNT(*) as aggregate')
+            ->groupBy('location_status_id')
+            ->pluck('aggregate', 'location_status_id');
+
+        $summary = [];
+        $assigned = 0;
+
+        foreach ($this->carStatusService->allActive() as $status) {
+            $count = (int) ($counts[$status->id] ?? 0);
+            $assigned += $count;
+            $summary[] = [
+                'id' => $status->id,
+                'code' => $status->code,
+                'label' => $status->localizedName(),
+                'row_tone' => $status->row_tone->value,
+                'color' => $status->resolvedColor(),
+                'is_archive' => (bool) $status->is_archive,
+                'count' => $count,
+            ];
+        }
+
+        $total = (int) (clone $base)->count();
+        $unset = max(0, $total - $assigned);
+        if ($unset > 0) {
+            $summary[] = [
+                'id' => null,
+                'code' => null,
+                'label' => '—',
+                'row_tone' => 'neutral',
+                'color' => '#64748B',
+                'is_archive' => false,
+                'count' => $unset,
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array{
+     *     location_status_id: int,
+     *     scope: string,
+     *     car_ids?: list<int>|null,
+     *     search?: string|null,
+     *     location_status_filter_id?: int|null
+     * }  $data
+     */
+    public function bulkUpdateCompanyCarLocations(Company $company, array $data, User $actor): int
+    {
+        $statusId = (int) $data['location_status_id'];
+        $scope = (string) $data['scope'];
+
+        if ($scope !== 'selected') {
+            throw ValidationException::withMessages([
+                'scope' => 'Only selected cars can be moved.',
+            ]);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $data['car_ids'] ?? [])));
+        if ($ids === []) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Select at least one car.',
+            ]);
+        }
+
+        $cars = LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($cars->isEmpty()) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($company, $actor, $cars, $statusId): int {
+            $change = $this->locationChangeService->record($company, $actor, $cars, $statusId);
+            if ($change === null) {
+                return 0;
+            }
+
+            $updated = LandTripCar::query()
+                ->whereIn('id', $change->items()->pluck('land_trip_car_id'))
+                ->update(['location_status_id' => $statusId]);
+
+            return $updated;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateCompanyCar(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
+    {
+        $car->loadMissing('landTrip');
+
+        if ((int) $car->landTrip?->company_id !== (int) $company->id) {
+            throw ValidationException::withMessages([
+                'car' => 'This car does not belong to the selected company.',
+            ]);
+        }
+
+        if (! $car->landTrip?->isEditable()) {
+            $targetCompanyId = (int) ($data['company_id'] ?? $company->id);
+            if ($targetCompanyId !== (int) $company->id) {
+                throw ValidationException::withMessages([
+                    'car' => 'Cannot edit cars on a posted or closed manifest.',
+                ]);
+            }
+
+            $newStatusId = filled($data['location_status_id'] ?? null)
+                ? (int) $data['location_status_id']
+                : null;
+
+            return DB::transaction(function () use ($company, $actor, $car, $newStatusId): LandTripCar {
+                $this->locationChangeService->record($company, $actor, collect([$car]), $newStatusId);
+
+                $car->update([
+                    'location_status_id' => $newStatusId,
+                ]);
+
+                return $car->refresh()->load('locationStatus');
+            });
+        }
+
+        $targetCompanyId = (int) ($data['company_id'] ?? $company->id);
+
+        return DB::transaction(function () use ($company, $car, $data, $actor, $targetCompanyId): LandTripCar {
+            $targetCompany = $company;
+            $targetTripId = (int) $car->land_trip_id;
+
+            if ($targetCompanyId !== (int) $company->id) {
+                $targetCompany = Company::query()->findOrFail($targetCompanyId);
+                $targetTrip = $this->workingTripForCompany($targetCompany, $actor);
+                $this->assertEditable($targetTrip);
+                $targetTripId = (int) $targetTrip->id;
+            }
+
+            $seenChassis = [];
+            $payload = $this->normalizeCompanyCarRow(
+                [
+                    ...$data,
+                    'voyage_car_id' => $car->voyage_car_id,
+                    'sort_order' => $car->sort_order,
+                ],
+                0,
+                $targetCompany,
+                $seenChassis
+            );
+
+            if ($payload === null) {
+                throw ValidationException::withMessages([
+                    'chassis_no' => 'Enter a chassis number or description.',
+                ]);
+            }
+
+            $chassis = $payload['chassis_no'] ?? null;
+            if ($chassis) {
+                $duplicate = LandTripCar::query()
+                    ->where('chassis_no', $chassis)
+                    ->where('id', '!=', $car->id)
+                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $targetCompany->id))
+                    ->exists();
+                if ($duplicate) {
+                    throw ValidationException::withMessages([
+                        'chassis_no' => 'Duplicate chassis number for this company.',
+                    ]);
+                }
+            }
+
+            $newStatusId = array_key_exists('location_status_id', $payload)
+                ? ($payload['location_status_id'] !== null ? (int) $payload['location_status_id'] : null)
+                : ($car->location_status_id !== null ? (int) $car->location_status_id : null);
+
+            $this->locationChangeService->record($targetCompany, $actor, collect([$car]), $newStatusId);
+
+            $car->update([
+                ...$payload,
+                'land_trip_id' => $targetTripId,
+            ]);
+
+            return $car->fresh();
+        });
+    }
+
+    /**
+     * @param  array{cmr_number?: string|null, driver_name?: string|null}  $data
+     */
+    public function updateCompanyManifestMeta(Company $company, array $data, User $actor): LandTrip
+    {
+        $trip = $this->workingTripForCompany($company, $actor);
+        $this->assertEditable($trip);
+
+        $cmr = $this->nullableString($data['cmr_number'] ?? null);
+        if ($cmr !== null) {
+            $duplicate = LandTrip::query()
+                ->where('cmr_number', $cmr)
+                ->where('id', '!=', $trip->id)
+                ->exists();
+            if ($duplicate) {
+                throw ValidationException::withMessages([
+                    'cmr_number' => 'This CMR number is already used.',
+                ]);
+            }
+        }
+
+        $trip->update([
+            'cmr_number' => $cmr,
+            'driver_name' => $this->nullableString($data['driver_name'] ?? null),
+        ]);
+
+        return $trip->fresh();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    public function addCompanyCars(Company $company, array $rows, User $actor): int
+    {
+        return DB::transaction(function () use ($company, $rows, $actor): int {
+            $working = $this->workingTripForCompany($company, $actor);
+            $this->assertEditable($working);
+
+            $seenChassis = [];
+            foreach (
+                LandTripCar::query()
+                    ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+                    ->whereNotNull('chassis_no')
+                    ->pluck('chassis_no') as $chassis
+            ) {
+                $normalized = $this->normalizeChassis($chassis);
+                if ($normalized !== null) {
+                    $seenChassis[$normalized] = true;
+                }
+            }
+
+            $sortOrder = (int) LandTripCar::query()
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+                ->max('sort_order');
+
+            $created = 0;
+            foreach ($rows as $index => $row) {
+                unset($row['id']);
+                $payload = $this->normalizeCompanyCarRow($row, $index, $company, $seenChassis);
+                if ($payload === null) {
+                    continue;
+                }
+
+                $sortOrder += 10;
+                $payload['sort_order'] = $sortOrder;
+                $working->cars()->create($payload);
+                $created++;
+            }
+
+            return $created;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, true>  $seenChassis
+     * @return array<string, mixed>|null
+     */
+    private function normalizeCompanyCarRow(array $row, int $index, Company $company, array &$seenChassis): ?array
+    {
+        $chassis = $this->normalizeChassis($row['chassis_no'] ?? null);
+        $consignee = trim((string) ($row['consignee_name'] ?? ''));
+        if ($consignee === '') {
+            $consignee = $company->name;
+        }
+
+        if ($chassis === null && empty($row['voyage_car_id']) && trim((string) ($row['description'] ?? '')) === '') {
+            return null;
+        }
+
+        if ($chassis !== null) {
+            if (isset($seenChassis[$chassis])) {
+                throw ValidationException::withMessages([
+                    "cars.{$index}.chassis_no" => 'Duplicate chassis number for this company.',
+                ]);
+            }
+            $seenChassis[$chassis] = true;
+        }
+
+        $voyageCarId = ! empty($row['voyage_car_id']) ? (int) $row['voyage_car_id'] : null;
+        $voyageCar = $voyageCarId ? VoyageCar::query()->find($voyageCarId) : null;
+        if ($voyageCarId && ! $voyageCar) {
+            throw ValidationException::withMessages([
+                "cars.{$index}.voyage_car_id" => 'Selected voyage car was not found.',
+            ]);
+        }
+
+        if ($voyageCar) {
+            $chassis = $chassis ?: $this->normalizeChassis($voyageCar->chassis_no);
+        }
+
+        $carId = $chassis ? $this->findOrCreateCar($chassis, $row['description'] ?? $voyageCar?->description)->id : null;
+
+        return [
+            'voyage_car_id' => $voyageCarId,
+            'car_id' => $carId,
+            'chassis_no' => $chassis,
+            'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
+            'consignee_name' => $consignee,
+            'description' => $this->nullableString($row['description'] ?? $voyageCar?->description),
+            'weight' => $row['weight'] ?? $voyageCar?->weight,
+            'notes' => $this->nullableString($row['notes'] ?? null),
+            'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
+            'sort_order' => (int) ($row['sort_order'] ?? ($index + 1) * 10),
+        ];
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function defaultCountryPair(): array
+    {
+        $ids = Country::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->limit(2)
+            ->pluck('id')
+            ->all();
+
+        if (count($ids) < 2) {
+            $ids = Country::query()->orderBy('id')->limit(2)->pluck('id')->all();
+        }
+
+        if (count($ids) < 2) {
+            throw ValidationException::withMessages([
+                'company' => 'Add at least two countries in settings before managing land cars.',
+            ]);
+        }
+
+        return [(int) $ids[0], (int) $ids[1]];
+    }
+
+    private function generateAutoCmr(Company $company): string
+    {
+        do {
+            $cmr = 'LT-'.$company->id.'-'.now()->format('YmdHis').'-'.random_int(10, 99);
+        } while (LandTrip::query()->where('cmr_number', $cmr)->exists());
+
+        return $cmr;
     }
 
     /**
@@ -77,8 +715,10 @@ class LandTripService
 
         return DB::transaction(function () use ($data, $actor): LandTrip {
             $trip = LandTrip::query()->create([
-                'cmr_number' => trim($data['cmr_number']),
-                'driver_name' => trim($data['driver_name']),
+                'cmr_number' => $this->nullableString($data['cmr_number'] ?? null) ?? $this->generateAutoCmr(
+                    Company::query()->findOrFail((int) $data['company_id'])
+                ),
+                'driver_name' => $this->nullableString($data['driver_name'] ?? null),
                 'from_country_id' => $data['from_country_id'],
                 'to_country_id' => $data['to_country_id'],
                 'departure_date' => $data['departure_date'],
@@ -121,8 +761,8 @@ class LandTripService
 
         return DB::transaction(function () use ($trip, $data): LandTrip {
             $trip->update([
-                'cmr_number' => trim($data['cmr_number']),
-                'driver_name' => trim($data['driver_name']),
+                'cmr_number' => $this->nullableString($data['cmr_number'] ?? null) ?? $trip->cmr_number,
+                'driver_name' => $this->nullableString($data['driver_name'] ?? null),
                 'from_country_id' => $data['from_country_id'],
                 'to_country_id' => $data['to_country_id'],
                 'departure_date' => $data['departure_date'],
@@ -232,10 +872,13 @@ class LandTripService
                 'voyage_car_id' => $voyageCarId,
                 'car_id' => $carId,
                 'chassis_no' => $chassis,
+                'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
                 'consignee_name' => $consignee,
                 'description' => $row['description'] ?? $voyageCar?->description,
                 'weight' => $row['weight'] ?? $voyageCar?->weight,
                 'notes' => $row['notes'] ?? null,
+                'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
+                'sort_order' => (int) ($row['sort_order'] ?? 0),
             ];
         }
 
@@ -333,7 +976,12 @@ class LandTripService
         ];
 
         if ($detailed) {
-            $trip->loadMissing(['cars']);
+            $trip->loadMissing([
+                'cars' => fn ($query) => $query
+                    ->with('locationStatus:id,code,name,name_ar,name_ckb,row_tone,color')
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ]);
             $payload['cars'] = $trip->cars->map(fn (LandTripCar $car) => $this->transformCar($car))->values()->all();
         }
 
@@ -345,16 +993,34 @@ class LandTripService
      */
     public function transformCar(LandTripCar $car): array
     {
+        $car->loadMissing('locationStatus:id,code,name,name_ar,name_ckb,row_tone,color');
+
         return [
             'id' => $car->id,
             'voyage_car_id' => $car->voyage_car_id,
             'car_id' => $car->car_id,
             'chassis_no' => $car->chassis_no,
+            'cmr_waybill' => $car->cmr_waybill,
             'consignee_name' => $car->consignee_name,
             'description' => $car->description,
             'weight' => $car->weight !== null ? (string) $car->weight : null,
             'notes' => $car->notes,
+            'location_status_id' => $car->location_status_id,
+            'location_status_code' => $car->locationStatus?->code,
+            'location_status_label' => $car->locationStatus?->localizedName(),
+            'location_status_tone' => $car->locationStatus?->row_tone?->value ?? 'neutral',
+            'location_status_color' => $car->locationStatus?->resolvedColor(),
+            'land_trip_id' => $car->land_trip_id,
+            'sort_order' => $car->sort_order,
         ];
+    }
+
+    /**
+     * @return list<array{id: int, code: string, label: string, row_tone: string}>
+     */
+    public function carStatusOptions(): array
+    {
+        return $this->carStatusService->activeOptions();
     }
 
     /**
@@ -386,6 +1052,13 @@ class LandTripService
         $chassis = strtoupper(trim((string) ($value ?? '')));
 
         return $chassis === '' ? null : $chassis;
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        $text = trim((string) ($value ?? ''));
+
+        return $text === '' ? null : $text;
     }
 
     private function assertDifferentCountries(int $from, int $to): void

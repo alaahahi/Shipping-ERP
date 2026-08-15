@@ -21,10 +21,13 @@ class SyncLandTripCarsRequest extends FormRequest
             'cars' => ['required', 'array'],
             'cars.*.voyage_car_id' => ['nullable', 'integer', 'exists:voyage_cars,id'],
             'cars.*.chassis_no' => ['nullable', 'string', 'max:64'],
+            'cars.*.cmr_waybill' => ['nullable', 'string', 'max:80'],
             'cars.*.consignee_name' => ['nullable', 'string', 'max:180'],
             'cars.*.description' => ['nullable', 'string', 'max:255'],
             'cars.*.weight' => ['nullable', 'numeric', 'min:0'],
             'cars.*.notes' => ['nullable', 'string', 'max:1000'],
+            'cars.*.location_status_id' => ['nullable', 'integer', 'exists:land_trip_car_statuses,id'],
+            'cars.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

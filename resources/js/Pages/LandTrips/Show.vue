@@ -2,10 +2,12 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
+import InputError from '@/Components/InputError.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import { useLandTripStation } from '@/composables/useLandTripStation';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -13,6 +15,7 @@ import { useI18n } from 'vue-i18n';
 const props = defineProps({
     trip: { type: Object, required: true },
     voyageCars: { type: Array, default: () => [] },
+    carStatuses: { type: Array, default: () => [] },
     transitions: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
     canPost: { type: Boolean, default: false },
@@ -20,6 +23,7 @@ const props = defineProps({
 
 const page = usePage();
 const { t } = useI18n();
+const { stationLabel } = useLandTripStation();
 const success = computed(() => page.props.flash?.success);
 const showCars = ref(false);
 const posting = ref(false);
@@ -28,12 +32,26 @@ const carsForm = useForm({
     cars: (props.trip.cars ?? []).map((car) => ({
         voyage_car_id: car.voyage_car_id,
         chassis_no: car.chassis_no ?? '',
+        cmr_waybill: car.cmr_waybill ?? '',
         consignee_name: car.consignee_name ?? '',
         description: car.description ?? '',
         weight: car.weight ?? '',
         notes: car.notes ?? '',
+        location_status_id: car.location_status_id ?? '',
     })),
 });
+
+const rowClass = (car) => {
+    if (car.location_status_tone === 'yellow') return 'land-car-row-yellow';
+    if (car.location_status_tone === 'green') return 'land-car-row-green';
+    return '';
+};
+
+const carStationLabel = (car) => {
+    const status = props.carStatuses.find((item) => String(item.id) === String(car.location_status_id));
+
+    return stationLabel(status || car);
+};
 
 const saveCars = () => {
     carsForm.post(route('land-trips.cars.sync', props.trip.id), {
@@ -69,14 +87,24 @@ const postFreight = () => {
         <FlashMessage :message="success" />
 
         <div class="mb-3">
-            <Link :href="route('land-trips.index')" class="text-decoration-none small fw-semibold">
-                ← {{ t('land_trips.back') }}
+            <Link
+                :href="route('land-trips.companies.show', trip.company_id)"
+                class="text-decoration-none small fw-semibold"
+            >
+                ← {{ t('land_trips.back_company') }}
             </Link>
         </div>
 
         <PageHeader :kicker="t('land_trips.title')" :title="trip.cmr_number" :subtitle="trip.route">
             <template #actions>
                 <StatusBadge :tone="trip.status_tone" :label="trip.status_label" />
+                <Link
+                    v-if="canManage && trip.is_editable"
+                    :href="route('land-trips.import', trip.id)"
+                    class="btn btn-erp-ghost"
+                >
+                    {{ t('land_trips.import') }}
+                </Link>
                 <Link v-if="canManage && trip.is_editable" :href="route('land-trips.edit', trip.id)" class="btn btn-erp-ghost">
                     {{ t('common.edit') }}
                 </Link>
@@ -154,21 +182,25 @@ const postFreight = () => {
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">{{ t('land_trips.chassis') }}</th>
+                            <th>{{ t('land_trips.cmr_waybill') }}</th>
                             <th>{{ t('land_trips.consignee') }}</th>
                             <th>{{ t('common.description') }}</th>
+                            <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="!trip.cars?.length">
-                            <td colspan="4">
+                            <td colspan="6">
                                 <EmptyState icon="C">{{ t('land_trips.no_cars') }}</EmptyState>
                             </td>
                         </tr>
-                        <tr v-for="car in trip.cars" :key="car.id">
+                        <tr v-for="car in trip.cars" :key="car.id" :class="rowClass(car)">
                             <td class="ps-4 font-monospace">{{ car.chassis_no || '—' }}</td>
+                            <td>{{ car.cmr_waybill || '—' }}</td>
                             <td>{{ car.consignee_name }}</td>
                             <td>{{ car.description || '—' }}</td>
+                            <td>{{ carStationLabel(car) }}</td>
                             <td>{{ car.weight || '—' }}</td>
                         </tr>
                     </tbody>
@@ -185,6 +217,7 @@ const postFreight = () => {
             :show="showCars"
             :cars="carsForm.cars"
             :voyage-cars="voyageCars"
+            :car-statuses="carStatuses"
             :processing="carsForm.processing"
             @update:cars="carsForm.cars = $event"
             @close="showCars = false"

@@ -4,7 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -12,7 +12,10 @@ const props = defineProps({
     companies: { type: Array, default: () => [] },
     voyages: { type: Array, default: () => [] },
     voyageCars: { type: Array, default: () => [] },
+    carStatuses: { type: Array, default: () => [] },
     selectedVoyageId: { type: [Number, String], default: null },
+    selectedCompanyId: { type: [Number, String], default: null },
+    companyLocked: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
@@ -25,7 +28,7 @@ const form = useForm({
     to_country_id: props.countries[1]?.id ?? props.countries[0]?.id ?? '',
     departure_date: new Date().toISOString().slice(0, 10),
     arrival_date: '',
-    company_id: props.companies[0]?.id ?? '',
+    company_id: props.selectedCompanyId || props.companies[0]?.id || '',
     freight_amount: 0,
     currency: 'USD',
     voyage_id: props.selectedVoyageId ?? '',
@@ -33,12 +36,41 @@ const form = useForm({
     cars: [],
 });
 
+const backHref = computed(() => {
+    if (props.selectedCompanyId) {
+        return route('land-trips.companies.show', props.selectedCompanyId);
+    }
+
+    return route('land-trips.index');
+});
+
+const backLabel = computed(() => {
+    if (props.selectedCompanyId) {
+        return t('land_trips.back_company');
+    }
+
+    return t('land_trips.back_companies');
+});
+
+const selectedCompanyLabel = computed(() => {
+    const match = props.companies.find((item) => String(item.id) === String(form.company_id));
+
+    return match?.label || '—';
+});
+
 const loadVoyageCars = () => {
-    router.get(route('land-trips.create'), { voyage_id: form.voyage_id || '' }, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['voyageCars', 'selectedVoyageId'],
-    });
+    router.get(
+        route('land-trips.create'),
+        {
+            voyage_id: form.voyage_id || '',
+            company_id: form.company_id || props.selectedCompanyId || '',
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['voyageCars', 'selectedVoyageId', 'selectedCompanyId', 'companyLocked'],
+        },
+    );
 };
 
 const submit = () => form.post(route('land-trips.store'));
@@ -50,8 +82,8 @@ const submit = () => form.post(route('land-trips.store'));
         <template #header>{{ t('land_trips.add') }}</template>
 
         <div class="mb-3">
-            <Link :href="route('land-trips.index')" class="text-decoration-none small fw-semibold">
-                ← {{ t('land_trips.back') }}
+            <Link :href="backHref" class="text-decoration-none small fw-semibold">
+                ← {{ backLabel }}
             </Link>
         </div>
 
@@ -59,6 +91,26 @@ const submit = () => form.post(route('land-trips.store'));
 
         <form class="erp-form-panel" @submit.prevent="submit">
             <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-erp-label">{{ t('land_trips.company') }}</label>
+                    <select
+                        v-if="!companyLocked"
+                        v-model="form.company_id"
+                        class="form-select form-erp-control"
+                        required
+                    >
+                        <option v-for="company in companies" :key="company.id" :value="company.id">
+                            {{ company.label }}
+                        </option>
+                    </select>
+                    <input
+                        v-else
+                        class="form-control form-erp-control"
+                        :value="selectedCompanyLabel"
+                        readonly
+                    />
+                    <InputError :message="form.errors.company_id" />
+                </div>
                 <div class="col-md-4">
                     <label class="form-erp-label">{{ t('land_trips.cmr') }}</label>
                     <input v-model="form.cmr_number" class="form-control form-erp-control" required />
@@ -68,13 +120,6 @@ const submit = () => form.post(route('land-trips.store'));
                     <label class="form-erp-label">{{ t('land_trips.driver') }}</label>
                     <input v-model="form.driver_name" class="form-control form-erp-control" required />
                     <InputError :message="form.errors.driver_name" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-erp-label">{{ t('land_trips.company') }}</label>
-                    <select v-model="form.company_id" class="form-select form-erp-control" required>
-                        <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.label }}</option>
-                    </select>
-                    <InputError :message="form.errors.company_id" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-erp-label">{{ t('land_trips.from_country') }}</label>
@@ -120,15 +165,18 @@ const submit = () => form.post(route('land-trips.store'));
                     <textarea v-model="form.notes" rows="2" class="form-control form-erp-control" />
                 </div>
                 <div class="col-12">
-                    <button type="button" class="btn btn-erp" @click="showCars = true">
-                        {{ t('land_trips.manage_cars') }} ({{ form.cars.length }})
-                    </button>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button type="button" class="btn btn-erp" @click="showCars = true">
+                            {{ t('land_trips.manage_cars') }} ({{ form.cars.length }})
+                        </button>
+                        <span class="small text-secondary">{{ t('land_trips.cars_after_save_hint') }}</span>
+                    </div>
                     <InputError :message="form.errors.cars" />
                 </div>
             </div>
 
             <div class="erp-form-actions">
-                <Link :href="route('land-trips.index')" class="btn btn-erp-ghost">{{ t('common.cancel') }}</Link>
+                <Link :href="backHref" class="btn btn-erp-ghost">{{ t('common.cancel') }}</Link>
                 <button type="submit" class="btn btn-erp" :disabled="form.processing">
                     {{ form.processing ? t('common.saving') : t('land_trips.add') }}
                 </button>
@@ -139,6 +187,7 @@ const submit = () => form.post(route('land-trips.store'));
             :show="showCars"
             :cars="form.cars"
             :voyage-cars="voyageCars"
+            :car-statuses="carStatuses"
             :processing="form.processing"
             @update:cars="form.cars = $event"
             @close="showCars = false"

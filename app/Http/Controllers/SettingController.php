@@ -3,17 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AppLocale;
+use App\Enums\LandTripCarRowTone;
 use App\Enums\Permission;
 use App\Enums\SystemRole;
 use App\Http\Requests\Settings\UpdateSettingsRequest;
+use App\Models\LandTripCarStatus;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CountryService;
+use App\Services\LandTripCarStatusService;
 use App\Services\SettingService;
 use App\Services\SystemAdminService;
 use App\Services\UserService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,6 +32,7 @@ class SettingController extends Controller
     public function __construct(
         private readonly SettingService $settingService,
         private readonly CountryService $countryService,
+        private readonly LandTripCarStatusService $landTripCarStatusService,
         private readonly UserService $userService,
         private readonly SystemAdminService $systemAdminService
     ) {}
@@ -63,6 +70,13 @@ class SettingController extends Controller
             'canManageUsers' => $user?->can(Permission::UsersManage->value) ?? false,
             'canViewUsers' => $user?->can(Permission::UsersView->value) ?? false,
             'countries' => $this->countryService->transformMany($this->countryService->all()),
+            'landCarStatuses' => $this->landTripCarStatusService->transformMany(
+                LandTripCarStatus::query()->orderBy('sort_order')->orderBy('id')->get()
+            ),
+            'rowTones' => collect(LandTripCarRowTone::cases())->map(fn ($tone) => [
+                'value' => $tone->value,
+                'label' => $tone->label(),
+            ])->all(),
             'users' => null,
             'userFilters' => ['search' => '', 'role' => ''],
             'roles' => [],
@@ -170,6 +184,71 @@ class SettingController extends Controller
         return redirect()
             ->route('settings.edit', ['tab' => 'system'])
             ->with('success', 'Application logs cleared.');
+    }
+
+    public function databaseInsights(): JsonResponse
+    {
+        try {
+            $driver = (string) DB::getDriverName();
+            $path = (string) config('database.connections.'.$driver.'.database', '');
+            $dbSize = ($driver === 'sqlite' && File::exists($path)) ? (int) File::size($path) : null;
+
+            $pageSize = $driver === 'sqlite' ? (int) DB::selectOne('PRAGMA page_size')->page_size : 0;
+            $pageCount = $driver === 'sqlite' ? (int) DB::selectOne('PRAGMA page_count')->page_count : 0;
+            $freelistCount = $driver === 'sqlite' ? (int) DB::selectOne('PRAGMA freelist_count')->freelist_count : 0;
+            $usedBytes = $pageSize > 0 ? ($pageCount - $freelistCount) * $pageSize : null;
+            $freeBytes = $pageSize > 0 ? $freelistCount * $pageSize : null;
+
+            $sizeMap = [];
+            if ($driver === 'sqlite') {
+                try {
+                    foreach (DB::select('SELECT name, SUM(pgsize) AS sz FROM dbstat GROUP BY name') as $r) {
+                        $sizeMap[(string) $r->name] = (int) $r->sz;
+                    }
+                } catch (Throwable) {
+                }
+            }
+
+            $tables = $driver === 'sqlite'
+                ? DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+                : DB::select('SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()');
+
+            $items = [];
+            foreach ($tables as $t) {
+                $name = (string) ($t->name ?? '');
+                $rows = 0;
+                try {
+                    $rows = (int) DB::table($name)->count();
+                } catch (Throwable) {
+                }
+                $sz = $sizeMap[$name] ?? null;
+                $items[] = ['name' => $name, 'rows' => $rows, 'size_bytes' => $sz, 'percent' => $dbSize && $sz ? round($sz / $dbSize * 100, 2) : null];
+            }
+            usort($items, fn ($a, $b) => ($b['size_bytes'] ?? -1) <=> ($a['size_bytes'] ?? -1));
+
+            return response()->json(['driver' => $driver, 'db_size' => $dbSize, 'used_bytes' => $usedBytes, 'free_bytes' => $freeBytes, 'tables' => $items]);
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function vacuumDatabase(): JsonResponse
+    {
+        try {
+            $driver = (string) DB::getDriverName();
+            if ($driver !== 'sqlite') {
+                return response()->json(['message' => "VACUUM غير مدعوم لـ {$driver}.", 'skipped' => true]);
+            }
+            $path = (string) config('database.connections.sqlite.database');
+            $before = File::exists($path) ? (int) File::size($path) : null;
+            DB::statement('VACUUM');
+            $after = File::exists($path) ? (int) File::size($path) : null;
+            $saved = ($before !== null && $after !== null) ? max(0, $before - $after) : null;
+
+            return response()->json(['message' => 'تم تنفيذ VACUUM بنجاح.', 'before' => $before, 'after' => $after, 'saved' => $saved]);
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**

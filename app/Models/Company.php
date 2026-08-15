@@ -68,6 +68,21 @@ class Company extends Model
         return $this->hasMany(VoyageCompany::class);
     }
 
+    public function landTrips(): HasMany
+    {
+        return $this->hasMany(LandTrip::class);
+    }
+
+    public function landTripCarLocationChanges(): HasMany
+    {
+        return $this->hasMany(LandTripCarLocationChange::class);
+    }
+
+    public function walletEntries(): HasMany
+    {
+        return $this->hasMany(CompanyWalletEntry::class);
+    }
+
     public function journalLines(): HasMany
     {
         return $this->hasMany(JournalLine::class);

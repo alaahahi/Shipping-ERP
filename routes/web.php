@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanyDirectChargeController;
+use App\Http\Controllers\CompanyWalletController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DubaiAccountController;
@@ -12,7 +13,10 @@ use App\Http\Controllers\IranCarPaymentController;
 use App\Http\Controllers\IranCarPoolPaymentController;
 use App\Http\Controllers\IranCarPrintController;
 use App\Http\Controllers\JournalEntryController;
+use App\Http\Controllers\LandTripCarStatusController;
 use App\Http\Controllers\LandTripController;
+use App\Http\Controllers\LandTripImportController;
+use App\Http\Controllers\LandTripLocationLogController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -25,6 +29,7 @@ use App\Http\Controllers\ShipExpensePrintController;
 use App\Http\Controllers\ShipOwnershipController;
 use App\Http\Controllers\ShipPartnerContributionController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserPreferenceController;
 use App\Http\Controllers\VoyageCarController;
 use App\Http\Controllers\VoyageCompanyController;
 use App\Http\Controllers\VoyageController;
@@ -46,6 +51,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/preferences', [UserPreferenceController::class, 'update'])->name('preferences.update');
 
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
@@ -63,9 +69,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/settings/countries', [CountryController::class, 'store'])->name('settings.countries.store');
     Route::put('/settings/countries/{country}', [CountryController::class, 'update'])->name('settings.countries.update');
     Route::delete('/settings/countries/{country}', [CountryController::class, 'destroy'])->name('settings.countries.destroy');
+    Route::post('/settings/land-car-statuses', [LandTripCarStatusController::class, 'store'])->name('settings.land-car-statuses.store');
+    Route::put('/settings/land-car-statuses/{land_trip_car_status}', [LandTripCarStatusController::class, 'update'])->name('settings.land-car-statuses.update');
+    Route::delete('/settings/land-car-statuses/{land_trip_car_status}', [LandTripCarStatusController::class, 'destroy'])->name('settings.land-car-statuses.destroy');
     Route::post('/settings/system/migrate', [SettingController::class, 'migrate'])->name('settings.system.migrate');
     Route::get('/settings/system/logs/download', [SettingController::class, 'downloadLogs'])->name('settings.system.logs.download');
     Route::post('/settings/system/logs/clear', [SettingController::class, 'clearLogs'])->name('settings.system.logs.clear');
+    Route::get('/settings/system/database-insights', [SettingController::class, 'databaseInsights'])->name('settings.system.db.insights');
+    Route::post('/settings/system/database-vacuum', [SettingController::class, 'vacuumDatabase'])->name('settings.system.db.vacuum');
 
     Route::get('/whatsapp-notifications', [WhatsappNotificationController::class, 'index'])
         ->name('whatsapp-notifications.index');
@@ -81,7 +92,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/companies/{company}/direct-charges', [CompanyDirectChargeController::class, 'store'])
         ->name('companies.direct-charges.store');
 
+    Route::get('/land-trips/companies/{company}', [LandTripController::class, 'showCompany'])
+        ->name('land-trips.companies.show');
+    Route::get('/land-trips/companies/{company}/cars', [LandTripController::class, 'companyCars'])
+        ->name('land-trips.companies.cars');
+    Route::post('/land-trips/companies/{company}/cars', [LandTripController::class, 'syncCompanyCars'])
+        ->name('land-trips.companies.cars.sync');
+    Route::post('/land-trips/companies/{company}/cars/location', [LandTripController::class, 'bulkUpdateCompanyCarStatus'])
+        ->name('land-trips.companies.cars.location');
+    Route::get('/land-trips/companies/{company}/location-logs', [LandTripLocationLogController::class, 'index'])
+        ->name('land-trips.companies.location-logs');
+    Route::post('/land-trips/companies/{company}/location-logs/undo', [LandTripLocationLogController::class, 'undo'])
+        ->name('land-trips.companies.location-logs.undo');
+    Route::put('/land-trips/companies/{company}/manifest', [LandTripController::class, 'updateCompanyManifest'])
+        ->name('land-trips.companies.manifest.update');
+    Route::get('/land-trips/companies/{company}/import', [LandTripController::class, 'companyImport'])
+        ->name('land-trips.companies.import');
+    Route::get('/land-trips/companies/{company}/export', [LandTripController::class, 'exportCompany'])
+        ->name('land-trips.companies.export');
+    Route::post('/land-trips/companies/{company}/wallet', [CompanyWalletController::class, 'store'])
+        ->name('land-trips.companies.wallet.store');
+    Route::delete('/land-trips/companies/{company}/wallet/{entry}', [CompanyWalletController::class, 'destroy'])
+        ->name('land-trips.companies.wallet.destroy');
+    Route::get('/land-trips/companies/{company}/wallet/{entry}/print', [CompanyWalletController::class, 'print'])
+        ->name('land-trips.companies.wallet.print');
     Route::resource('land-trips', LandTripController::class);
+    Route::get('/land-trips/{land_trip}/import', [LandTripImportController::class, 'create'])->name('land-trips.import');
+    Route::post('/land-trips/{land_trip}/import/preview', [LandTripImportController::class, 'preview'])->name('land-trips.import.preview');
+    Route::post('/land-trips/{land_trip}/import/confirm', [LandTripImportController::class, 'confirm'])->name('land-trips.import.confirm');
     Route::post('/land-trips/{land_trip}/cars', [LandTripController::class, 'syncCars'])
         ->name('land-trips.cars.sync');
     Route::post('/land-trips/{land_trip}/transition', [LandTripController::class, 'transition'])

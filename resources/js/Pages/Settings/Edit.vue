@@ -3,8 +3,10 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import { useLandTripStation } from '@/composables/useLandTripStation';
+import { statusRowStyle } from '@/composables/useLandTripStatusColor';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -15,6 +17,8 @@ const props = defineProps({
     canManageUsers: { type: Boolean, default: false },
     canViewUsers: { type: Boolean, default: false },
     countries: { type: Array, default: () => [] },
+    landCarStatuses: { type: Array, default: () => [] },
+    rowTones: { type: Array, default: () => [] },
     users: { type: Object, default: null },
     userFilters: { type: Object, default: () => ({ search: '', role: '' }) },
     roles: { type: Array, default: () => [] },
@@ -24,6 +28,7 @@ const props = defineProps({
 
 const page = usePage();
 const { t } = useI18n();
+const { stationLabel, toneLabel } = useLandTripStation();
 const success = computed(() => page.props.flash?.success);
 const error = computed(() => page.props.flash?.error);
 const migrateOutput = computed(() => page.props.flash?.migrate_output);
@@ -31,6 +36,7 @@ const currentUserId = computed(() => page.props.auth?.user?.id);
 const migrating = ref(false);
 const clearingLogs = ref(false);
 const editingCountryId = ref(null);
+const editingStatusId = ref(null);
 
 const form = useForm({
     company: {
@@ -56,6 +62,18 @@ const countryForm = useForm({
     iso_code: '',
     is_active: true,
     sort_order: 0,
+});
+
+const statusForm = useForm({
+    code: '',
+    name: '',
+    name_ar: '',
+    name_ckb: '',
+    row_tone: 'yellow',
+    color: '#F59E0B',
+    match_aliases_text: '',
+    sort_order: 0,
+    is_active: true,
 });
 
 const userFilterForm = useForm({
@@ -107,6 +125,61 @@ const deleteCountry = (country) => {
     router.delete(route('settings.countries.destroy', country.id), { preserveScroll: true });
 };
 
+const startEditStatus = (status) => {
+    editingStatusId.value = status.id;
+    statusForm.code = status.code;
+    statusForm.name = status.name;
+    statusForm.name_ar = status.name_ar ?? '';
+    statusForm.name_ckb = status.name_ckb ?? '';
+    statusForm.row_tone = status.row_tone;
+    statusForm.color = status.color || '#F59E0B';
+    statusForm.match_aliases_text = (status.match_aliases ?? []).join('\n');
+    statusForm.sort_order = status.sort_order;
+    statusForm.is_active = status.is_active;
+    statusForm.clearErrors();
+};
+
+const resetStatusForm = () => {
+    editingStatusId.value = null;
+    statusForm.reset();
+    statusForm.row_tone = 'yellow';
+    statusForm.color = '#F59E0B';
+    statusForm.is_active = true;
+    statusForm.sort_order = 0;
+};
+
+const saveStatus = () => {
+    const payload = {
+        ...statusForm.data(),
+        match_aliases: statusForm.match_aliases_text
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean),
+    };
+
+    if (editingStatusId.value) {
+        router.put(route('settings.land-car-statuses.update', editingStatusId.value), payload, {
+            preserveScroll: true,
+            onSuccess: () => resetStatusForm(),
+        });
+        return;
+    }
+
+    router.post(route('settings.land-car-statuses.store'), payload, {
+        preserveScroll: true,
+        onSuccess: () => resetStatusForm(),
+    });
+};
+
+const deleteStatus = (status) => {
+    if (!window.confirm(t('settings.delete_land_status_confirm', { name: stationLabel(status) }))) return;
+    router.delete(route('settings.land-car-statuses.destroy', status.id), { preserveScroll: true });
+};
+
+const statusRowClass = () => 'land-status-colored';
+
+const coloredRowStyle = (color) => statusRowStyle(color);
+
 const applyUserFilters = () => {
     userFilterForm.get(route('settings.edit'), { preserveState: true, replace: true });
 };
@@ -150,6 +223,68 @@ const logClass = (level) => {
     if (level === 'WARNING') return 'is-warning';
     return 'is-info';
 };
+
+// ─── Database Insights ───────────────────────────────────────────────────────
+import axios from 'axios';
+const dbData    = ref(null);
+const dbLoading = ref(false);
+const vacuuming = ref(false);
+const dbColors  = ['#6366f1','#22c55e','#f59e0b','#3b82f6','#ec4899','#14b8a6','#fb923c','#a855f7','#ef4444','#64748b'];
+
+const dbTopTables = computed(() => (dbData.value?.tables ?? []).slice(0, 10));
+
+const dbChartGradient = computed(() => {
+    const tables = dbTopTables.value;
+    if (!tables.length) return '#334155';
+    const total = dbData.value?.db_size ?? tables.reduce((s, r) => s + (r.size_bytes ?? 0), 0);
+    let offset = 0;
+    const stops = [];
+    tables.forEach((row, idx) => {
+        const pct = total > 0 ? ((row.size_bytes ?? 0) / total) * 100 : 0;
+        const color = dbColors[idx % dbColors.length];
+        stops.push(`${color} ${offset.toFixed(2)}%`);
+        offset += pct;
+        stops.push(`${color} ${offset.toFixed(2)}%`);
+    });
+    if (offset < 100) { stops.push(`#334155 ${offset.toFixed(2)}%`, '#334155 100%'); }
+    return `conic-gradient(${stops.join(', ')})`;
+});
+
+function formatDbBytes(bytes) {
+    if (bytes == null) return '—';
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+    if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes >= 1024)       return (bytes / 1024).toFixed(0) + ' KB';
+    return bytes + ' B';
+}
+
+async function loadDbInsights() {
+    if (dbLoading.value) return;
+    dbLoading.value = true;
+    try {
+        const { data } = await axios.get(route('settings.system.db.insights'));
+        dbData.value = data;
+    } catch {
+        // silent
+    } finally {
+        dbLoading.value = false;
+    }
+}
+
+async function runVacuum() {
+    vacuuming.value = true;
+    try {
+        const { data } = await axios.post(route('settings.system.db.vacuum'));
+        alert(data.message + (data.saved ? ` | وُفِّر: ${formatDbBytes(data.saved)}` : ''));
+        await loadDbInsights();
+    } catch {
+        alert('فشل VACUUM');
+    } finally {
+        vacuuming.value = false;
+    }
+}
+
+onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
 </script>
 
 <template>
@@ -167,6 +302,9 @@ const logClass = (level) => {
             </button>
             <button type="button" class="btn" :class="tab === 'countries' ? 'btn-erp' : 'btn-erp-ghost'" @click="goTab('countries')">
                 {{ t('settings.tab_countries') }}
+            </button>
+            <button type="button" class="btn" :class="tab === 'land_car_statuses' ? 'btn-erp' : 'btn-erp-ghost'" @click="goTab('land_car_statuses')">
+                {{ t('settings.tab_land_car_statuses') }}
             </button>
             <button
                 v-if="canViewUsers"
@@ -334,6 +472,117 @@ const logClass = (level) => {
             </div>
         </div>
 
+        <div v-else-if="tab === 'land_car_statuses'" class="d-grid gap-3">
+            <form v-if="canManage" class="erp-form-panel" @submit.prevent="saveStatus">
+                <h2 class="h5 erp-display mb-3">
+                    {{ editingStatusId ? t('settings.edit_land_status') : t('settings.add_land_status') }}
+                </h2>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.status_code') }}</label>
+                        <input v-model="statusForm.code" class="form-control form-erp-control" required />
+                        <InputError :message="statusForm.errors.code" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.status_name') }}</label>
+                        <input v-model="statusForm.name" class="form-control form-erp-control" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.status_name_ar') }}</label>
+                        <input v-model="statusForm.name_ar" class="form-control form-erp-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.status_name_ckb') }}</label>
+                        <input v-model="statusForm.name_ckb" class="form-control form-erp-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.status_color') }}</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input v-model="statusForm.color" type="color" class="form-control form-control-color land-color-input" required />
+                            <input v-model="statusForm.color" type="text" class="form-control form-erp-control font-monospace" maxlength="7" required />
+                        </div>
+                        <InputError :message="statusForm.errors.color" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.row_tone') }}</label>
+                        <select v-model="statusForm.row_tone" class="form-select form-erp-control" required>
+                            <option v-for="tone in rowTones" :key="tone.value" :value="tone.value">{{ toneLabel(tone.value) }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-erp-label">{{ t('settings.sort_order') }}</label>
+                        <input v-model="statusForm.sort_order" type="number" min="0" class="form-control form-erp-control" />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-erp-label">{{ t('settings.match_aliases') }}</label>
+                        <textarea v-model="statusForm.match_aliases_text" rows="3" class="form-control form-erp-control" :placeholder="t('settings.match_aliases_help')" />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <input id="landStatusActive" v-model="statusForm.is_active" class="form-check-input" type="checkbox" />
+                            <label class="form-check-label" for="landStatusActive">{{ t('common.active') }}</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="erp-form-actions">
+                    <button v-if="editingStatusId" type="button" class="btn btn-erp-ghost" @click="resetStatusForm">{{ t('common.cancel') }}</button>
+                    <button type="submit" class="btn btn-erp" :disabled="statusForm.processing">
+                        {{ statusForm.processing ? t('common.saving') : t('common.save') }}
+                    </button>
+                </div>
+            </form>
+
+            <div class="erp-card p-0 overflow-hidden">
+                <table class="table erp-table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">{{ t('settings.status_name') }}</th>
+                            <th>{{ t('settings.status_name_ckb') }}</th>
+                            <th>{{ t('settings.status_color') }}</th>
+                            <th>{{ t('settings.row_tone') }}</th>
+                            <th>{{ t('common.status') }}</th>
+                            <th class="text-end pe-4">{{ t('common.actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="landCarStatuses.length === 0">
+                            <td colspan="6"><EmptyState>{{ t('settings.no_land_statuses') }}</EmptyState></td>
+                        </tr>
+                        <tr
+                            v-for="status in landCarStatuses"
+                            :key="status.id"
+                            class="land-status-colored"
+                            :style="coloredRowStyle(status.color)"
+                        >
+                            <td class="ps-4 fw-semibold">{{ stationLabel(status) }}</td>
+                            <td>{{ status.name_ckb || '—' }}</td>
+                            <td>
+                                <span class="land-color-swatch" :style="{ background: status.color }"></span>
+                                <span class="font-monospace small ms-1">{{ status.color }}</span>
+                            </td>
+                            <td>{{ toneLabel(status.row_tone) }}</td>
+                            <td>
+                                <StatusBadge :tone="status.is_active ? 'success' : 'neutral'" :label="status.is_active ? t('common.active') : t('common.inactive')" />
+                            </td>
+                            <td class="text-end pe-4">
+                                <div v-if="canManage" class="d-inline-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-erp-ghost" @click="startEditStatus(status)">{{ t('common.edit') }}</button>
+                                    <button
+                                        v-if="!status.is_archive"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        @click="deleteStatus(status)"
+                                    >
+                                        {{ t('common.delete') }}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div v-else-if="tab === 'users' && canViewUsers" class="erp-card p-0 overflow-hidden">
             <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
                 <div>
@@ -449,6 +698,85 @@ const logClass = (level) => {
                         class="erp-log-line"
                         :class="logClass(line.level)"
                     >{{ line.text }}</div>
+                </div>
+            </div>
+
+            <!-- Vacuum hint -->
+            <div v-if="dbData && dbData.free_bytes > 10 * 1024 * 1024"
+                class="erp-card p-4 d-flex flex-wrap align-items-center gap-3"
+                style="border-color: #f59e0b;">
+                <span class="flex-grow-1 fw-semibold" style="color:#f59e0b;">
+                    ⚠️ {{ formatDbBytes(dbData.free_bytes) }} مساحة حرة — شغّل VACUUM لتصغير ملف قاعدة البيانات
+                </span>
+                <button type="button" class="btn btn-warning" :disabled="vacuuming" @click="runVacuum">
+                    <span v-if="vacuuming" class="spinner-border spinner-border-sm me-1"></span>
+                    {{ vacuuming ? 'جارٍ التنفيذ…' : '🗜️ VACUUM' }}
+                </button>
+            </div>
+
+            <!-- DB Insights card -->
+            <div class="erp-card p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div>
+                        <h2 class="h5 erp-display mb-1">🗄️ تخزين قاعدة البيانات</h2>
+                        <p class="text-secondary small mb-0">توزيع الحجم على مستوى الجداول</p>
+                    </div>
+                    <button type="button" class="btn btn-erp-ghost btn-sm" :disabled="dbLoading" @click="loadDbInsights">
+                        {{ dbLoading ? '…' : '↻ تحديث' }}
+                    </button>
+                </div>
+
+                <div v-if="dbLoading" class="text-center py-4">
+                    <span class="spinner-border text-primary"></span>
+                </div>
+
+                <template v-else-if="dbData">
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <div class="erp-card p-3 text-center">
+                                <div class="small text-secondary mb-1">الإجمالي</div>
+                                <div class="fw-bold">{{ formatDbBytes(dbData.db_size) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="erp-card p-3 text-center">
+                                <div class="small text-secondary mb-1">مستخدم</div>
+                                <div class="fw-bold">{{ formatDbBytes(dbData.used_bytes) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="erp-card p-3 text-center">
+                                <div class="small text-secondary mb-1">حر</div>
+                                <div class="fw-bold text-success">{{ formatDbBytes(dbData.free_bytes) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column flex-lg-row gap-4 align-items-start">
+                        <div class="flex-shrink-0 mx-auto">
+                            <div style="position:relative;width:140px;height:140px;">
+                                <div style="width:140px;height:140px;border-radius:50%;" :style="{ background: dbChartGradient }"></div>
+                                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                                    <div style="width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:0.75rem;" class="erp-card border">
+                                        {{ dbTopTables.length }}<br>جدول
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div v-for="(row, idx) in dbTopTables" :key="row.name"
+                                class="d-flex align-items-center gap-2 py-1 border-bottom small">
+                                <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;" :style="{ background: dbColors[idx % dbColors.length] }"></span>
+                                <code class="flex-grow-1 text-truncate" style="max-width:180px;">{{ row.name }}</code>
+                                <span class="text-secondary">{{ (row.rows ?? 0).toLocaleString() }} صف</span>
+                                <span class="fw-bold" style="min-width:60px;text-align:end;">{{ formatDbBytes(row.size_bytes) }}</span>
+                                <span class="text-secondary" style="min-width:42px;text-align:end;">{{ row.percent != null ? row.percent.toFixed(1) + '%' : '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div v-else class="text-center py-4">
+                    <button type="button" class="btn btn-erp" @click="loadDbInsights">تحميل المعلومات</button>
                 </div>
             </div>
         </div>

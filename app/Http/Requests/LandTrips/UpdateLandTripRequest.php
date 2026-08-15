@@ -22,8 +22,8 @@ class UpdateLandTripRequest extends FormRequest
         $tripId = $this->route('land_trip')?->id;
 
         return [
-            'cmr_number' => ['required', 'string', 'max:80', Rule::unique('land_trips', 'cmr_number')->ignore($tripId)],
-            'driver_name' => ['required', 'string', 'max:180'],
+            'cmr_number' => ['nullable', 'string', 'max:80', Rule::unique('land_trips', 'cmr_number')->ignore($tripId)],
+            'driver_name' => ['nullable', 'string', 'max:180'],
             'from_country_id' => ['required', 'integer', 'exists:countries,id'],
             'to_country_id' => ['required', 'integer', 'exists:countries,id', 'different:from_country_id'],
             'departure_date' => ['required', 'date'],

@@ -20,8 +20,8 @@ class StoreLandTripRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cmr_number' => ['required', 'string', 'max:80', 'unique:land_trips,cmr_number'],
-            'driver_name' => ['required', 'string', 'max:180'],
+            'cmr_number' => ['nullable', 'string', 'max:80', 'unique:land_trips,cmr_number'],
+            'driver_name' => ['nullable', 'string', 'max:180'],
             'from_country_id' => ['required', 'integer', 'exists:countries,id'],
             'to_country_id' => ['required', 'integer', 'exists:countries,id', 'different:from_country_id'],
             'departure_date' => ['required', 'date'],

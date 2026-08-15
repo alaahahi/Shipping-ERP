@@ -1,5 +1,6 @@
 <script setup>
 import LocaleSync from '@/Components/LocaleSync.vue';
+import ThemeSync from '@/Components/ThemeSync.vue';
 import { useI18n } from 'vue-i18n';
 
 defineProps({
@@ -19,6 +20,7 @@ const { t } = useI18n();
 <template>
     <div class="auth-shell">
         <LocaleSync />
+        <ThemeSync />
 
         <section class="auth-visual">
             <div class="auth-brand">{{ t('app.name') }}</div>

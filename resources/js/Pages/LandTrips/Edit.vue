@@ -13,6 +13,7 @@ const props = defineProps({
     companies: { type: Array, default: () => [] },
     voyages: { type: Array, default: () => [] },
     voyageCars: { type: Array, default: () => [] },
+    carStatuses: { type: Array, default: () => [] },
 });
 
 const { t } = useI18n();
@@ -33,10 +34,12 @@ const form = useForm({
     cars: (props.trip.cars ?? []).map((car) => ({
         voyage_car_id: car.voyage_car_id,
         chassis_no: car.chassis_no ?? '',
+        cmr_waybill: car.cmr_waybill ?? '',
         consignee_name: car.consignee_name ?? '',
         description: car.description ?? '',
         weight: car.weight ?? '',
         notes: car.notes ?? '',
+        location_status_id: car.location_status_id ?? '',
     })),
 });
 
@@ -141,6 +144,7 @@ const submit = () => form.put(route('land-trips.update', props.trip.id));
             :show="showCars"
             :cars="form.cars"
             :voyage-cars="voyageCars"
+            :car-statuses="carStatuses"
             :processing="form.processing"
             @update:cars="form.cars = $event"
             @close="showCars = false"

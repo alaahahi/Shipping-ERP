@@ -3,6 +3,16 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            (function () {
+                try {
+                    var theme = localStorage.getItem('erp-theme') || 'light';
+                    if (theme !== 'dark') theme = 'light';
+                    document.documentElement.setAttribute('data-theme', theme);
+                    document.documentElement.style.colorScheme = theme;
+                } catch (e) {}
+            })();
+        </script>
 
         <title inertia>{{ config('app.name', 'Shipping ERP') }}</title>
 

@@ -1,31 +1,37 @@
 <script setup>
-import { computed } from 'vue';
+import { useLandTripStation } from '@/composables/useLandTripStation';
+import { statusRowStyle } from '@/composables/useLandTripStatusColor';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
-    cars: { type: Array, required: true },
+    cars: { type: Array, default: () => [] },
     voyageCars: { type: Array, default: () => [] },
+    carStatuses: { type: Array, default: () => [] },
     processing: { type: Boolean, default: false },
+    addOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'save', 'update:cars']);
 
 const { t } = useI18n();
-
-const rows = computed({
-    get: () => props.cars,
-    set: (value) => emit('update:cars', value),
-});
+const { stationLabel } = useLandTripStation();
 
 const emptyRow = () => ({
     voyage_car_id: null,
     chassis_no: '',
+    cmr_waybill: '',
     consignee_name: '',
     description: '',
     weight: '',
     notes: '',
+    location_status_id: props.carStatuses[0]?.id ?? '',
 });
+
+const rowStyle = (row) => {
+    const status = props.carStatuses.find((item) => String(item.id) === String(row.location_status_id));
+    return statusRowStyle(status?.color);
+};
 
 const addRow = () => {
     emit('update:cars', [...props.cars, emptyRow()]);
@@ -68,11 +74,13 @@ const fillFromVoyage = () => {
         props.voyageCars.map((car) => ({
             voyage_car_id: car.id,
             chassis_no: car.chassis_no ?? '',
+            cmr_waybill: '',
             consignee_name: car.consignee_name ?? '',
             description: car.description ?? '',
             weight: car.weight ?? '',
             notes: '',
-        }))
+            location_status_id: props.carStatuses[0]?.id ?? '',
+        })),
     );
 };
 </script>
@@ -82,8 +90,8 @@ const fillFromVoyage = () => {
         <div class="erp-modal-dialog erp-card p-0 overflow-hidden" role="dialog" aria-modal="true">
             <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
                 <div>
-                    <h3 class="h5 erp-display mb-0">{{ t('land_trips.cars_modal_title') }}</h3>
-                    <p class="small text-secondary mb-0">{{ t('land_trips.cars_modal_help') }}</p>
+                    <h3 class="h5 erp-display mb-0">{{ addOnly ? t('land_trips.add_cars') : t('land_trips.cars_modal_title') }}</h3>
+                    <p class="small text-secondary mb-0">{{ addOnly ? t('land_trips.add_cars_help') : t('land_trips.cars_modal_help') }}</p>
                 </div>
                 <button type="button" class="btn btn-erp-ghost" @click="emit('close')">{{ t('common.cancel') }}</button>
             </div>
@@ -106,26 +114,33 @@ const fillFromVoyage = () => {
                         <tr>
                             <th v-if="voyageCars.length" class="ps-3">{{ t('land_trips.voyage_car') }}</th>
                             <th :class="{ 'ps-3': !voyageCars.length }">{{ t('land_trips.chassis') }}</th>
+                            <th>{{ t('land_trips.cmr_waybill') }}</th>
                             <th>{{ t('land_trips.consignee') }}</th>
                             <th>{{ t('common.description') }}</th>
+                            <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
                             <th class="pe-3"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="cars.length === 0">
-                            <td :colspan="voyageCars.length ? 6 : 5" class="text-center text-secondary py-4">
+                            <td :colspan="voyageCars.length ? 8 : 7" class="text-center text-secondary py-4">
                                 {{ t('land_trips.no_car_rows') }}
                             </td>
                         </tr>
-                        <tr v-for="(row, index) in cars" :key="index">
+                        <tr
+                            v-for="(row, index) in cars"
+                            :key="index"
+                            class="land-status-colored"
+                            :style="rowStyle(row)"
+                        >
                             <td v-if="voyageCars.length" class="ps-3" style="min-width: 180px">
                                 <select
                                     class="form-select form-erp-control form-select-sm"
                                     :value="row.voyage_car_id ?? ''"
                                     @change="applyVoyageCar(index, $event.target.value)"
                                 >
-                                    <option value="">{{ t('common.none') }}</option>
+                                    <option value="">{{ t('land_trips.unspecified_location') }}</option>
                                     <option v-for="car in voyageCars" :key="car.id" :value="car.id">
                                         {{ car.label }}
                                     </option>
@@ -133,9 +148,16 @@ const fillFromVoyage = () => {
                             </td>
                             <td :class="{ 'ps-3': !voyageCars.length }" style="min-width: 150px">
                                 <input
-                                    class="form-control form-erp-control form-control-sm"
+                                    class="form-control form-erp-control form-control-sm font-monospace"
                                     :value="row.chassis_no"
                                     @input="updateRow(index, 'chassis_no', $event.target.value)"
+                                />
+                            </td>
+                            <td style="min-width: 120px">
+                                <input
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.cmr_waybill"
+                                    @input="updateRow(index, 'cmr_waybill', $event.target.value)"
                                 />
                             </td>
                             <td style="min-width: 160px">
@@ -151,6 +173,18 @@ const fillFromVoyage = () => {
                                     :value="row.description"
                                     @input="updateRow(index, 'description', $event.target.value)"
                                 />
+                            </td>
+                            <td style="min-width: 180px">
+                                <select
+                                    class="form-select form-erp-control form-select-sm"
+                                    :value="row.location_status_id ?? ''"
+                                    @change="updateRow(index, 'location_status_id', $event.target.value)"
+                                >
+                                    <option value="">{{ t('land_trips.unspecified_location') }}</option>
+                                    <option v-for="status in carStatuses" :key="status.id" :value="status.id">
+                                        {{ stationLabel(status) }}
+                                    </option>
+                                </select>
                             </td>
                             <td style="min-width: 90px">
                                 <input
@@ -175,7 +209,7 @@ const fillFromVoyage = () => {
             <div class="erp-form-actions p-3 border-top">
                 <button type="button" class="btn btn-erp-ghost" @click="emit('close')">{{ t('common.cancel') }}</button>
                 <button type="button" class="btn btn-erp" :disabled="processing" @click="emit('save')">
-                    {{ processing ? t('common.saving') : t('land_trips.save_cars') }}
+                    {{ processing ? t('common.saving') : (addOnly ? t('land_trips.add_cars') : t('land_trips.save_cars')) }}
                 </button>
             </div>
         </div>

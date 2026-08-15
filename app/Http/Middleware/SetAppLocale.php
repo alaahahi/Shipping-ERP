@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\AppLocale;
 use App\Enums\SettingKey;
 use App\Services\SettingService;
 use App\Support\ApplicationTimezone;
+use App\Support\ResolvedLocale;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -22,11 +22,7 @@ class SetAppLocale
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $locale = $this->settingService->get(SettingKey::AppLocale, AppLocale::Arabic->value);
-
-        if (! in_array($locale, AppLocale::values(), true)) {
-            $locale = AppLocale::Arabic->value;
-        }
+        $locale = ResolvedLocale::fromRequest($request);
 
         App::setLocale($locale);
 

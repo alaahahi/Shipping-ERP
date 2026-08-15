@@ -1,18 +1,19 @@
 <script setup>
+import AppHeaderNav from '@/Components/AppHeaderNav.vue';
 import LocaleSync from '@/Components/LocaleSync.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAppStore } from '@/stores/app';
-import { usePermissions } from '@/composables/usePermissions';
+import { useTheme } from '@/composables/useTheme';
 
 const page = usePage();
-const appStore = useAppStore();
-const { can } = usePermissions();
 const { t } = useI18n();
+const { theme, toggleTheme } = useTheme();
 
 const user = computed(() => page.props.auth?.user);
 const companyName = computed(() => page.props.appSettings?.companyName || t('app.name'));
+const currentLocale = computed(() => page.props.appSettings?.locale || 'ar');
+const locales = computed(() => page.props.appSettings?.locales ?? []);
 const notifications = computed(() => page.props.notifications ?? { unread_count: 0, recent: [] });
 const initials = computed(() => {
     if (!user.value?.name) {
@@ -34,217 +35,76 @@ const openNotification = (item) => {
 const markAllRead = () => {
     router.post(route('notifications.read-all'), {}, { preserveScroll: true });
 };
+
+const setLocale = (locale) => {
+    if (!locale || locale === currentLocale.value) {
+        return;
+    }
+
+    router.post(route('preferences.update'), { locale }, { preserveScroll: true });
+};
+
+const localeLabel = (locale) => t(`language.${locale.value}`) || locale.label;
 </script>
 
 <template>
     <div class="erp-shell">
         <LocaleSync />
 
-        <div
-            v-if="!appStore.sidebarCollapsed"
-            class="erp-sidebar-backdrop d-lg-none"
-            @click="appStore.toggleSidebar"
-        />
-
-        <aside
-            class="erp-sidebar"
-            :class="{ 'is-open': !appStore.sidebarCollapsed }"
-        >
-            <Link :href="route('dashboard')" class="erp-brand">
-                <span class="erp-brand-mark">SE</span>
-                <span class="erp-brand-text">{{ companyName }}</span>
-            </Link>
-
-            <nav class="erp-nav">
-                <Link
-                    :href="route('dashboard')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('dashboard') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">◈</span>
-                    {{ t('nav.dashboard') }}
+        <header class="erp-header">
+            <div class="erp-header-bar">
+                <Link :href="route('dashboard')" class="erp-brand">
+                    <span class="erp-brand-mark">SE</span>
+                    <span class="erp-brand-text">{{ companyName }}</span>
                 </Link>
 
-                <div class="erp-nav-section">{{ t('nav.operations') }}</div>
+                <AppHeaderNav />
 
-                <Link
-                    v-if="can('ships.view')"
-                    :href="route('ships.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('ships.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">⚒</span>
-                    {{ t('nav.ships') }}
-                </Link>
+                <h1 class="h6 mb-0 erp-display erp-header-context">
+                    <slot name="header">{{ t('nav.dashboard') }}</slot>
+                </h1>
 
-                <Link
-                    v-if="can('voyages.view')"
-                    :href="route('companies.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('companies.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">◇</span>
-                    {{ t('nav.companies') }}
-                </Link>
-
-                <Link
-                    v-if="can('dubai_accounts.view')"
-                    :href="route('dubai-accounts.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('dubai-accounts.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">▣</span>
-                    {{ t('nav.dubai_accounts') }}
-                </Link>
-
-                <Link
-                    v-if="can('voyages.view')"
-                    :href="route('voyages.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('voyages.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">➤</span>
-                    {{ t('nav.voyages') }}
-                </Link>
-
-                <Link
-                    v-if="can('land_trips.view')"
-                    :href="route('land-trips.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('land-trips.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">▤</span>
-                    {{ t('nav.land_trips') }}
-                </Link>
-
-                <div class="erp-nav-section">{{ t('nav.finance') }}</div>
-
-                <Link
-                    v-if="can('accounting.view')"
-                    :href="route('accounts.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('accounts.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">☰</span>
-                    {{ t('nav.accounts') }}
-                </Link>
-
-                <Link
-                    v-if="can('accounting.view')"
-                    :href="route('journals.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('journals.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">≡</span>
-                    {{ t('nav.journals') }}
-                </Link>
-
-                <Link
-                    v-if="can('accounting.view')"
-                    :href="route('money-vouchers.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('money-vouchers.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">$</span>
-                    {{ t('nav.receipts') }}
-                </Link>
-
-                <Link
-                    v-if="can('iran_cars.view')"
-                    :href="route('iran-cars.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('iran-cars.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">▣</span>
-                    {{ t('nav.iran_cars') }}
-                </Link>
-
-                <Link
-                    v-if="can('reports.view')"
-                    :href="route('reports.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('reports.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">▦</span>
-                    {{ t('nav.reports') }}
-                </Link>
-
-                <div class="erp-nav-section">{{ t('nav.admin') }}</div>
-
-                <Link
-                    v-if="can('users.view')"
-                    :href="route('users.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('users.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">◉</span>
-                    {{ t('nav.users') }}
-                </Link>
-
-                <Link
-                    v-if="can('roles.view')"
-                    :href="route('roles.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('roles.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">▣</span>
-                    {{ t('nav.roles') }}
-                </Link>
-
-                <Link
-                    v-if="can('settings.view')"
-                    :href="route('settings.edit')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('settings.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">◍</span>
-                    {{ t('nav.settings') }}
-                </Link>
-
-                <Link
-                    v-if="can('settings.view')"
-                    :href="route('whatsapp-notifications.index')"
-                    class="erp-nav-link"
-                    :class="{ active: route().current('whatsapp-notifications.*') }"
-                    @click="appStore.closeSidebar"
-                >
-                    <span aria-hidden="true">💬</span>
-                    {{ t('nav.whatsapp') }}
-                </Link>
-            </nav>
-        </aside>
-
-        <div class="erp-main">
-            <header class="erp-topbar">
-                <div class="d-flex align-items-center gap-2">
+                <div class="erp-header-tools" v-if="user">
                     <button
                         type="button"
-                        class="btn btn-erp-ghost d-lg-none"
-                        :aria-label="t('nav.menu')"
-                        @click="appStore.toggleSidebar"
+                        class="btn btn-erp-ghost erp-icon-btn"
+                        :aria-label="theme === 'dark' ? t('appearance.toggle_light') : t('appearance.toggle_dark')"
+                        :title="theme === 'dark' ? t('appearance.toggle_light') : t('appearance.toggle_dark')"
+                        @click="toggleTheme"
                     >
-                        {{ t('nav.menu') }}
+                        <svg v-if="theme === 'dark'" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8" />
+                            <path d="M12 3v1.6M12 19.4V21M4.9 4.9l1.1 1.1M18 18l1.1 1.1M3 12h1.6M19.4 12H21M4.9 19.1 6 18M18 6l1.1-1.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        </svg>
+                        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M16.5 13.2A6.2 6.2 0 0 1 10.8 7.4 6.3 6.3 0 1 0 16.5 13.2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                        </svg>
                     </button>
-                    <h1 class="h5 mb-0 erp-display">
-                        <slot name="header">{{ t('nav.dashboard') }}</slot>
-                    </h1>
-                </div>
 
-                <div class="d-flex align-items-center gap-2" v-if="user">
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-erp-ghost erp-icon-btn"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            :aria-label="t('language.label')"
+                            :title="t('language.label')"
+                        >
+                            <span class="small fw-semibold">{{ currentLocale.toUpperCase() }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                            <li v-for="locale in locales" :key="locale.value">
+                                <button
+                                    type="button"
+                                    class="dropdown-item py-2"
+                                    :class="{ active: locale.value === currentLocale }"
+                                    @click="setLocale(locale.value)"
+                                >
+                                    {{ localeLabel(locale) }}
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
                     <div class="dropdown">
                         <button
                             class="btn btn-erp-ghost position-relative erp-notify-btn"
@@ -299,7 +159,7 @@ const markAllRead = () => {
                             aria-expanded="false"
                         >
                             <span class="user-avatar">{{ initials }}</span>
-                            <span>{{ user.name }}</span>
+                            <span class="erp-user-name">{{ user.name }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
                             <li>
@@ -321,8 +181,10 @@ const markAllRead = () => {
                         </ul>
                     </div>
                 </div>
-            </header>
+            </div>
+        </header>
 
+        <div class="erp-main">
             <div class="erp-page">
                 <slot />
             </div>

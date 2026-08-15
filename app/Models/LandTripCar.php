@@ -9,20 +9,29 @@ class LandTripCar extends Model
 {
     protected $fillable = [
         'land_trip_id',
+        'location_status_id',
         'voyage_car_id',
         'car_id',
         'chassis_no',
+        'cmr_waybill',
         'consignee_name',
         'description',
         'weight',
         'notes',
+        'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
             'weight' => 'decimal:3',
+            'sort_order' => 'integer',
         ];
+    }
+
+    public function locationStatus(): BelongsTo
+    {
+        return $this->belongsTo(LandTripCarStatus::class, 'location_status_id');
     }
 
     public function landTrip(): BelongsTo

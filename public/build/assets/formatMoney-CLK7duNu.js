@@ -1,0 +1,1 @@
+function o(n){if(n==null||n==="")return"0";const t=Number(String(n).replace(/,/g,"").trim());if(!Number.isFinite(t))return"0";const i=Math.round(t*100)/100||0,r=Math.abs(i-Math.round(i))<5e-4;return i.toLocaleString("en-US",{maximumFractionDigits:2,minimumFractionDigits:r?0:2})}export{o as f};

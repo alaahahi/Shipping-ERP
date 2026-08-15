@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AppLocale;
 use App\Enums\SettingKey;
 use App\Services\NotificationDispatchService;
 use App\Services\SettingService;
+use App\Support\ResolvedLocale;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -50,8 +52,14 @@ class HandleInertiaRequests extends Middleware
             'appSettings' => [
                 'companyName' => $settings->get(SettingKey::CompanyName),
                 'currency' => $settings->get(SettingKey::AppCurrency),
-                'locale' => $settings->get(SettingKey::AppLocale),
+                'locale' => ResolvedLocale::fromRequest($request),
+                'defaultLocale' => $settings->get(SettingKey::AppLocale),
                 'timezone' => $settings->get(SettingKey::AppTimezone),
+                'locales' => collect(AppLocale::available())->map(fn (AppLocale $locale) => [
+                    'value' => $locale->value,
+                    'label' => $locale->label(),
+                    'rtl' => $locale->isRtl(),
+                ])->values()->all(),
             ],
             'notifications' => $user ? [
                 'unread_count' => $notifications->unreadCount($user),

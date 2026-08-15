@@ -7,6 +7,7 @@ import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { applyDocumentLocale, createAppI18n } from './i18n';
+import { applyTheme, readStoredTheme } from './theme';
 
 import 'bootstrap';
 
@@ -23,6 +24,7 @@ createInertiaApp({
         const initialLocale = props.initialPage?.props?.appSettings?.locale || 'ar';
         const i18n = createAppI18n(initialLocale);
         applyDocumentLocale(initialLocale);
+        applyTheme(readStoredTheme());
 
         return createApp({ render: () => h(App, props) })
             .use(plugin)

@@ -4,28 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Enums\LandTripStatus;
 use App\Enums\Permission;
+use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
 use App\Http\Requests\LandTrips\StoreLandTripRequest;
+use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
 use App\Http\Requests\LandTrips\TransitionLandTripRequest;
+use App\Http\Requests\LandTrips\UpdateCompanyLandManifestRequest;
 use App\Http\Requests\LandTrips\UpdateLandTripRequest;
+use App\Models\Company;
 use App\Models\LandTrip;
+use App\Services\CompanyWalletService;
 use App\Services\CompanyService;
 use App\Services\CountryService;
+use App\Services\LandTripCarLocationChangeService;
+use App\Services\LandTripExcelImportService;
 use App\Services\LandTripPostingService;
 use App\Services\LandTripService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LandTripController extends Controller
 {
     public function __construct(
         private readonly LandTripService $landTripService,
         private readonly LandTripPostingService $postingService,
+        private readonly LandTripExcelImportService $importService,
         private readonly CountryService $countryService,
-        private readonly CompanyService $companyService
+        private readonly CompanyService $companyService,
+        private readonly LandTripCarLocationChangeService $locationChangeService,
+        private readonly CompanyWalletService $walletService
     ) {}
 
     public function index(Request $request): Response
@@ -34,20 +46,124 @@ class LandTripController extends Controller
 
         $filters = [
             'search' => $request->string('search')->toString(),
-            'status' => $request->string('status')->toString(),
-            'company_id' => $request->string('company_id')->toString(),
         ];
 
-        $trips = $this->landTripService
-            ->paginate($filters)
-            ->through(fn (LandTrip $trip) => $this->landTripService->transform($trip));
+        $companies = $this->landTripService
+            ->paginateCompanies($filters);
+
+        $chassisMatches = $this->landTripService->matchedCarsByChassis(
+            collect($companies->items())->pluck('id')->all(),
+            $filters['search']
+        );
+
+        $companies->through(function (Company $company) use ($chassisMatches) {
+            $company->matched_car = $chassisMatches[$company->id] ?? null;
+
+            return $this->landTripService->transformCompanyHub($company);
+        });
 
         return Inertia::render('LandTrips/Index', [
-            'trips' => $trips,
+            'companies' => $companies,
             'filters' => $filters,
-            'companies' => $this->companyService->options(),
-            'statuses' => $this->statusOptions(),
             'canManage' => $request->user()?->can(Permission::LandTripsManage->value) ?? false,
+        ]);
+    }
+
+    public function showCompany(Request $request, Company $company): Response
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        $filters = $this->landTripService->resolveCompanyCarFilters($company, [
+            'search' => $request->string('search')->toString(),
+            'location_status_id' => $request->string('location_status_id')->toString(),
+            'highlight_car_id' => $request->integer('highlight') ?: null,
+        ]);
+
+        $user = $request->user();
+
+        $cars = $this->landTripService
+            ->paginateCompanyCars($company, $filters, 10, 1)
+            ->through(fn ($car) => $this->landTripService->transformCar($car));
+
+        return Inertia::render('LandTrips/Company', [
+            'company' => $this->landTripService->transformCompanyHub($company->loadCount('landTrips')),
+            'cars' => $cars,
+            'statusSummary' => $this->landTripService->companyStatusSummary($company),
+            'carStatuses' => $this->landTripService->carStatusOptions(),
+            'filters' => [
+                'search' => $filters['search'],
+                'location_status_id' => $filters['location_status_id'],
+            ],
+            'highlightCarId' => $filters['highlight_car_id'],
+            'canManage' => $user?->can(Permission::LandTripsManage->value) ?? false,
+            'locationLog' => $this->locationChangeService->meta($company),
+            'wallet' => $this->walletService->payload($company),
+        ]);
+    }
+
+    public function companyCars(Request $request, Company $company): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        $filters = [
+            'search' => $request->string('search')->toString(),
+            'location_status_id' => $request->string('location_status_id')->toString(),
+        ];
+
+        $cars = $this->landTripService
+            ->paginateCompanyCars($company, $filters, 10)
+            ->through(fn ($car) => $this->landTripService->transformCar($car));
+
+        return response()->json($cars);
+    }
+
+    public function syncCompanyCars(SyncCompanyLandCarsRequest $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->addCompanyCars($company, $request->validated('cars') ?? [], $request->user());
+
+        return back()->with('success', 'Cars saved.');
+    }
+
+    public function bulkUpdateCompanyCarStatus(BulkUpdateCompanyLandCarStatusRequest $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $updated = $this->landTripService->bulkUpdateCompanyCarLocations(
+            $company,
+            $request->validated(),
+            $request->user()
+        );
+
+        return back()->with('success', "Updated {$updated} cars.");
+    }
+
+    public function updateCompanyManifest(UpdateCompanyLandManifestRequest $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->updateCompanyManifestMeta($company, $request->validated(), $request->user());
+
+        return back()->with('success', 'Manifest details saved.');
+    }
+
+    public function companyImport(Request $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $trip = $this->landTripService->workingTripForCompany($company, $request->user());
+
+        return redirect()->route('land-trips.import', $trip);
+    }
+
+    public function exportCompany(Request $request, Company $company): StreamedResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return $this->importService->exportCompanyCars($company, [
+            'search' => $request->string('search')->toString(),
+            'location_status_id' => $request->string('location_status_id')->toString(),
         ]);
     }
 
@@ -56,6 +172,7 @@ class LandTripController extends Controller
         Gate::authorize('create', LandTrip::class);
 
         $voyageId = $request->integer('voyage_id') ?: null;
+        $companyId = $request->integer('company_id') ?: null;
 
         return Inertia::render('LandTrips/Create', [
             'countries' => $this->countryService->activeOptions(),
@@ -63,6 +180,9 @@ class LandTripController extends Controller
             'voyages' => $this->landTripService->voyageOptions(),
             'voyageCars' => $this->landTripService->voyageCarOptions($voyageId),
             'selectedVoyageId' => $voyageId,
+            'selectedCompanyId' => $companyId,
+            'carStatuses' => $this->landTripService->carStatusOptions(),
+            'companyLocked' => $companyId !== null,
         ]);
     }
 
@@ -86,6 +206,7 @@ class LandTripController extends Controller
         return Inertia::render('LandTrips/Show', [
             'trip' => $this->landTripService->transform($land_trip, detailed: true),
             'voyageCars' => $this->landTripService->voyageCarOptions($land_trip->voyage_id),
+            'carStatuses' => $this->landTripService->carStatusOptions(),
             'transitions' => collect($land_trip->status->allowedTransitions())
                 ->map(fn (LandTripStatus $status) => [
                     'value' => $status->value,
@@ -110,6 +231,7 @@ class LandTripController extends Controller
             'companies' => $this->companyService->options(),
             'voyages' => $this->landTripService->voyageOptions(),
             'voyageCars' => $this->landTripService->voyageCarOptions($voyageId),
+            'carStatuses' => $this->landTripService->carStatusOptions(),
         ]);
     }
 
@@ -128,10 +250,11 @@ class LandTripController extends Controller
     {
         Gate::authorize('delete', $land_trip);
 
+        $companyId = $land_trip->company_id;
         $this->landTripService->delete($land_trip, $request->user());
 
         return redirect()
-            ->route('land-trips.index')
+            ->route('land-trips.companies.show', $companyId)
             ->with('success', 'Land trip deleted.');
     }
 
