@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\LandTripCarRowTone;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LandTripCarStatus extends Model
@@ -19,6 +20,7 @@ class LandTripCarStatus extends Model
         'sort_order',
         'is_active',
         'is_archive',
+        'country_id',
     ];
 
     protected function casts(): array
@@ -44,6 +46,11 @@ class LandTripCarStatus extends Model
             LandTripCarRowTone::Green => '#16A34A',
             default => '#64748B',
         };
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
     }
 
     public function cars(): HasMany

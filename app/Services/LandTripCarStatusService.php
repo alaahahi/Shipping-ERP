@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Enums\LandTripCarRowTone;
+use App\Models\Country;
 use App\Models\LandTripCarStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class LandTripCarStatusService
@@ -24,19 +26,31 @@ class LandTripCarStatusService
         $this->remapLegacyCodes();
 
         foreach ($this->defaultDefinitions() as $item) {
+            $payload = [
+                'name' => $item['name'],
+                'name_ar' => $item['name_ar'],
+                'name_ckb' => $item['name_ckb'],
+                'row_tone' => $item['row_tone']->value,
+                'match_aliases' => $item['match_aliases'],
+                'sort_order' => $item['sort_order'],
+                'is_active' => true,
+            ];
+
+            if (Schema::hasColumn('land_trip_car_statuses', 'color')) {
+                $payload['color'] = $item['color'];
+            }
+
+            if (Schema::hasColumn('land_trip_car_statuses', 'is_archive')) {
+                $payload['is_archive'] = $item['is_archive'] ?? false;
+            }
+
+            if (Schema::hasColumn('land_trip_car_statuses', 'country_id')) {
+                $payload['country_id'] = $this->countryIdForIso($item['country_iso'] ?? null);
+            }
+
             LandTripCarStatus::query()->updateOrCreate(
                 ['code' => $item['code']],
-                [
-                    'name' => $item['name'],
-                    'name_ar' => $item['name_ar'],
-                    'name_ckb' => $item['name_ckb'],
-                    'row_tone' => $item['row_tone']->value,
-                    'color' => $item['color'],
-                    'match_aliases' => $item['match_aliases'],
-                    'sort_order' => $item['sort_order'],
-                    'is_active' => true,
-                    'is_archive' => $item['is_archive'] ?? false,
-                ]
+                $payload
             );
         }
     }
@@ -66,6 +80,7 @@ class LandTripCarStatusService
                 'color' => '#EAB308',
                 'match_aliases' => ['گەشتە بۆخارا', 'گەشتە بوخارا', 'گشته بوخارا', 'trip to bukhara', 'trip to baghdad'],
                 'sort_order' => 10,
+                'country_iso' => 'UZ',
             ],
             [
                 'code' => 'loaded_in_bukhara',
@@ -76,6 +91,7 @@ class LandTripCarStatusService
                 'color' => '#F97316',
                 'match_aliases' => ['بارکرا لە بۆخارا', 'باركرا لة بوخارا', 'loaded in bukhara', 'loaded in baghdad'],
                 'sort_order' => 20,
+                'country_iso' => 'UZ',
             ],
             [
                 'code' => 'trip_to_iran_bazargan',
@@ -86,6 +102,7 @@ class LandTripCarStatusService
                 'color' => '#22C55E',
                 'match_aliases' => ['گەشتە ئێران بازرگان', 'گشته ایران بازرگان', 'trip to iran bazargan'],
                 'sort_order' => 30,
+                'country_iso' => 'IR',
             ],
             [
                 'code' => 'from_iran_to_erbil',
@@ -96,6 +113,7 @@ class LandTripCarStatusService
                 'color' => '#0D9488',
                 'match_aliases' => ['لە ئێرانە بەرەو هەولێر', 'له ایرانه بەرەو هەولێر', 'from iran to erbil'],
                 'sort_order' => 40,
+                'country_iso' => 'IQ',
             ],
             [
                 'code' => 'archived',
@@ -123,6 +141,7 @@ class LandTripCarStatusService
     public function allActive(): Collection
     {
         return LandTripCarStatus::query()
+            ->with('country:id,name,name_ar,iso_code,latitude,longitude')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -145,6 +164,11 @@ class LandTripCarStatusService
                 'row_tone' => $status->row_tone->value,
                 'color' => $status->resolvedColor(),
                 'is_archive' => (bool) $status->is_archive,
+                'country_id' => $status->country_id,
+                'country_label' => $status->country?->localizedName(),
+                'country_iso' => $status->country?->iso_code,
+                'latitude' => $status->country?->latitude,
+                'longitude' => $status->country?->longitude,
             ])
             ->all();
     }
@@ -190,6 +214,11 @@ class LandTripCarStatusService
             'sort_order' => $status->sort_order,
             'is_active' => $status->is_active,
             'is_archive' => (bool) $status->is_archive,
+            'country_id' => $status->country_id,
+            'country_label' => $status->country?->localizedName(),
+            'country_iso' => $status->country?->iso_code,
+            'latitude' => $status->country?->latitude,
+            'longitude' => $status->country?->longitude,
         ];
     }
 
@@ -219,6 +248,7 @@ class LandTripCarStatusService
                 'match_aliases' => $this->normalizeAliases($data['match_aliases'] ?? []),
                 'sort_order' => (int) ($data['sort_order'] ?? 0),
                 'is_active' => $data['is_active'] ?? true,
+                'country_id' => $data['country_id'] ?? null,
             ]);
         });
     }
@@ -249,6 +279,7 @@ class LandTripCarStatusService
                 'match_aliases' => $this->normalizeAliases($data['match_aliases'] ?? []),
                 'sort_order' => (int) ($data['sort_order'] ?? 0),
                 'is_active' => $status->is_archive ? true : ($data['is_active'] ?? true),
+                'country_id' => $data['country_id'] ?? null,
             ]);
 
             return $status->fresh();
@@ -382,5 +413,17 @@ class LandTripCarStatusService
         $text = trim((string) ($value ?? ''));
 
         return $text === '' ? null : $text;
+    }
+
+    private function countryIdForIso(?string $iso): ?int
+    {
+        $code = strtoupper(trim((string) $iso));
+        if ($code === '') {
+            return null;
+        }
+
+        $id = Country::query()->where('iso_code', $code)->value('id');
+
+        return $id ? (int) $id : null;
     }
 }

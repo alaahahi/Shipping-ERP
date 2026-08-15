@@ -15,9 +15,11 @@ class StoreCountryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->iso_code === '') {
-            $this->merge(['iso_code' => null]);
-        }
+        $this->merge([
+            'iso_code' => $this->iso_code === '' ? null : $this->iso_code,
+            'latitude' => $this->latitude === '' ? null : $this->latitude,
+            'longitude' => $this->longitude === '' ? null : $this->longitude,
+        ]);
     }
 
     /**
@@ -31,6 +33,8 @@ class StoreCountryRequest extends FormRequest
             'iso_code' => ['nullable', 'string', 'max:8', Rule::unique('countries', 'iso_code')],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 }

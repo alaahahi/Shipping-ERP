@@ -4,6 +4,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import LandTripCompanyWallet from '@/Components/LandTripCompanyWallet.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
+import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
 import { useLandTripStation } from '@/composables/useLandTripStation';
@@ -129,6 +130,38 @@ const exportHref = computed(() => {
 const totalCars = computed(() => locationChips.value.reduce((sum, item) => sum + (item.count || 0), 0));
 const locationChips = computed(() => (props.statusSummary ?? []).filter((item) => !item.is_archive));
 const archiveChip = computed(() => (props.statusSummary ?? []).find((item) => item.is_archive) ?? null);
+const countryMapRows = computed(() => {
+    const groups = new Map();
+
+    locationChips.value.forEach((item) => {
+        if (!item.country_id || !Number(item.count)) {
+            return;
+        }
+
+        if (!groups.has(item.country_id)) {
+            groups.set(item.country_id, {
+                id: item.country_id,
+                label: item.country_label || item.label,
+                iso_code: item.country_iso,
+                latitude: item.latitude,
+                longitude: item.longitude,
+                cars_count: 0,
+                locations: [],
+            });
+        }
+
+        const group = groups.get(item.country_id);
+        group.cars_count += Number(item.count) || 0;
+        group.locations.push({
+            id: item.id,
+            label: item.label,
+            color: item.color,
+            count: item.count,
+        });
+    });
+
+    return [...groups.values()].sort((a, b) => b.cars_count - a.cars_count);
+});
 const archiveStatusIds = computed(() => (props.carStatuses ?? [])
     .filter((status) => status.is_archive)
     .map((status) => String(status.id)));
@@ -484,6 +517,8 @@ const moveOne = (carId, statusId) => {
                     {{ t('land_trips.wallet_tab') }}
                 </button>
             </div>
+
+            <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
 
             <div v-show="hubTab === 'cars'" class="erp-card p-0 overflow-hidden land-hub-workspace">
                 <div class="land-hub-toolbar">

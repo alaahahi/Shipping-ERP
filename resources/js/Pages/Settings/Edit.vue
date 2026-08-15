@@ -60,6 +60,8 @@ const countryForm = useForm({
     name: '',
     name_ar: '',
     iso_code: '',
+    latitude: '',
+    longitude: '',
     is_active: true,
     sort_order: 0,
 });
@@ -74,6 +76,7 @@ const statusForm = useForm({
     match_aliases_text: '',
     sort_order: 0,
     is_active: true,
+    country_id: '',
 });
 
 const userFilterForm = useForm({
@@ -93,6 +96,8 @@ const startEditCountry = (country) => {
     countryForm.name = country.name;
     countryForm.name_ar = country.name_ar;
     countryForm.iso_code = country.iso_code ?? '';
+    countryForm.latitude = country.latitude ?? '';
+    countryForm.longitude = country.longitude ?? '';
     countryForm.is_active = country.is_active;
     countryForm.sort_order = country.sort_order;
     countryForm.clearErrors();
@@ -136,6 +141,7 @@ const startEditStatus = (status) => {
     statusForm.match_aliases_text = (status.match_aliases ?? []).join('\n');
     statusForm.sort_order = status.sort_order;
     statusForm.is_active = status.is_active;
+    statusForm.country_id = status.country_id ?? '';
     statusForm.clearErrors();
 };
 
@@ -146,6 +152,7 @@ const resetStatusForm = () => {
     statusForm.color = '#F59E0B';
     statusForm.is_active = true;
     statusForm.sort_order = 0;
+    statusForm.country_id = '';
 };
 
 const saveStatus = () => {
@@ -155,6 +162,7 @@ const saveStatus = () => {
             .split('\n')
             .map((line) => line.trim())
             .filter(Boolean),
+        country_id: statusForm.country_id || null,
     };
 
     if (editingStatusId.value) {
@@ -458,6 +466,14 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         <label class="form-erp-label">{{ t('settings.sort_order') }}</label>
                         <input v-model="countryForm.sort_order" type="number" min="0" class="form-control form-erp-control" />
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.latitude') }}</label>
+                        <input v-model="countryForm.latitude" type="number" step="0.0000001" class="form-control form-erp-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-erp-label">{{ t('settings.longitude') }}</label>
+                        <input v-model="countryForm.longitude" type="number" step="0.0000001" class="form-control form-erp-control" />
+                    </div>
                     <div class="col-md-4 d-flex align-items-end">
                         <div class="form-check form-switch mb-2">
                             <input id="countryActive" v-model="countryForm.is_active" class="form-check-input" type="checkbox" />
@@ -548,6 +564,14 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         <label class="form-erp-label">{{ t('settings.sort_order') }}</label>
                         <input v-model="statusForm.sort_order" type="number" min="0" class="form-control form-erp-control" />
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-erp-label">{{ t('settings.location_country') }}</label>
+                        <select v-model="statusForm.country_id" class="form-select form-erp-control">
+                            <option value="">{{ t('common.none') }}</option>
+                            <option v-for="country in countries" :key="country.id" :value="country.id">{{ country.label }}</option>
+                        </select>
+                        <InputError :message="statusForm.errors.country_id" />
+                    </div>
                     <div class="col-md-12">
                         <label class="form-erp-label">{{ t('settings.match_aliases') }}</label>
                         <textarea v-model="statusForm.match_aliases_text" rows="3" class="form-control form-erp-control" :placeholder="t('settings.match_aliases_help')" />
@@ -573,6 +597,7 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         <tr>
                             <th class="ps-4">{{ t('settings.status_name') }}</th>
                             <th>{{ t('settings.status_name_ckb') }}</th>
+                            <th>{{ t('settings.location_country') }}</th>
                             <th>{{ t('settings.status_color') }}</th>
                             <th>{{ t('settings.row_tone') }}</th>
                             <th>{{ t('common.status') }}</th>
@@ -581,7 +606,7 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                     </thead>
                     <tbody>
                         <tr v-if="landCarStatuses.length === 0">
-                            <td colspan="6"><EmptyState>{{ t('settings.no_land_statuses') }}</EmptyState></td>
+                            <td colspan="7"><EmptyState>{{ t('settings.no_land_statuses') }}</EmptyState></td>
                         </tr>
                         <tr
                             v-for="status in landCarStatuses"
@@ -591,6 +616,7 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         >
                             <td class="ps-4 fw-semibold">{{ stationLabel(status) }}</td>
                             <td>{{ status.name_ckb || '—' }}</td>
+                            <td>{{ status.country_label || '—' }}</td>
                             <td>
                                 <span class="land-color-swatch" :style="{ background: status.color }"></span>
                                 <span class="font-monospace small ms-1">{{ status.color }}</span>

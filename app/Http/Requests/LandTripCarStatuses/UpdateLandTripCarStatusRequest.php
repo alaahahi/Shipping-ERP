@@ -14,6 +14,13 @@ class UpdateLandTripCarStatusRequest extends FormRequest
         return $this->user()?->can(Permission::SettingsManage->value) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->country_id === '' || $this->country_id === '0') {
+            $this->merge(['country_id' => null]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -32,6 +39,7 @@ class UpdateLandTripCarStatusRequest extends FormRequest
             'match_aliases.*' => ['string', 'max:180'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'is_active' => ['nullable', 'boolean'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
         ];
     }
 }

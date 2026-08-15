@@ -71,7 +71,7 @@ class SettingController extends Controller
             'canViewUsers' => $user?->can(Permission::UsersView->value) ?? false,
             'countries' => $this->countryService->transformMany($this->countryService->all()),
             'landCarStatuses' => $this->landTripCarStatusService->transformMany(
-                LandTripCarStatus::query()->orderBy('sort_order')->orderBy('id')->get()
+                LandTripCarStatus::query()->with('country')->orderBy('sort_order')->orderBy('id')->get()
             ),
             'rowTones' => collect(LandTripCarRowTone::cases())->map(fn ($tone) => [
                 'value' => $tone->value,

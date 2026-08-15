@@ -339,7 +339,7 @@ class LandTripService
     }
 
     /**
-     * @return list<array{id: int|null, code: string|null, label: string, row_tone: string, color: string, count: int}>
+     * @return list<array{id: int|null, code: string|null, label: string, row_tone: string, color: string, count: int, country_id?: int|null, country_label?: string|null, country_iso?: string|null, latitude?: float|null, longitude?: float|null}>
      */
     public function companyStatusSummary(Company $company): array
     {
@@ -365,6 +365,11 @@ class LandTripService
                 'color' => $status->resolvedColor(),
                 'is_archive' => (bool) $status->is_archive,
                 'count' => $count,
+                'country_id' => $status->country_id,
+                'country_label' => $status->country?->localizedName(),
+                'country_iso' => $status->country?->iso_code,
+                'latitude' => $status->country?->latitude,
+                'longitude' => $status->country?->longitude,
             ];
         }
 

@@ -20,7 +20,7 @@ class CountryService
     }
 
     /**
-     * @return list<array{id: int, label: string, name: string, name_ar: string, iso_code: ?string, is_active: bool, sort_order: int}>
+     * @return list<array{id: int, label: string, name: string, name_ar: string, iso_code: ?string, latitude: ?float, longitude: ?float, is_active: bool, sort_order: int}>
      */
     public function transformMany(Collection $countries): array
     {
@@ -45,7 +45,7 @@ class CountryService
     }
 
     /**
-     * @return array{id: int, label: string, name: string, name_ar: string, iso_code: ?string, is_active: bool, sort_order: int}
+     * @return array{id: int, label: string, name: string, name_ar: string, iso_code: ?string, latitude: ?float, longitude: ?float, is_active: bool, sort_order: int}
      */
     public function transform(Country $country): array
     {
@@ -55,6 +55,8 @@ class CountryService
             'name' => $country->name,
             'name_ar' => $country->name_ar,
             'iso_code' => $country->iso_code,
+            'latitude' => $country->latitude,
+            'longitude' => $country->longitude,
             'is_active' => $country->is_active,
             'sort_order' => $country->sort_order,
         ];
@@ -69,6 +71,8 @@ class CountryService
             'name' => trim($data['name']),
             'name_ar' => trim($data['name_ar']),
             'iso_code' => $this->nullableCode($data['iso_code'] ?? null),
+            'latitude' => $this->nullableCoordinate($data['latitude'] ?? null),
+            'longitude' => $this->nullableCoordinate($data['longitude'] ?? null),
             'is_active' => $data['is_active'] ?? true,
             'sort_order' => (int) ($data['sort_order'] ?? 0),
         ]);
@@ -83,6 +87,8 @@ class CountryService
             'name' => trim($data['name']),
             'name_ar' => trim($data['name_ar']),
             'iso_code' => $this->nullableCode($data['iso_code'] ?? null),
+            'latitude' => $this->nullableCoordinate($data['latitude'] ?? null),
+            'longitude' => $this->nullableCoordinate($data['longitude'] ?? null),
             'is_active' => $data['is_active'] ?? $country->is_active,
             'sort_order' => (int) ($data['sort_order'] ?? $country->sort_order),
         ]);
@@ -92,9 +98,9 @@ class CountryService
 
     public function delete(Country $country): void
     {
-        if ($country->tripsFrom()->exists() || $country->tripsTo()->exists()) {
+        if ($country->tripsFrom()->exists() || $country->tripsTo()->exists() || $country->locationStatuses()->exists()) {
             throw ValidationException::withMessages([
-                'country' => 'Cannot delete a country that is used on land trips.',
+                'country' => 'Cannot delete a country that is used on land trips or locations.',
             ]);
         }
 
@@ -106,5 +112,14 @@ class CountryService
         $code = strtoupper(trim((string) $value));
 
         return $code === '' ? null : $code;
+    }
+
+    private function nullableCoordinate(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (float) $value;
     }
 }

@@ -11,6 +11,8 @@ class Country extends Model
         'name',
         'name_ar',
         'iso_code',
+        'latitude',
+        'longitude',
         'is_active',
         'sort_order',
     ];
@@ -20,6 +22,8 @@ class Country extends Model
         return [
             'is_active' => 'boolean',
             'sort_order' => 'integer',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 
@@ -32,6 +36,11 @@ class Country extends Model
         }
 
         return $this->name;
+    }
+
+    public function locationStatuses(): HasMany
+    {
+        return $this->hasMany(LandTripCarStatus::class);
     }
 
     public function tripsFrom(): HasMany

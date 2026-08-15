@@ -2793,8 +2793,14 @@ body:has(.erp-print-shell) {
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .login-shell [class*='animate-'] {
-        animation: none !important;
-    }
+.company-country-map {
+    height: 320px;
+    width: 100%;
+    background: #e2e8f0;
+}
+
+.company-country-map .leaflet-container {
+    height: 100%;
+    width: 100%;
+    font-family: inherit;
 }
