@@ -1,1 +1,0 @@
-import{i as r,G as s,c as t,t as a,o}from"./app-Lx4L_all.js";const m={__name:"InputError",props:{message:{type:String}},setup(e){return(c,i)=>r((o(),t("div",{class:"form-erp-error",role:"alert"},a(e.message),513)),[[s,e.message]])}};export{m as _};

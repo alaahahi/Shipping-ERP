@@ -231,10 +231,41 @@ const dbLoading = ref(false);
 const vacuuming = ref(false);
 const dbColors  = ['#6366f1','#22c55e','#f59e0b','#3b82f6','#ec4899','#14b8a6','#fb923c','#a855f7','#ef4444','#64748b'];
 
-const dbTopTables = computed(() => (dbData.value?.tables ?? []).slice(0, 10));
+const dbTables = computed(() => dbData.value?.tables ?? []);
+const dbTableQuery = ref('');
+const dbFilteredTables = computed(() => {
+    const q = dbTableQuery.value.trim().toLowerCase();
+    if (!q) {
+        return dbTables.value;
+    }
+
+    return dbTables.value.filter((row) => String(row.name ?? '').toLowerCase().includes(q));
+});
+const dbChartTables = computed(() => {
+    const tables = dbTables.value;
+    if (tables.length <= 10) {
+        return tables;
+    }
+
+    const top = tables.slice(0, 10);
+    const rest = tables.slice(10);
+    const restSize = rest.reduce((sum, row) => sum + (row.size_bytes ?? 0), 0);
+    const restRows = rest.reduce((sum, row) => sum + (row.rows ?? 0), 0);
+    const total = dbData.value?.db_size ?? restSize;
+
+    return [
+        ...top,
+        {
+            name: 'أخرى',
+            rows: restRows,
+            size_bytes: restSize,
+            percent: total > 0 ? Math.round((restSize / total) * 10000) / 100 : null,
+        },
+    ];
+});
 
 const dbChartGradient = computed(() => {
-    const tables = dbTopTables.value;
+    const tables = dbChartTables.value;
     if (!tables.length) return '#334155';
     const total = dbData.value?.db_size ?? tables.reduce((s, r) => s + (r.size_bytes ?? 0), 0);
     let offset = 0;
@@ -757,19 +788,31 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                                 <div style="width:140px;height:140px;border-radius:50%;" :style="{ background: dbChartGradient }"></div>
                                 <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
                                     <div style="width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:0.75rem;" class="erp-card border">
-                                        {{ dbTopTables.length }}<br>جدول
+                                        {{ dbTables.length }}<br>جدول
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-grow-1">
-                            <div v-for="(row, idx) in dbTopTables" :key="row.name"
-                                class="d-flex align-items-center gap-2 py-1 border-bottom small">
-                                <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;" :style="{ background: dbColors[idx % dbColors.length] }"></span>
-                                <code class="flex-grow-1 text-truncate" style="max-width:180px;">{{ row.name }}</code>
-                                <span class="text-secondary">{{ (row.rows ?? 0).toLocaleString() }} صف</span>
-                                <span class="fw-bold" style="min-width:60px;text-align:end;">{{ formatDbBytes(row.size_bytes) }}</span>
-                                <span class="text-secondary" style="min-width:42px;text-align:end;">{{ row.percent != null ? row.percent.toFixed(1) + '%' : '' }}</span>
+                        <div class="flex-grow-1 w-100">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <input
+                                    v-model="dbTableQuery"
+                                    type="search"
+                                    class="form-control form-control-sm"
+                                    style="max-width: 280px;"
+                                    placeholder="بحث عن جدول…"
+                                >
+                                <span class="small text-secondary">{{ dbFilteredTables.length }} / {{ dbTables.length }}</span>
+                            </div>
+                            <div class="overflow-auto" style="max-height: 420px;">
+                                <div v-for="(row, idx) in dbFilteredTables" :key="row.name"
+                                    class="d-flex align-items-center gap-2 py-1 border-bottom small">
+                                    <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;" :style="{ background: dbColors[idx % dbColors.length] }"></span>
+                                    <code class="flex-grow-1 text-truncate" style="max-width:260px;">{{ row.name }}</code>
+                                    <span class="text-secondary">{{ (row.rows ?? 0).toLocaleString() }} صف</span>
+                                    <span class="fw-bold" style="min-width:60px;text-align:end;">{{ formatDbBytes(row.size_bytes) }}</span>
+                                    <span class="text-secondary" style="min-width:42px;text-align:end;">{{ row.percent != null ? row.percent.toFixed(1) + '%' : '' }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
