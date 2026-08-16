@@ -140,9 +140,25 @@ const inspectedRows = computed(() => {
     return rows.value.map((row) => inspectRow(row, seen));
 });
 
-const readyCount = computed(() => inspectedRows.value.filter((row) => row.status === 'ready').length);
-const skippedCount = computed(() => inspectedRows.value.length - readyCount.value);
-const invalidCount = computed(() => inspectedRows.value.filter((row) => row.reason_code === 'invalid_chassis').length);
+/** Hide non-empty chassis with length ≤ 16 (not a full VIN); empty add-row chassis stays visible. */
+const isShortChassisPreviewRow = (row) => {
+    const chassis = cleanChassis(row?.chassis_no);
+    return chassis.length > 0 && chassis.length <= 16;
+};
+
+const visibleRowEntries = computed(() => rows.value
+    .map((row, index) => ({
+        row,
+        index,
+        inspected: inspectedRows.value[index],
+    }))
+    .filter(({ row }) => !isShortChassisPreviewRow(row)));
+
+const visibleInspectedRows = computed(() => visibleRowEntries.value.map((entry) => entry.inspected));
+
+const readyCount = computed(() => visibleInspectedRows.value.filter((row) => row.status === 'ready').length);
+const skippedCount = computed(() => visibleInspectedRows.value.length - readyCount.value);
+const invalidCount = computed(() => visibleInspectedRows.value.filter((row) => row.reason_code === 'invalid_chassis').length);
 
 const reasonLabel = (row) => {
     if (row.reason_code) {
@@ -205,7 +221,7 @@ const submitPreview = () => {
 
 const addRow = () => {
     const lastNumber = rows.value.reduce((max, row) => Math.max(max, Number(row.row_number) || 0), 0);
-    rows.value.push(clonePreviewRow({
+    rows.value.unshift(clonePreviewRow({
         row_number: lastNumber + 1,
         consignee_name: props.preview?.default_consignee ?? '',
         location_status_id: props.carStatuses.find((item) => !item.is_archive)?.id
@@ -267,7 +283,11 @@ const submitConfirm = () => {
             status_text: row.status_text || null,
             location_status_id: row.location_status_id || null,
         }))
-        .filter((row) => row.chassis_no);
+        .filter((row) => {
+            const chassis = row.chassis_no;
+            // Skip empty and short chassis (≤16); backend still re-evaluates and only imports ready rows.
+            return Boolean(chassis) && chassis.length > 16;
+        });
     confirmForm.post(route('land-trips.import.confirm', props.trip.id));
 };
 </script>
@@ -278,7 +298,7 @@ const submitConfirm = () => {
         <template #header>{{ t('land_trips.import') }}</template>
         <FlashMessage :message="success" />
 
-        <div class="land-trip-import mx-auto w-full max-w-7xl">
+        <div class="land-trip-import mx-auto w-full max-w-none">
             <div class="mb-3">
                 <Link
                     :href="route('land-trips.companies.show', trip.company_id)"
@@ -359,106 +379,115 @@ const submitConfirm = () => {
                     </div>
                 </div>
 
-                <div class="max-h-[70vh] overflow-auto">
-                    <table class="land-trip-import-table w-full text-start text-sm text-gray-700 dark:text-gray-200">
-                        <thead class="sticky top-0 z-10 bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                <div class="land-trip-import-table-wrap max-h-[70vh] overflow-auto">
+                    <table class="land-trip-import-table w-full min-w-full text-start text-gray-700 dark:text-gray-200">
+                        <thead class="sticky top-0 z-10 bg-gray-50 uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-200">
                             <tr>
-                                <th class="px-3 py-3">#</th>
-                                <th class="px-3 py-3">{{ t('common.status') }}</th>
-                                <th class="px-3 py-3 min-w-44">{{ t('land_trips.chassis') }}</th>
-                                <th class="px-3 py-3 min-w-36">{{ t('land_trips.cmr_waybill') }}</th>
-                                <th class="px-3 py-3 min-w-36">{{ t('land_trips.model') }}</th>
-                                <th class="px-3 py-3 min-w-28">{{ t('land_trips.color') }}</th>
-                                <th class="px-3 py-3 min-w-24">{{ t('land_trips.year') }}</th>
-                                <th class="px-3 py-3 min-w-44">{{ t('land_trips.location_status') }}</th>
-                                <th class="px-3 py-3 min-w-36">{{ t('land_trips.consignee') }}</th>
-                                <th class="px-3 py-3 min-w-36">{{ t('common.notes') }}</th>
-                                <th class="px-3 py-3">{{ t('common.actions') }}</th>
+                                <th>#</th>
+                                <th>{{ t('common.status') }}</th>
+                                <th class="min-w-40">{{ t('land_trips.chassis') }}</th>
+                                <th class="min-w-28">{{ t('land_trips.cmr_waybill') }}</th>
+                                <th class="min-w-32">{{ t('land_trips.model') }}</th>
+                                <th class="min-w-24">{{ t('land_trips.color') }}</th>
+                                <th class="min-w-20">{{ t('land_trips.year') }}</th>
+                                <th class="min-w-36">{{ t('land_trips.location_status') }}</th>
+                                <th class="min-w-28">{{ t('land_trips.consignee') }}</th>
+                                <th class="min-w-28">{{ t('common.notes') }}</th>
+                                <th>{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
-                                v-for="(row, index) in rows"
-                                :key="row.uid"
-                                :class="rowClass(inspectedRows[index] || row)"
+                                v-for="entry in visibleRowEntries"
+                                :key="entry.row.uid"
+                                :class="rowClass(entry.inspected || entry.row)"
                             >
-                                <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ row.row_number }}</td>
-                                <td class="px-3 py-2">
-                                    <StatusBadge
-                                        :tone="statusTone(inspectedRows[index] || row)"
-                                        :label="reasonLabel(inspectedRows[index] || row)"
-                                    />
+                                <td class="text-gray-500 dark:text-gray-400">{{ entry.row.row_number }}</td>
+                                <td class="land-trip-import-status">
+                                    <span
+                                        class="land-trip-import-status-wrap"
+                                        :title="reasonLabel(entry.inspected || entry.row)"
+                                    >
+                                        <StatusBadge
+                                            :tone="statusTone(entry.inspected || entry.row)"
+                                            :label="reasonLabel(entry.inspected || entry.row)"
+                                        />
+                                    </span>
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.chassis_no"
+                                        v-model="entry.row.chassis_no"
                                         type="text"
-                                        :class="fbInput"
-                                        class="font-mono"
+                                        class="land-trip-import-input font-mono"
                                         autocomplete="off"
-                                        @blur="sanitizeRowField(index, 'chassis_no')"
+                                        @blur="sanitizeRowField(entry.index, 'chassis_no')"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.cmr_waybill"
+                                        v-model="entry.row.cmr_waybill"
                                         type="text"
-                                        :class="fbInput"
+                                        class="land-trip-import-input"
                                         autocomplete="off"
-                                        @blur="sanitizeRowField(index, 'cmr_waybill')"
+                                        @blur="sanitizeRowField(entry.index, 'cmr_waybill')"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.model"
+                                        v-model="entry.row.model"
                                         type="text"
-                                        :class="fbInput"
+                                        class="land-trip-import-input"
                                         autocomplete="off"
-                                        @blur="sanitizeRowField(index, 'model')"
+                                        @blur="sanitizeRowField(entry.index, 'model')"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.color"
+                                        v-model="entry.row.color"
                                         type="text"
-                                        :class="fbInput"
+                                        class="land-trip-import-input"
                                         autocomplete="off"
-                                        @blur="sanitizeRowField(index, 'color')"
+                                        @blur="sanitizeRowField(entry.index, 'color')"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.year"
+                                        v-model="entry.row.year"
                                         type="number"
                                         min="1980"
                                         max="2100"
                                         step="1"
                                         inputmode="numeric"
-                                        :class="fbInput"
+                                        class="land-trip-import-input land-trip-import-year"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
-                                    <select v-model="row.location_status_id" :class="fbInput">
+                                <td>
+                                    <select v-model="entry.row.location_status_id" class="land-trip-import-input land-trip-import-select">
                                         <option value="">{{ t('land_trips.unspecified_location') }}</option>
                                         <option v-for="status in carStatuses" :key="status.id" :value="String(status.id)">
                                             {{ stationLabel(status) }}
                                         </option>
                                     </select>
                                 </td>
-                                <td class="px-3 py-2">
-                                    <input v-model="row.consignee_name" type="text" :class="fbInput" autocomplete="off" />
+                                <td>
+                                    <input v-model="entry.row.consignee_name" type="text" class="land-trip-import-input" autocomplete="off" />
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     <input
-                                        v-model="row.notes"
+                                        v-model="entry.row.notes"
                                         type="text"
-                                        :class="fbInput"
+                                        class="land-trip-import-input"
                                         maxlength="1000"
                                         autocomplete="off"
                                     />
                                 </td>
-                                <td class="px-3 py-2">
-                                    <button type="button" :class="fbGhostButton" class="land-trip-import-ghost land-trip-import-delete" @click="removeRow(index)">
+                                <td>
+                                    <button
+                                        type="button"
+                                        :class="fbGhostButton"
+                                        class="land-trip-import-ghost land-trip-import-delete"
+                                        @click="removeRow(entry.index)"
+                                    >
                                         {{ t('common.delete') }}
                                     </button>
                                 </td>

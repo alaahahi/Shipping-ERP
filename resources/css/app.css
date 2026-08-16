@@ -1364,6 +1364,86 @@ html.dark .erp-badge-danger,
     color: #0f172a;
 }
 
+.land-trip-import-table {
+    font-size: 0.78rem;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.land-trip-import-table thead th {
+    padding: 0.4rem 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.land-trip-import-table > :not(caption) > * > * {
+    padding: 0.28rem 0.4rem;
+    vertical-align: middle;
+}
+
+.land-trip-import-input,
+.land-trip-import-table .land-trip-import-input {
+    display: block;
+    width: 100%;
+    min-height: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.4rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #f9fafb;
+    color: #111827;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    box-shadow: none;
+}
+
+.land-trip-import-table select.land-trip-import-input,
+.land-trip-import-select {
+    padding-inline-end: 1.35rem;
+    min-width: 8rem;
+}
+
+.land-trip-import-year {
+    min-width: 4.25rem;
+    text-align: center;
+    padding-inline: 0.3rem;
+}
+
+.land-trip-import-input:focus {
+    outline: none;
+    border-color: #0f766e;
+    box-shadow: 0 0 0 1px #0f766e;
+}
+
+.land-trip-import-status {
+    max-width: 11rem;
+}
+
+.land-trip-import-status-wrap {
+    display: block;
+    max-width: 100%;
+}
+
+.land-trip-import-status-wrap .erp-badge {
+    max-width: 100%;
+    min-height: 1.35rem;
+    padding-block: 0.12rem;
+    padding-inline: 0.45rem;
+    font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    justify-content: flex-start;
+}
+
+.land-trip-import-table .land-trip-import-delete {
+    min-height: 1.4rem;
+    padding: 0.1rem 0.55rem;
+    font-size: 0.72rem;
+}
+
 .land-trip-import-row-invalid > td {
     background: #fef2f2;
 }
@@ -4792,10 +4872,18 @@ html.dark .land-trip-import-delete:hover,
 
 html.dark .land-trip-import-table input,
 html.dark .land-trip-import-table select,
+html.dark .land-trip-import-input,
 [data-theme='dark'] .land-trip-import-table input,
-[data-theme='dark'] .land-trip-import-table select {
+[data-theme='dark'] .land-trip-import-table select,
+[data-theme='dark'] .land-trip-import-input {
     background-color: #0f172a !important;
     border-color: #475569 !important;
     color: #f1f5f9 !important;
+}
+
+html.dark .land-trip-import-input:focus,
+[data-theme='dark'] .land-trip-import-input:focus {
+    border-color: #14b8a6 !important;
+    box-shadow: 0 0 0 1px #14b8a6 !important;
 }
 
