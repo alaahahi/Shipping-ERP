@@ -2225,6 +2225,18 @@ html.dark .land-chassis-o-banner,
     background: #f0fdfa;
 }
 
+.land-hub-view-toggle--tabs {
+    margin-inline-start: auto;
+    align-self: center;
+}
+
+.land-hub-top-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .land-hub-view-btn {
     border: 0;
     background: transparent;

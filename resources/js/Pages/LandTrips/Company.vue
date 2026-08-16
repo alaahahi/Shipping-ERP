@@ -742,7 +742,7 @@ const duplicateCarCount = computed(() => (
                 </template>
             </PageHeader>
 
-            <div class="erp-tabs mb-3">
+            <div class="erp-tabs mb-3 land-hub-top-tabs">
                 <button
                     type="button"
                     class="erp-tab"
@@ -767,6 +767,32 @@ const duplicateCarCount = computed(() => (
                 >
                     {{ t('land_trips.check_tab') }}
                 </button>
+
+                <div
+                    v-if="hubTab === 'cars'"
+                    class="land-hub-view-toggle land-hub-view-toggle--tabs"
+                    role="group"
+                    :aria-label="t('land_trips.cars_view_mode')"
+                >
+                    <button
+                        type="button"
+                        class="land-hub-view-btn"
+                        :class="{ 'is-active': carsViewMode === 'list' }"
+                        :aria-pressed="carsViewMode === 'list'"
+                        @click="carsViewMode = 'list'"
+                    >
+                        {{ t('land_trips.view_list') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="land-hub-view-btn"
+                        :class="{ 'is-active': carsViewMode === 'cmr' }"
+                        :aria-pressed="carsViewMode === 'cmr'"
+                        @click="carsViewMode = 'cmr'"
+                    >
+                        {{ t('land_trips.view_by_cmr') }}
+                    </button>
+                </div>
             </div>
 
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
@@ -842,26 +868,6 @@ const duplicateCarCount = computed(() => (
                                 <option value="location">{{ t('land_trips.sort_location') }}</option>
                                 <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
                             </select>
-                        </div>
-                        <div class="land-hub-view-toggle" role="group" :aria-label="t('land_trips.cars_view_mode')">
-                            <button
-                                type="button"
-                                class="land-hub-view-btn"
-                                :class="{ 'is-active': carsViewMode === 'list' }"
-                                :aria-pressed="carsViewMode === 'list'"
-                                @click="carsViewMode = 'list'"
-                            >
-                                {{ t('land_trips.view_list') }}
-                            </button>
-                            <button
-                                type="button"
-                                class="land-hub-view-btn"
-                                :class="{ 'is-active': carsViewMode === 'cmr' }"
-                                :aria-pressed="carsViewMode === 'cmr'"
-                                @click="carsViewMode = 'cmr'"
-                            >
-                                {{ t('land_trips.view_by_cmr') }}
-                            </button>
                         </div>
                         <div v-if="canManage && carsViewMode === 'list'" class="land-hub-bulk">
                             <label class="land-hub-bulk-label" for="land-hub-move">{{ t('land_trips.move_to') }}</label>
