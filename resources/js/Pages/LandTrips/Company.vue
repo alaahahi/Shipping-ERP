@@ -782,6 +782,49 @@ const duplicateCarCount = computed(() => (
 
             <div v-show="hubTab === 'cars'" class="erp-card p-0 overflow-hidden land-hub-workspace">
                 <div class="land-hub-toolbar">
+                    <div class="land-hub-view-bar">
+                        <span class="land-hub-view-label">{{ t('land_trips.cars_view_mode') }}</span>
+                        <div
+                            class="land-hub-chips land-hub-view-chips"
+                            role="group"
+                            :aria-label="t('land_trips.cars_view_mode')"
+                        >
+                            <button
+                                type="button"
+                                class="land-hub-chip"
+                                :class="{ 'is-active': carsViewMode === 'list' }"
+                                :aria-pressed="carsViewMode === 'list'"
+                                :style="chipStyle('#0F766E')"
+                                @click="carsViewMode = 'list'"
+                            >
+                                <span class="land-hub-chip-dot" aria-hidden="true" />
+                                <span class="land-hub-chip-label">{{ t('land_trips.view_list') }}</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="land-hub-chip"
+                                :class="{ 'is-active': carsViewMode === 'cmr' }"
+                                :aria-pressed="carsViewMode === 'cmr'"
+                                :style="chipStyle('#0F766E')"
+                                @click="carsViewMode = 'cmr'"
+                            >
+                                <span class="land-hub-chip-dot" aria-hidden="true" />
+                                <span class="land-hub-chip-label">{{ t('land_trips.view_by_cmr') }}</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="land-hub-chip"
+                                :class="{ 'is-active': carsViewMode === 'model' }"
+                                :aria-pressed="carsViewMode === 'model'"
+                                :style="chipStyle('#0F766E')"
+                                @click="carsViewMode = 'model'"
+                            >
+                                <span class="land-hub-chip-dot" aria-hidden="true" />
+                                <span class="land-hub-chip-label">{{ t('land_trips.view_by_model') }}</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="land-hub-chips" role="tablist" :aria-label="t('land_trips.location_filters')">
                         <button
                             type="button"
@@ -821,46 +864,6 @@ const duplicateCarCount = computed(() => (
                             <span class="land-hub-chip-dot" aria-hidden="true" />
                             <span class="land-hub-chip-label">{{ stationLabel(archiveChip) }}</span>
                             <span class="land-hub-chip-count">{{ archiveChip.count }}</span>
-                        </button>
-                    </div>
-
-                    <div
-                        class="land-hub-chips land-hub-view-chips"
-                        role="group"
-                        :aria-label="t('land_trips.cars_view_mode')"
-                    >
-                        <button
-                            type="button"
-                            class="land-hub-chip"
-                            :class="{ 'is-active': carsViewMode === 'list' }"
-                            :aria-pressed="carsViewMode === 'list'"
-                            :style="chipStyle('#0F766E')"
-                            @click="carsViewMode = 'list'"
-                        >
-                            <span class="land-hub-chip-dot" aria-hidden="true" />
-                            <span class="land-hub-chip-label">{{ t('land_trips.view_list') }}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="land-hub-chip"
-                            :class="{ 'is-active': carsViewMode === 'cmr' }"
-                            :aria-pressed="carsViewMode === 'cmr'"
-                            :style="chipStyle('#0F766E')"
-                            @click="carsViewMode = 'cmr'"
-                        >
-                            <span class="land-hub-chip-dot" aria-hidden="true" />
-                            <span class="land-hub-chip-label">{{ t('land_trips.view_by_cmr') }}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="land-hub-chip"
-                            :class="{ 'is-active': carsViewMode === 'model' }"
-                            :aria-pressed="carsViewMode === 'model'"
-                            :style="chipStyle('#0F766E')"
-                            @click="carsViewMode = 'model'"
-                        >
-                            <span class="land-hub-chip-dot" aria-hidden="true" />
-                            <span class="land-hub-chip-label">{{ t('land_trips.view_by_model') }}</span>
                         </button>
                     </div>
 
