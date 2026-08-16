@@ -1972,43 +1972,6 @@ html.dark .land-company-card.land-car-row-green,
     gap: 0.5rem;
 }
 
-.land-hub-view-chips {
-    width: auto;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding-top: 0;
-}
-
-.land-hub-view-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.55rem 0.75rem;
-    width: 100%;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid #99f6e4;
-    border-radius: 0.85rem;
-    background: #f0fdfa;
-}
-
-.land-hub-view-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #0f766e;
-    white-space: nowrap;
-}
-
-html.dark .land-hub-view-bar,
-[data-theme='dark'] .land-hub-view-bar {
-    background: rgba(15, 118, 110, 0.18);
-    border-color: #0f766e;
-}
-
-html.dark .land-hub-view-label,
-[data-theme='dark'] .land-hub-view-label {
-    color: #99f6e4;
-}
-
 .land-hub-chip {
     appearance: none;
     display: inline-flex;

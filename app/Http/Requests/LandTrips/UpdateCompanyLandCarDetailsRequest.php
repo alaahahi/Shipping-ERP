@@ -20,6 +20,7 @@ class UpdateCompanyLandCarDetailsRequest extends FormRequest
         return [
             'model' => ['sometimes', 'nullable', 'string', 'max:180'],
             'color' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'year' => ['sometimes', 'nullable', 'integer', 'min:1980', 'max:2100'],
             'cmr_waybill' => ['sometimes', 'nullable', 'string', 'max:80'],
             'consignee_name' => ['sometimes', 'nullable', 'string', 'max:180'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],

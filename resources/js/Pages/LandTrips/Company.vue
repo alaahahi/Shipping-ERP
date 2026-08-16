@@ -749,7 +749,7 @@ const duplicateCarCount = computed(() => (
                 </template>
             </PageHeader>
 
-            <div class="erp-tabs mb-3">
+            <div class="erp-tabs mb-3 land-hub-top-tabs">
                 <button
                     type="button"
                     class="erp-tab"
@@ -774,6 +774,41 @@ const duplicateCarCount = computed(() => (
                 >
                     {{ t('land_trips.check_tab') }}
                 </button>
+
+                <div
+                    v-if="hubTab === 'cars'"
+                    class="land-hub-view-toggle land-hub-view-toggle--tabs"
+                    role="group"
+                    :aria-label="t('land_trips.cars_view_mode')"
+                >
+                    <button
+                        type="button"
+                        class="land-hub-view-btn"
+                        :class="{ 'is-active': carsViewMode === 'list' }"
+                        :aria-pressed="carsViewMode === 'list'"
+                        @click="carsViewMode = 'list'"
+                    >
+                        {{ t('land_trips.view_list') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="land-hub-view-btn"
+                        :class="{ 'is-active': carsViewMode === 'cmr' }"
+                        :aria-pressed="carsViewMode === 'cmr'"
+                        @click="carsViewMode = 'cmr'"
+                    >
+                        {{ t('land_trips.view_by_cmr') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="land-hub-view-btn"
+                        :class="{ 'is-active': carsViewMode === 'model' }"
+                        :aria-pressed="carsViewMode === 'model'"
+                        @click="carsViewMode = 'model'"
+                    >
+                        {{ t('land_trips.view_by_model') }}
+                    </button>
+                </div>
             </div>
 
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
@@ -782,49 +817,6 @@ const duplicateCarCount = computed(() => (
 
             <div v-show="hubTab === 'cars'" class="erp-card p-0 overflow-hidden land-hub-workspace">
                 <div class="land-hub-toolbar">
-                    <div class="land-hub-view-bar">
-                        <span class="land-hub-view-label">{{ t('land_trips.cars_view_mode') }}</span>
-                        <div
-                            class="land-hub-chips land-hub-view-chips"
-                            role="group"
-                            :aria-label="t('land_trips.cars_view_mode')"
-                        >
-                            <button
-                                type="button"
-                                class="land-hub-chip"
-                                :class="{ 'is-active': carsViewMode === 'list' }"
-                                :aria-pressed="carsViewMode === 'list'"
-                                :style="chipStyle('#0F766E')"
-                                @click="carsViewMode = 'list'"
-                            >
-                                <span class="land-hub-chip-dot" aria-hidden="true" />
-                                <span class="land-hub-chip-label">{{ t('land_trips.view_list') }}</span>
-                            </button>
-                            <button
-                                type="button"
-                                class="land-hub-chip"
-                                :class="{ 'is-active': carsViewMode === 'cmr' }"
-                                :aria-pressed="carsViewMode === 'cmr'"
-                                :style="chipStyle('#0F766E')"
-                                @click="carsViewMode = 'cmr'"
-                            >
-                                <span class="land-hub-chip-dot" aria-hidden="true" />
-                                <span class="land-hub-chip-label">{{ t('land_trips.view_by_cmr') }}</span>
-                            </button>
-                            <button
-                                type="button"
-                                class="land-hub-chip"
-                                :class="{ 'is-active': carsViewMode === 'model' }"
-                                :aria-pressed="carsViewMode === 'model'"
-                                :style="chipStyle('#0F766E')"
-                                @click="carsViewMode = 'model'"
-                            >
-                                <span class="land-hub-chip-dot" aria-hidden="true" />
-                                <span class="land-hub-chip-label">{{ t('land_trips.view_by_model') }}</span>
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="land-hub-chips" role="tablist" :aria-label="t('land_trips.location_filters')">
                         <button
                             type="button"
@@ -1029,6 +1021,7 @@ const duplicateCarCount = computed(() => (
                                 <th>{{ t('land_trips.model') }}</th>
                                 <th>{{ t('land_trips.color') }}</th>
                                 <th>{{ t('land_trips.year') }}</th>
+                                <th>{{ t('land_trips.cmr_waybill') }}</th>
                                 <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
                                 <th class="pe-3 text-end">{{ t('common.actions') }}</th>
@@ -1036,7 +1029,7 @@ const duplicateCarCount = computed(() => (
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 9 : 8">
+                                <td :colspan="canManage ? 10 : 9">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -1114,7 +1107,35 @@ const duplicateCarCount = computed(() => (
                                     />
                                     <span v-else>{{ car.color || '—' }}</span>
                                 </td>
-                                <td class="tabular-nums">{{ car.year || '—' }}</td>
+                                <td style="min-width: 5.25rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="number"
+                                        min="1980"
+                                        max="2100"
+                                        step="1"
+                                        inputmode="numeric"
+                                        class="form-control form-control-sm form-erp-control land-hub-year-input"
+                                        :value="car.year || ''"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.year')"
+                                        @change="saveCarDetails(car, 'year', $event.target.value)"
+                                    />
+                                    <span v-else class="tabular-nums">{{ car.year || '—' }}</span>
+                                </td>
+                                <td style="min-width: 7.5rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="text"
+                                        class="form-control form-control-sm form-erp-control"
+                                        :value="car.cmr_waybill || ''"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.cmr_waybill')"
+                                        maxlength="80"
+                                        @change="saveCarDetails(car, 'cmr_waybill', $event.target.value)"
+                                    />
+                                    <span v-else>{{ car.cmr_waybill || '—' }}</span>
+                                </td>
                                 <td style="min-width: 7.5rem">
                                     <input
                                         v-if="canManage"

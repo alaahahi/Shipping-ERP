@@ -929,7 +929,7 @@ class LandTripService
     }
 
     /**
-     * @param  array{model?: string|null, color?: string|null, cmr_waybill?: string|null, consignee_name?: string|null, notes?: string|null}  $data
+     * @param  array{model?: string|null, color?: string|null, year?: int|string|null, cmr_waybill?: string|null, consignee_name?: string|null, notes?: string|null}  $data
      */
     public function updateCompanyCarDetails(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
     {
@@ -949,6 +949,9 @@ class LandTripService
         }
         if (array_key_exists('color', $data)) {
             $payload['color'] = $this->nullableString($data['color']);
+        }
+        if (array_key_exists('year', $data)) {
+            $payload['year'] = $this->nullableYear($data['year'] ?? null);
         }
         if (array_key_exists('cmr_waybill', $data)) {
             $cmr = $this->normalizeCmrKey($data['cmr_waybill'] ?? null);
