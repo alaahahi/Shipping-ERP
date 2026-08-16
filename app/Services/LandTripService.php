@@ -337,6 +337,119 @@ class LandTripService
         return array_values($groups);
     }
 
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function companyModelGroups(Company $company, array $filters = []): array
+    {
+        $cars = $this->companyCarsQuery($company, $filters)
+            ->orderByRaw("CASE WHEN TRIM(COALESCE(NULLIF(land_trip_cars.model, ''), land_trip_cars.description, '')) = '' THEN 1 ELSE 0 END")
+            ->orderByRaw("COALESCE(NULLIF(land_trip_cars.model, ''), land_trip_cars.description, '')")
+            ->orderBy('land_trip_cars.id')
+            ->get(['land_trip_cars.id', 'land_trip_cars.chassis_no', 'land_trip_cars.model', 'land_trip_cars.description']);
+
+        /** @var array<string, array<string, mixed>> $groups */
+        $groups = [];
+
+        foreach ($cars as $car) {
+            $label = trim((string) (($car->model ?: $car->description) ?? ''));
+            $key = $this->normalizeModelKey($label);
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'model_key' => $key,
+                    'model_label' => $key === '' ? null : $label,
+                    'is_unspecified' => $key === '',
+                    'cars_count' => 0,
+                    'chassis_nos' => [],
+                ];
+            }
+
+            $groups[$key]['cars_count']++;
+            $chassis = trim((string) ($car->chassis_no ?? ''));
+            if ($chassis !== '') {
+                $groups[$key]['chassis_nos'][] = $chassis;
+            }
+        }
+
+        return array_values($groups);
+    }
+
+    /**
+     * @return array{updated: int, from_cmr_key: string, to_cmr_key: string}
+     */
+    public function renameCompanyCmrGroup(Company $company, ?string $fromKey, ?string $toKey, User $actor): array
+    {
+        $from = $this->normalizeCmrKey($fromKey);
+        $to = $this->normalizeCmrKey($toKey);
+
+        if ($from === $to) {
+            return [
+                'updated' => 0,
+                'from_cmr_key' => $from,
+                'to_cmr_key' => $to,
+            ];
+        }
+
+        return DB::transaction(function () use ($company, $from, $to, $actor): array {
+            $cars = LandTripCar::query()
+                ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+                ->get(['id', 'cmr_waybill']);
+
+            $ids = $cars
+                ->filter(fn (LandTripCar $car) => $this->normalizeCmrKey($car->cmr_waybill) === $from)
+                ->pluck('id')
+                ->all();
+
+            $updated = 0;
+            if ($ids !== []) {
+                $updated = LandTripCar::query()
+                    ->whereIn('id', $ids)
+                    ->update([
+                        'cmr_waybill' => $to === '' ? null : $to,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $sourceFile = LandCompanyCmrFile::query()
+                ->where('company_id', $company->id)
+                ->where('cmr_key', $from)
+                ->first();
+
+            if ($sourceFile) {
+                $targetFile = LandCompanyCmrFile::query()
+                    ->where('company_id', $company->id)
+                    ->where('cmr_key', $to)
+                    ->first();
+
+                if ($targetFile && $targetFile->id !== $sourceFile->id) {
+                    $this->deleteStoredCmrFile($targetFile);
+                    $targetFile->delete();
+                }
+
+                $sourceFile->update([
+                    'cmr_key' => $to,
+                    'uploaded_by' => $actor->id,
+                ]);
+            }
+
+            Log::info('Land company CMR group renamed.', [
+                'company_id' => $company->id,
+                'from_cmr_key' => $from,
+                'to_cmr_key' => $to,
+                'updated_cars' => $updated,
+                'user_id' => $actor->id,
+            ]);
+
+            return [
+                'updated' => (int) $updated,
+                'from_cmr_key' => $from,
+                'to_cmr_key' => $to,
+            ];
+        });
+    }
+
     public function storeCompanyCmrFile(Company $company, ?string $cmrKey, UploadedFile $file, User $actor): LandCompanyCmrFile
     {
         $key = $this->normalizeCmrKey($cmrKey);
@@ -410,6 +523,13 @@ class LandTripService
         $cleaned = strtoupper(trim((string) preg_replace('/\s+/', ' ', (string) ($value ?? ''))));
 
         return mb_substr($cleaned, 0, 80);
+    }
+
+    private function normalizeModelKey(?string $value): string
+    {
+        $cleaned = mb_strtoupper(trim((string) preg_replace('/\s+/', ' ', (string) ($value ?? ''))));
+
+        return mb_substr($cleaned, 0, 180);
     }
 
     /**
@@ -809,7 +929,7 @@ class LandTripService
     }
 
     /**
-     * @param  array{model?: string|null, color?: string|null, notes?: string|null}  $data
+     * @param  array{model?: string|null, color?: string|null, cmr_waybill?: string|null, consignee_name?: string|null, notes?: string|null}  $data
      */
     public function updateCompanyCarDetails(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
     {
@@ -829,6 +949,13 @@ class LandTripService
         }
         if (array_key_exists('color', $data)) {
             $payload['color'] = $this->nullableString($data['color']);
+        }
+        if (array_key_exists('cmr_waybill', $data)) {
+            $cmr = $this->normalizeCmrKey($data['cmr_waybill'] ?? null);
+            $payload['cmr_waybill'] = $cmr === '' ? null : $cmr;
+        }
+        if (array_key_exists('consignee_name', $data)) {
+            $payload['consignee_name'] = $this->nullableString($data['consignee_name']);
         }
         if (array_key_exists('notes', $data)) {
             $payload['notes'] = $this->nullableString($data['notes']);

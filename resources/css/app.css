@@ -1972,6 +1972,11 @@ html.dark .land-company-card.land-car-row-green,
     gap: 0.5rem;
 }
 
+.land-hub-view-chips {
+    width: 100%;
+    padding-top: 0.15rem;
+}
+
 .land-hub-chip {
     appearance: none;
     display: inline-flex;
@@ -2337,6 +2342,22 @@ html.dark .land-chassis-o-banner,
     min-width: 0;
 }
 
+.land-cmr-edit-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: min(100%, 22rem);
+    flex: 1 1 16rem;
+}
+
+.land-cmr-edit-input {
+    flex: 1 1 10rem;
+    min-width: 8rem;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+}
+
 .land-cmr-badge {
     font-size: 0.68rem;
     font-weight: 700;
@@ -2557,10 +2578,135 @@ html.dark .land-chassis-o-banner,
     white-space: nowrap;
 }
 
+.land-hub-row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.land-hub-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    padding: 0 !important;
+    min-height: 2.15rem;
+}
+
 .land-hub-edit-icon {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
+}
+
+.land-car-view-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.land-car-view-panel {
+    width: min(22rem, 100%);
+    max-height: min(85vh, 34rem);
+    overflow: auto;
+    border-radius: 0.85rem;
+    border: 1px solid #99f6e4;
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    padding: 0.85rem 0.95rem;
+}
+
+.land-car-view-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin-bottom: 0.7rem;
+}
+
+.land-car-view-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #0f766e;
+}
+
+.land-car-view-title {
+    margin: 0.15rem 0 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    word-break: break-all;
+}
+
+.land-car-view-close {
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.65rem !important;
+}
+
+.land-car-view-grid {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+}
+
+.land-car-view-row {
+    display: grid;
+    grid-template-columns: 6.2rem minmax(0, 1fr);
+    gap: 0.45rem;
+    align-items: start;
+    padding: 0.35rem 0;
+    border-top: 1px solid #f1f5f9;
+}
+
+.land-car-view-row dt {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.land-car-view-row dd {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+html.dark .land-car-view-panel,
+[data-theme='dark'] .land-car-view-panel {
+    background: #111827;
+    border-color: #0f766e;
+}
+
+html.dark .land-car-view-title,
+html.dark .land-car-view-row dd,
+[data-theme='dark'] .land-car-view-title,
+[data-theme='dark'] .land-car-view-row dd {
+    color: #f8fafc;
+}
+
+html.dark .land-car-view-row,
+[data-theme='dark'] .land-car-view-row {
+    border-top-color: #1f2937;
+}
+
+html.dark .land-car-view-row dt,
+[data-theme='dark'] .land-car-view-row dt {
+    color: #94a3b8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .land-car-view-overlay,
+    .land-car-view-panel {
+        transition: none !important;
+    }
 }
 
 .land-hub-row-flash {

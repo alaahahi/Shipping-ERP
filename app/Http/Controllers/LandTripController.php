@@ -7,6 +7,7 @@ use App\Enums\Permission;
 use App\Http\Requests\LandTrips\BulkDeleteCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
 use App\Http\Requests\LandTrips\DestroyCompanyCmrFileRequest;
+use App\Http\Requests\LandTrips\RenameCompanyCmrGroupRequest;
 use App\Http\Requests\LandTrips\StoreCompanyCmrFileRequest;
 use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
@@ -18,6 +19,7 @@ use App\Http\Requests\LandTrips\UpdateCompanyLandCarRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandManifestRequest;
 use App\Http\Requests\LandTrips\UpdateLandTripRequest;
 use App\Models\Company;
+use App\Models\LandCompanyCmrFile;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
 use App\Services\CompanyService;
@@ -32,6 +34,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -236,6 +239,32 @@ class LandTripController extends Controller
         ]);
     }
 
+    public function companyModelGroups(Request $request, Company $company): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return response()->json([
+            'groups' => $this->landTripService->companyModelGroups($company, [
+                'search' => $request->string('search')->toString(),
+                'location_status_id' => $request->string('location_status_id')->toString(),
+            ]),
+        ]);
+    }
+
+    public function renameCompanyCmrGroup(RenameCompanyCmrGroupRequest $request, Company $company): JsonResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $result = $this->landTripService->renameCompanyCmrGroup(
+            $company,
+            $request->validated('from_cmr_key'),
+            $request->validated('to_cmr_key'),
+            $request->user()
+        );
+
+        return response()->json($result);
+    }
+
     public function storeCompanyCmrFile(StoreCompanyCmrFileRequest $request, Company $company): JsonResponse
     {
         Gate::authorize('create', LandTrip::class);
@@ -255,6 +284,29 @@ class LandTripController extends Controller
                 'url' => $file->publicUrl(),
             ],
         ]);
+    }
+
+    public function showCompanyCmrFile(Company $company, LandCompanyCmrFile $cmrFile): StreamedResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        if ((int) $cmrFile->company_id !== (int) $company->id) {
+            abort(404);
+        }
+
+        if (! $cmrFile->attachment_path || ! Storage::disk('public')->exists($cmrFile->attachment_path)) {
+            abort(404);
+        }
+
+        $downloadName = $cmrFile->original_name ?: basename($cmrFile->attachment_path);
+
+        return Storage::disk('public')->response(
+            $cmrFile->attachment_path,
+            $downloadName,
+            [
+                'Content-Disposition' => 'inline; filename="'.$downloadName.'"',
+            ]
+        );
     }
 
     public function destroyCompanyCmrFile(DestroyCompanyCmrFileRequest $request, Company $company): JsonResponse

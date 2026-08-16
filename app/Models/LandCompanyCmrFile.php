@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class LandCompanyCmrFile extends Model
 {
@@ -28,10 +27,13 @@ class LandCompanyCmrFile extends Model
 
     public function publicUrl(): ?string
     {
-        if (! $this->attachment_path) {
+        if (! $this->attachment_path || ! $this->id) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->attachment_path);
+        return route('land-trips.companies.cmr-files.show', [
+            'company' => $this->company_id,
+            'cmrFile' => $this->id,
+        ]);
     }
 }

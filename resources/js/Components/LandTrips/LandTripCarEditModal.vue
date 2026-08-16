@@ -217,13 +217,17 @@ const submit = () => {
                     <span v-if="Object.keys(form.errors).length">{{ t('land_trips.edit_car_error') }}</span>
                 </div>
 
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" :class="fbGhostButton" class="cursor-pointer" @click="emit('close')">
+                <div class="flex gap-2">
+                    <button
+                        type="button"
+                        :class="[fbGhostButton, 'flex-1 justify-center cursor-pointer']"
+                        @click="emit('close')"
+                    >
                         {{ t('common.cancel') }}
                     </button>
                     <button
                         type="submit"
-                        :class="[fbButton, '!w-auto min-w-40 cursor-pointer']"
+                        :class="[fbButton, '!w-auto flex-1 cursor-pointer']"
                         :disabled="form.processing"
                     >
                         {{ form.processing ? t('common.saving') : t('common.save') }}

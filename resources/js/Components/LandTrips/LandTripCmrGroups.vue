@@ -1,7 +1,7 @@
 <script setup>
-import { fbGhostButton, fbLink } from '@/flowbite';
+import { fbButton, fbGhostButton, fbInput, fbLink } from '@/flowbite';
 import axios from 'axios';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -11,7 +11,7 @@ const props = defineProps({
     locationStatusId: { type: [Number, String], default: '' },
 });
 
-const emit = defineEmits(['toast']);
+const emit = defineEmits(['toast', 'renamed']);
 
 const { t } = useI18n();
 
@@ -20,10 +20,15 @@ const loading = ref(false);
 const error = ref('');
 const uploadingKey = ref(null);
 const removingKey = ref(null);
+const renamingKey = ref(null);
+const editingKey = ref(null);
+const editValue = ref('');
+const editInputRef = ref(null);
 const fileInputs = ref({});
 
 const groupCount = computed(() => groups.value.length);
 const carCount = computed(() => groups.value.reduce((sum, g) => sum + (g.cars_count || 0), 0));
+const busy = computed(() => uploadingKey.value !== null || removingKey.value !== null || renamingKey.value !== null);
 
 const loadGroups = async () => {
     loading.value = true;
@@ -64,6 +69,59 @@ const setFileInputRef = (key, el) => {
         fileInputs.value[key] = el;
     } else {
         delete fileInputs.value[key];
+    }
+};
+
+const startEdit = async (group) => {
+    if (!props.canManage || busy.value) {
+        return;
+    }
+    editingKey.value = group.cmr_key;
+    editValue.value = group.is_unspecified ? '' : (group.cmr_label || group.cmr_key || '');
+    await nextTick();
+    editInputRef.value?.focus?.();
+    editInputRef.value?.select?.();
+};
+
+const cancelEdit = () => {
+    editingKey.value = null;
+    editValue.value = '';
+};
+
+const saveEdit = async (group) => {
+    if (!props.canManage || renamingKey.value !== null) {
+        return;
+    }
+
+    const fromKey = group.cmr_key ?? '';
+    const toKey = String(editValue.value ?? '').trim();
+
+    if (fromKey === '' && toKey === '') {
+        cancelEdit();
+        return;
+    }
+
+    renamingKey.value = fromKey;
+    error.value = '';
+
+    try {
+        const { data } = await axios.patch(route('land-trips.companies.cmr-groups.rename', props.companyId), {
+            from_cmr_key: fromKey,
+            to_cmr_key: toKey,
+        });
+
+        editingKey.value = null;
+        editValue.value = '';
+        await loadGroups();
+        emit('toast', t('land_trips.cmr_renamed', { count: data.updated ?? 0 }));
+        emit('renamed', data);
+    } catch (err) {
+        const message = err?.response?.data?.message
+            || err?.response?.data?.errors?.to_cmr_key?.[0]
+            || t('land_trips.cmr_rename_error');
+        error.value = message;
+    } finally {
+        renamingKey.value = null;
     }
 };
 
@@ -189,7 +247,52 @@ defineExpose({ reload: loadGroups });
                         >
                             {{ t('land_trips.cmr') }}
                         </span>
-                        <h3 class="land-cmr-group-title">{{ groupTitle(group) }}</h3>
+
+                        <div v-if="canManage && editingKey === group.cmr_key" class="land-cmr-edit-row">
+                            <input
+                                ref="editInputRef"
+                                v-model="editValue"
+                                type="text"
+                                maxlength="80"
+                                :class="[fbInput, 'land-cmr-edit-input']"
+                                :disabled="renamingKey === group.cmr_key"
+                                :placeholder="t('land_trips.cmr_edit_placeholder')"
+                                :aria-label="t('land_trips.cmr_edit')"
+                                @keydown.enter.prevent="saveEdit(group)"
+                                @keydown.esc.prevent="cancelEdit"
+                            />
+                            <button
+                                type="button"
+                                :class="[fbButton, '!w-auto land-cmr-action-btn cursor-pointer']"
+                                :disabled="renamingKey === group.cmr_key"
+                                @click="saveEdit(group)"
+                            >
+                                {{ renamingKey === group.cmr_key ? t('common.saving') : t('common.save') }}
+                            </button>
+                            <button
+                                type="button"
+                                :class="[fbGhostButton, '!w-auto land-cmr-action-btn cursor-pointer']"
+                                :disabled="renamingKey === group.cmr_key"
+                                @click="cancelEdit"
+                            >
+                                {{ t('common.cancel') }}
+                            </button>
+                        </div>
+
+                        <template v-else>
+                            <h3 class="land-cmr-group-title">{{ groupTitle(group) }}</h3>
+                            <button
+                                v-if="canManage"
+                                type="button"
+                                :class="[fbGhostButton, '!w-auto land-cmr-action-btn cursor-pointer']"
+                                :disabled="busy"
+                                :aria-label="t('land_trips.cmr_edit')"
+                                @click="startEdit(group)"
+                            >
+                                {{ t('land_trips.cmr_edit') }}
+                            </button>
+                        </template>
+
                         <span class="land-cmr-count">
                             {{ t('land_trips.cmr_cars_count', { count: group.cars_count }) }}
                         </span>
@@ -212,7 +315,7 @@ defineExpose({ reload: loadGroups });
                                 type="button"
                                 :class="fbGhostButton"
                                 class="!w-auto cursor-pointer land-cmr-action-btn"
-                                :disabled="removingKey === group.cmr_key || uploadingKey !== null"
+                                :disabled="removingKey === group.cmr_key || busy"
                                 @click="removeFile(group)"
                             >
                                 {{ removingKey === group.cmr_key ? t('land_trips.cmr_removing') : t('common.delete') }}
@@ -223,7 +326,7 @@ defineExpose({ reload: loadGroups });
                             type="button"
                             :class="fbGhostButton"
                             class="!w-auto cursor-pointer land-cmr-action-btn"
-                            :disabled="uploadingKey !== null || removingKey !== null"
+                            :disabled="busy"
                             @click="pickFile(group)"
                         >
                             {{ uploadingKey === group.cmr_key

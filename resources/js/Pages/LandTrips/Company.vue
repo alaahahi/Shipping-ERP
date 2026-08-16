@@ -7,6 +7,7 @@ import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
+import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vue';
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
@@ -38,6 +39,7 @@ const { stationLabel } = useLandTripStation();
 const success = computed(() => page.props.flash?.success);
 const showCars = ref(false);
 const editingCar = ref(null);
+const viewingCar = ref(null);
 const showDuplicates = ref(false);
 const duplicateGroups = ref([]);
 const duplicatesLoading = ref(false);
@@ -605,6 +607,10 @@ const openEditCar = (car) => {
     editingCar.value = { ...car };
 };
 
+const openViewCar = (car) => {
+    viewingCar.value = { ...car };
+};
+
 const onCarEdited = (patch) => {
     const status = props.carStatuses.find((item) => String(item.id) === String(patch.location_status_id ?? ''));
     loadedCars.value = loadedCars.value.map((row) => (
@@ -742,7 +748,7 @@ const duplicateCarCount = computed(() => (
                 </template>
             </PageHeader>
 
-            <div class="erp-tabs mb-3 land-hub-top-tabs">
+            <div class="erp-tabs mb-3">
                 <button
                     type="button"
                     class="erp-tab"
@@ -767,32 +773,6 @@ const duplicateCarCount = computed(() => (
                 >
                     {{ t('land_trips.check_tab') }}
                 </button>
-
-                <div
-                    v-if="hubTab === 'cars'"
-                    class="land-hub-view-toggle land-hub-view-toggle--tabs"
-                    role="group"
-                    :aria-label="t('land_trips.cars_view_mode')"
-                >
-                    <button
-                        type="button"
-                        class="land-hub-view-btn"
-                        :class="{ 'is-active': carsViewMode === 'list' }"
-                        :aria-pressed="carsViewMode === 'list'"
-                        @click="carsViewMode = 'list'"
-                    >
-                        {{ t('land_trips.view_list') }}
-                    </button>
-                    <button
-                        type="button"
-                        class="land-hub-view-btn"
-                        :class="{ 'is-active': carsViewMode === 'cmr' }"
-                        :aria-pressed="carsViewMode === 'cmr'"
-                        @click="carsViewMode = 'cmr'"
-                    >
-                        {{ t('land_trips.view_by_cmr') }}
-                    </button>
-                </div>
             </div>
 
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
@@ -840,6 +820,35 @@ const duplicateCarCount = computed(() => (
                             <span class="land-hub-chip-dot" aria-hidden="true" />
                             <span class="land-hub-chip-label">{{ stationLabel(archiveChip) }}</span>
                             <span class="land-hub-chip-count">{{ archiveChip.count }}</span>
+                        </button>
+                    </div>
+
+                    <div
+                        class="land-hub-chips land-hub-view-chips"
+                        role="group"
+                        :aria-label="t('land_trips.cars_view_mode')"
+                    >
+                        <button
+                            type="button"
+                            class="land-hub-chip"
+                            :class="{ 'is-active': carsViewMode === 'list' }"
+                            :aria-pressed="carsViewMode === 'list'"
+                            :style="chipStyle('#0F766E')"
+                            @click="carsViewMode = 'list'"
+                        >
+                            <span class="land-hub-chip-dot" aria-hidden="true" />
+                            <span class="land-hub-chip-label">{{ t('land_trips.view_list') }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="land-hub-chip"
+                            :class="{ 'is-active': carsViewMode === 'cmr' }"
+                            :aria-pressed="carsViewMode === 'cmr'"
+                            :style="chipStyle('#0F766E')"
+                            @click="carsViewMode = 'cmr'"
+                        >
+                            <span class="land-hub-chip-dot" aria-hidden="true" />
+                            <span class="land-hub-chip-label">{{ t('land_trips.view_by_cmr') }}</span>
                         </button>
                     </div>
 
@@ -971,6 +980,7 @@ const duplicateCarCount = computed(() => (
                     :search="filters.search || ''"
                     :location-status-id="filters.location_status_id || ''"
                     @toast="toastMessage = $event"
+                    @renamed="applyFilters"
                 />
 
                 <div
@@ -997,17 +1007,15 @@ const duplicateCarCount = computed(() => (
                                 <th>{{ t('land_trips.model') }}</th>
                                 <th>{{ t('land_trips.color') }}</th>
                                 <th>{{ t('land_trips.year') }}</th>
-                                <th>{{ t('land_trips.cmr_waybill') }}</th>
                                 <th>{{ t('land_trips.consignee') }}</th>
-                                <th>{{ t('common.notes') }}</th>
                                 <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
-                                <th v-if="canManage" class="pe-3 text-end">{{ t('common.actions') }}</th>
+                                <th class="pe-3 text-end">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 12 : 10">
+                                <td :colspan="canManage ? 10 : 9">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -1086,20 +1094,18 @@ const duplicateCarCount = computed(() => (
                                     <span v-else>{{ car.color || '—' }}</span>
                                 </td>
                                 <td class="tabular-nums">{{ car.year || '—' }}</td>
-                                <td>{{ car.cmr_waybill || '—' }}</td>
-                                <td>{{ car.consignee_name || '—' }}</td>
                                 <td style="min-width: 8rem">
                                     <input
                                         v-if="canManage"
                                         type="text"
                                         class="form-control form-control-sm form-erp-control"
-                                        :value="car.notes || ''"
+                                        :value="car.consignee_name || ''"
                                         :disabled="moveForm.processing || deletingSelected"
-                                        :aria-label="t('common.notes')"
-                                        maxlength="1000"
-                                        @change="saveCarDetails(car, 'notes', $event.target.value)"
+                                        :aria-label="t('land_trips.consignee')"
+                                        maxlength="180"
+                                        @change="saveCarDetails(car, 'consignee_name', $event.target.value)"
                                     />
-                                    <span v-else class="land-hub-notes-text" :title="car.notes || ''">{{ car.notes || '—' }}</span>
+                                    <span v-else>{{ car.consignee_name || '—' }}</span>
                                 </td>
                                 <td style="min-width: 7.5rem">
                                     <input
@@ -1132,19 +1138,34 @@ const duplicateCarCount = computed(() => (
                                     </select>
                                     <span v-else>{{ carStationLabel(car) }}</span>
                                 </td>
-                                <td v-if="canManage" class="pe-3 text-end">
-                                    <button
-                                        type="button"
-                                        class="btn btn-erp-ghost btn-sm land-hub-edit-btn"
-                                        :disabled="moveForm.processing || deletingSelected"
-                                        :aria-label="t('land_trips.edit_car')"
-                                        @click="openEditCar(car)"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="land-hub-edit-icon" aria-hidden="true">
-                                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                                        </svg>
-                                        <span>{{ t('land_trips.edit_car') }}</span>
-                                    </button>
+                                <td class="pe-3 text-end">
+                                    <div class="land-hub-row-actions">
+                                        <button
+                                            type="button"
+                                            class="btn btn-erp-ghost btn-sm land-hub-icon-btn"
+                                            :aria-label="t('land_trips.view_car')"
+                                            :title="t('land_trips.view_car')"
+                                            @click="openViewCar(car)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="land-hub-edit-icon" aria-hidden="true">
+                                                <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                                                <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            v-if="canManage"
+                                            type="button"
+                                            class="btn btn-erp-ghost btn-sm land-hub-icon-btn"
+                                            :disabled="moveForm.processing || deletingSelected"
+                                            :aria-label="t('land_trips.edit_car')"
+                                            :title="t('land_trips.edit_car')"
+                                            @click="openEditCar(car)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="land-hub-edit-icon" aria-hidden="true">
+                                                <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -1186,6 +1207,12 @@ const duplicateCarCount = computed(() => (
             :car-statuses="carStatuses"
             @close="editingCar = null"
             @saved="onCarEdited"
+        />
+
+        <LandTripCarViewModal
+            :show="!!viewingCar"
+            :car="viewingCar"
+            @close="viewingCar = null"
         />
     </AppLayout>
 </template>
