@@ -191,17 +191,28 @@ const postFreight = () => {
                             <th>{{ t('land_trips.consignee') }}</th>
                             <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
+                            <th>{{ t('common.notes') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="!trip.cars?.length">
-                            <td colspan="7">
+                            <td colspan="8">
                                 <EmptyState icon="C">{{ t('land_trips.no_cars') }}</EmptyState>
                             </td>
                         </tr>
                         <tr v-for="car in trip.cars" :key="car.id" :class="rowClass(car)">
                             <td class="ps-4">
-                                <ChassisLetterOWarning :value="car.chassis_no" />
+                                <div class="land-hub-chassis-cell">
+                                    <ChassisLetterOWarning :value="car.chassis_no" />
+                                    <time
+                                        v-if="car.created_at"
+                                        class="land-hub-entered-at"
+                                        :datetime="car.created_at"
+                                        :title="car.created_at_label || car.created_at"
+                                    >
+                                        {{ car.created_at }}
+                                    </time>
+                                </div>
                             </td>
                             <td>{{ car.model || car.description || '—' }}</td>
                             <td>{{ car.color || '—' }}</td>
@@ -209,6 +220,7 @@ const postFreight = () => {
                             <td>{{ car.consignee_name }}</td>
                             <td>{{ carStationLabel(car) }}</td>
                             <td>{{ car.weight || '—' }}</td>
+                            <td class="small" :title="car.notes || ''">{{ car.notes || '—' }}</td>
                         </tr>
                     </tbody>
                 </table>

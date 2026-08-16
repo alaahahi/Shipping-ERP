@@ -20,6 +20,7 @@ class LandTripCar extends Model
         'consignee_name',
         'model',
         'color',
+        'year',
         'description',
         'weight',
         'price',
@@ -30,6 +31,7 @@ class LandTripCar extends Model
     protected function casts(): array
     {
         return [
+            'year' => 'integer',
             'weight' => 'decimal:3',
             'price' => 'decimal:2',
             'sort_order' => 'integer',

@@ -25,6 +25,7 @@ const emptyRow = () => ({
     consignee_name: '',
     model: '',
     color: '',
+    year: '',
     description: '',
     weight: '',
     notes: '',
@@ -86,6 +87,7 @@ const applyVoyageCar = (index, voyageCarId) => {
             consignee_name: selected.consignee_name ?? '',
             model: selected.model || selected.description || '',
             color: selected.color ?? '',
+            year: row.year ?? '',
             description: selected.description || selected.model || '',
             weight: selected.weight ?? '',
             price: integerPrice(row.price),
@@ -105,6 +107,7 @@ const fillFromVoyage = () => {
             consignee_name: car.consignee_name ?? '',
             model: car.model || car.description || '',
             color: car.color ?? '',
+            year: '',
             description: car.description || car.model || '',
             weight: car.weight ?? '',
             notes: '',
@@ -146,17 +149,19 @@ const fillFromVoyage = () => {
                             <th :class="{ 'ps-3': !voyageCars.length }">{{ t('land_trips.chassis') }}</th>
                             <th>{{ t('land_trips.model') }}</th>
                             <th>{{ t('land_trips.color') }}</th>
+                            <th>{{ t('land_trips.year') }}</th>
                             <th>{{ t('land_trips.cmr_waybill') }}</th>
                             <th>{{ t('land_trips.consignee') }}</th>
                             <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.car_price') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
+                            <th>{{ t('common.notes') }}</th>
                             <th class="pe-3"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="cars.length === 0">
-                            <td :colspan="voyageCars.length ? 10 : 9" class="text-center text-secondary py-4">
+                            <td :colspan="voyageCars.length ? 12 : 11" class="text-center text-secondary py-4">
                                 {{ t('land_trips.no_car_rows') }}
                             </td>
                         </tr>
@@ -197,6 +202,18 @@ const fillFromVoyage = () => {
                                     class="form-control form-erp-control form-control-sm"
                                     :value="row.color"
                                     @input="updateRow(index, 'color', $event.target.value)"
+                                />
+                            </td>
+                            <td style="min-width: 90px">
+                                <input
+                                    type="number"
+                                    min="1980"
+                                    max="2100"
+                                    step="1"
+                                    inputmode="numeric"
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.year"
+                                    @input="updateRow(index, 'year', $event.target.value)"
                                 />
                             </td>
                             <td style="min-width: 120px">
@@ -244,6 +261,14 @@ const fillFromVoyage = () => {
                                     class="form-control form-erp-control form-control-sm"
                                     :value="row.weight"
                                     @input="updateRow(index, 'weight', $event.target.value)"
+                                />
+                            </td>
+                            <td style="min-width: 140px">
+                                <input
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.notes"
+                                    maxlength="1000"
+                                    @input="updateRow(index, 'notes', $event.target.value)"
                                 />
                             </td>
                             <td class="pe-3">

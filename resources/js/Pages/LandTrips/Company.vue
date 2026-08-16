@@ -6,6 +6,7 @@ import LandTripCompanyWallet from '@/Components/LandTripCompanyWallet.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
+import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
@@ -35,6 +36,11 @@ const { t } = useI18n();
 const { stationLabel } = useLandTripStation();
 const success = computed(() => page.props.flash?.success);
 const showCars = ref(false);
+const editingCar = ref(null);
+const showDuplicates = ref(false);
+const duplicateGroups = ref([]);
+const duplicatesLoading = ref(false);
+const duplicatesError = ref('');
 const selectedIds = ref([]);
 const hubTab = ref('cars');
 
@@ -63,6 +69,7 @@ const emptyCarRow = () => ({
     consignee_name: '',
     model: '',
     color: '',
+    year: '',
     description: '',
     weight: '',
     price: 0,
@@ -590,6 +597,65 @@ const saveCarDetails = (car, field, value) => {
         },
     });
 };
+
+const openEditCar = (car) => {
+    editingCar.value = { ...car };
+};
+
+const onCarEdited = (patch) => {
+    const status = props.carStatuses.find((item) => String(item.id) === String(patch.location_status_id ?? ''));
+    loadedCars.value = loadedCars.value.map((row) => (
+        row.id === patch.id
+            ? {
+                ...row,
+                ...patch,
+                model: patch.model || patch.description || row.model,
+                description: patch.model || row.description,
+                price: String(Number(patch.price ?? row.price).toFixed(2)),
+                location_status_label: status ? stationLabel(status) : (patch.location_status_id ? row.location_status_label : null),
+                location_status_code: status?.code ?? (patch.location_status_id ? row.location_status_code : null),
+                location_status_color: status?.color ?? (patch.location_status_id ? row.location_status_color : null),
+                location_status_tone: status?.row_tone ?? (patch.location_status_id ? row.location_status_tone : 'neutral'),
+            }
+            : row
+    ));
+    toastMessage.value = t('land_trips.car_updated');
+};
+
+const checkDuplicates = async () => {
+    showDuplicates.value = true;
+    duplicatesLoading.value = true;
+    duplicatesError.value = '';
+    try {
+        const { data } = await axios.get(route('land-trips.companies.cars.duplicates', props.company.id));
+        duplicateGroups.value = data.groups ?? [];
+    } catch {
+        duplicatesError.value = t('land_trips.duplicates_load_fail');
+        duplicateGroups.value = [];
+    } finally {
+        duplicatesLoading.value = false;
+    }
+};
+
+const focusDuplicateCar = (carId) => {
+    showDuplicates.value = false;
+    const el = document.getElementById(`land-car-${carId}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('land-hub-row-flash');
+        window.setTimeout(() => el.classList.remove('land-hub-row-flash'), 1800);
+        return;
+    }
+
+    router.get(companyUrl({ highlight: carId }), {}, {
+        preserveState: false,
+        preserveScroll: false,
+    });
+};
+
+const duplicateCarCount = computed(() => (
+    duplicateGroups.value.reduce((sum, group) => sum + (group.count || 0), 0)
+));
 </script>
 
 <template>
@@ -651,6 +717,14 @@ const saveCarDetails = (car, field, value) => {
                         <a :href="exportHref" class="btn btn-erp-ghost">
                             {{ t('land_trips.export') }}
                         </a>
+                        <button
+                            type="button"
+                            class="btn btn-erp-ghost"
+                            :disabled="duplicatesLoading"
+                            @click="checkDuplicates"
+                        >
+                            {{ duplicatesLoading ? t('land_trips.duplicates_checking') : t('land_trips.check_duplicates') }}
+                        </button>
                         <Link
                             v-if="canManage"
                             :href="route('land-trips.companies.import', company.id)"
@@ -808,6 +882,57 @@ const saveCarDetails = (car, field, value) => {
                     {{ t('land_trips.chassis_letter_o_banner', { count: chassisLetterOCount }) }}
                 </div>
 
+                <div
+                    v-if="showDuplicates && hubTab === 'cars'"
+                    class="land-duplicates-panel"
+                    role="region"
+                    :aria-label="t('land_trips.check_duplicates')"
+                >
+                    <div class="land-duplicates-head">
+                        <div>
+                            <h3 class="land-duplicates-title">{{ t('land_trips.duplicates_title') }}</h3>
+                            <p class="land-duplicates-help mb-0">
+                                {{ duplicatesLoading
+                                    ? t('land_trips.duplicates_checking')
+                                    : t('land_trips.duplicates_help', { groups: duplicateGroups.length, cars: duplicateCarCount }) }}
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-erp-ghost btn-sm" @click="showDuplicates = false">
+                            {{ t('common.close') }}
+                        </button>
+                    </div>
+                    <p v-if="duplicatesError" class="land-duplicates-error mb-0" role="alert">{{ duplicatesError }}</p>
+                    <div v-else-if="!duplicatesLoading && duplicateGroups.length === 0" class="land-duplicates-empty">
+                        {{ t('land_trips.duplicates_none') }}
+                    </div>
+                    <div v-else class="land-duplicates-list">
+                        <article
+                            v-for="group in duplicateGroups"
+                            :key="group.chassis_no"
+                            class="land-duplicates-group"
+                        >
+                            <div class="land-duplicates-group-head">
+                                <code class="land-duplicates-chassis">{{ group.chassis_no }}</code>
+                                <span class="land-duplicates-count">{{ t('land_trips.duplicates_count', { count: group.count }) }}</span>
+                            </div>
+                            <ul class="land-duplicates-cars">
+                                <li v-for="item in group.cars" :key="item.id">
+                                    <button
+                                        type="button"
+                                        class="land-duplicates-car-btn"
+                                        @click="focusDuplicateCar(item.id)"
+                                    >
+                                        <span class="font-monospace">{{ item.chassis_no || '—' }}</span>
+                                        <span>{{ item.model || '—' }}</span>
+                                        <span>{{ item.year || '—' }}</span>
+                                        <span>{{ item.location_status_label || t('land_trips.unspecified_location') }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
                 <div class="table-responsive land-hub-table" :class="{ 'is-loading': filtering && !loadingMore }">
                     <table class="table erp-table align-middle mb-0 land-hub-cars">
                         <thead>
@@ -827,15 +952,18 @@ const saveCarDetails = (car, field, value) => {
                                 <th>{{ t('land_trips.chassis') }}</th>
                                 <th>{{ t('land_trips.model') }}</th>
                                 <th>{{ t('land_trips.color') }}</th>
+                                <th>{{ t('land_trips.year') }}</th>
                                 <th>{{ t('land_trips.cmr_waybill') }}</th>
                                 <th>{{ t('land_trips.consignee') }}</th>
+                                <th>{{ t('common.notes') }}</th>
                                 <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
+                                <th v-if="canManage" class="pe-3 text-end">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 9 : 8">
+                                <td :colspan="canManage ? 12 : 10">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -877,7 +1005,17 @@ const saveCarDetails = (car, field, value) => {
                                 </td>
                                 <td :class="['land-hub-seq', canManage ? '' : 'ps-4']">{{ index + 1 }}</td>
                                 <td>
-                                    <ChassisLetterOWarning :value="car.chassis_no" />
+                                    <div class="land-hub-chassis-cell">
+                                        <ChassisLetterOWarning :value="car.chassis_no" />
+                                        <time
+                                            v-if="car.created_at"
+                                            class="land-hub-entered-at"
+                                            :datetime="car.created_at"
+                                            :title="car.created_at_label || car.created_at"
+                                        >
+                                            {{ car.created_at }}
+                                        </time>
+                                    </div>
                                 </td>
                                 <td style="min-width: 8.5rem">
                                     <input
@@ -903,8 +1041,22 @@ const saveCarDetails = (car, field, value) => {
                                     />
                                     <span v-else>{{ car.color || '—' }}</span>
                                 </td>
+                                <td class="tabular-nums">{{ car.year || '—' }}</td>
                                 <td>{{ car.cmr_waybill || '—' }}</td>
                                 <td>{{ car.consignee_name || '—' }}</td>
+                                <td style="min-width: 8rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="text"
+                                        class="form-control form-control-sm form-erp-control"
+                                        :value="car.notes || ''"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('common.notes')"
+                                        maxlength="1000"
+                                        @change="saveCarDetails(car, 'notes', $event.target.value)"
+                                    />
+                                    <span v-else class="land-hub-notes-text" :title="car.notes || ''">{{ car.notes || '—' }}</span>
+                                </td>
                                 <td style="min-width: 7.5rem">
                                     <input
                                         v-if="canManage"
@@ -935,6 +1087,20 @@ const saveCarDetails = (car, field, value) => {
                                         </option>
                                     </select>
                                     <span v-else>{{ carStationLabel(car) }}</span>
+                                </td>
+                                <td v-if="canManage" class="pe-3 text-end">
+                                    <button
+                                        type="button"
+                                        class="btn btn-erp-ghost btn-sm land-hub-edit-btn"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.edit_car')"
+                                        @click="openEditCar(car)"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="land-hub-edit-icon" aria-hidden="true">
+                                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                                        </svg>
+                                        <span>{{ t('land_trips.edit_car') }}</span>
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -967,6 +1133,15 @@ const saveCarDetails = (car, field, value) => {
             @update:cars="carsForm.cars = $event"
             @close="showCars = false"
             @save="saveCars"
+        />
+
+        <LandTripCarEditModal
+            :show="!!editingCar"
+            :company-id="company.id"
+            :car="editingCar"
+            :car-statuses="carStatuses"
+            @close="editingCar = null"
+            @saved="onCarEdited"
         />
     </AppLayout>
 </template>

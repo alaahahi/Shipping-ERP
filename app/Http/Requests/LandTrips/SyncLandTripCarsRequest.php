@@ -25,6 +25,7 @@ class SyncLandTripCarsRequest extends FormRequest
             'cars.*.consignee_name' => ['nullable', 'string', 'max:180'],
             'cars.*.model' => ['nullable', 'string', 'max:180'],
             'cars.*.color' => ['nullable', 'string', 'max:80'],
+            'cars.*.year' => ['nullable', 'integer', 'min:1980', 'max:2100'],
             'cars.*.description' => ['nullable', 'string', 'max:255'],
             'cars.*.weight' => ['nullable', 'numeric', 'min:0'],
             'cars.*.notes' => ['nullable', 'string', 'max:1000'],

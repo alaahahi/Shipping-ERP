@@ -20,6 +20,7 @@ class UpdateCompanyLandCarDetailsRequest extends FormRequest
         return [
             'model' => ['sometimes', 'nullable', 'string', 'max:180'],
             'color' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ];
     }
 }

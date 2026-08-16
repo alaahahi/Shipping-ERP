@@ -12,6 +12,7 @@ use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
 use App\Http\Requests\LandTrips\TransitionLandTripRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarDetailsRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarPriceRequest;
+use App\Http\Requests\LandTrips\UpdateCompanyLandCarRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandManifestRequest;
 use App\Http\Requests\LandTrips\UpdateLandTripRequest;
 use App\Models\Company;
@@ -196,6 +197,29 @@ class LandTripController extends Controller
         );
 
         return back();
+    }
+
+    public function updateCompanyCar(UpdateCompanyLandCarRequest $request, Company $company, LandTripCar $car): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->updateCompanyCar(
+            $company,
+            $car,
+            $request->validated(),
+            $request->user()
+        );
+
+        return back()->with('success', 'Car updated.');
+    }
+
+    public function companyCarDuplicates(Company $company): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return response()->json([
+            'groups' => $this->landTripService->companyChassisDuplicates($company),
+        ]);
     }
 
     public function updateCompanyManifest(UpdateCompanyLandManifestRequest $request, Company $company): RedirectResponse

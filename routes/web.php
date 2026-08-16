@@ -37,16 +37,12 @@ use App\Http\Controllers\VoyageController;
 use App\Http\Controllers\VoyageExpenseController;
 use App\Http\Controllers\VoyageSettlementController;
 use App\Http\Controllers\WhatsappNotificationController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 });
 
@@ -108,6 +104,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.show');
     Route::get('/land-trips/companies/{company}/cars', [LandTripController::class, 'companyCars'])
         ->name('land-trips.companies.cars');
+    Route::get('/land-trips/companies/{company}/cars/duplicates', [LandTripController::class, 'companyCarDuplicates'])
+        ->name('land-trips.companies.cars.duplicates');
     Route::get('/land-trips/companies/{company}/car-check', [LandTripController::class, 'companyCarCheck'])
         ->name('land-trips.companies.car-check');
     Route::post('/land-trips/companies/{company}/cars', [LandTripController::class, 'syncCompanyCars'])
@@ -120,6 +118,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars.price');
     Route::patch('/land-trips/companies/{company}/cars/{car}', [LandTripController::class, 'updateCompanyCarDetails'])
         ->name('land-trips.companies.cars.update');
+    Route::put('/land-trips/companies/{company}/cars/{car}', [LandTripController::class, 'updateCompanyCar'])
+        ->name('land-trips.companies.cars.full-update');
     Route::get('/land-trips/companies/{company}/location-logs', [LandTripLocationLogController::class, 'index'])
         ->name('land-trips.companies.location-logs');
     Route::post('/land-trips/companies/{company}/location-logs/undo', [LandTripLocationLogController::class, 'undo'])

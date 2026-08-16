@@ -301,6 +301,7 @@ class LandTripService
                     ->orWhere('land_trip_cars.description', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.model', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.color', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.notes', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.cmr_waybill', 'like', "%{$search}%");
             });
         }
@@ -545,7 +546,9 @@ class LandTripService
                 'consignee_name' => trim((string) ($row['consignee_name'] ?? '')) ?: $company->name,
                 'model' => $catalog['model'],
                 'color' => $catalog['color'],
+                'year' => $this->nullableYear($row['year'] ?? null),
                 'description' => $catalog['description'],
+                'notes' => $this->nullableString($row['notes'] ?? null),
                 'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
                 'sort_order' => (int) ($row['row_number'] ?? 0),
             ];
@@ -560,6 +563,12 @@ class LandTripService
                 }
                 if ($payload['model'] === null) {
                     unset($payload['model'], $payload['description']);
+                }
+                if ($payload['year'] === null) {
+                    unset($payload['year']);
+                }
+                if ($payload['notes'] === null) {
+                    unset($payload['notes']);
                 }
                 $car->update($payload);
                 $updated++;
@@ -655,7 +664,7 @@ class LandTripService
     }
 
     /**
-     * @param  array{model?: string|null, color?: string|null}  $data
+     * @param  array{model?: string|null, color?: string|null, notes?: string|null}  $data
      */
     public function updateCompanyCarDetails(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
     {
@@ -675,6 +684,9 @@ class LandTripService
         }
         if (array_key_exists('color', $data)) {
             $payload['color'] = $this->nullableString($data['color']);
+        }
+        if (array_key_exists('notes', $data)) {
+            $payload['notes'] = $this->nullableString($data['notes']);
         }
 
         if ($payload !== []) {
@@ -743,6 +755,17 @@ class LandTripService
             $seenChassis = [];
             $payload = $this->normalizeCompanyCarRow(
                 [
+                    'chassis_no' => $car->chassis_no,
+                    'cmr_waybill' => $car->cmr_waybill,
+                    'consignee_name' => $car->consignee_name,
+                    'model' => $car->model,
+                    'color' => $car->color,
+                    'year' => $car->year,
+                    'description' => $car->description,
+                    'weight' => $car->weight,
+                    'price' => $car->price,
+                    'notes' => $car->notes,
+                    'location_status_id' => $car->location_status_id,
                     ...$data,
                     'voyage_car_id' => $car->voyage_car_id,
                     'sort_order' => $car->sort_order,
@@ -899,6 +922,7 @@ class LandTripService
             'consignee_name' => $consignee,
             'model' => $catalog['model'],
             'color' => $catalog['color'],
+            'year' => $this->nullableYear($row['year'] ?? null),
             'description' => $catalog['description'],
             'weight' => $row['weight'] ?? $voyageCar?->weight,
             'price' => round((float) ($row['price'] ?? 0), 2),
@@ -1127,6 +1151,7 @@ class LandTripService
                 'consignee_name' => $consignee,
                 'model' => $catalog['model'],
                 'color' => $catalog['color'],
+                'year' => $this->nullableYear($row['year'] ?? null),
                 'description' => $catalog['description'],
                 'weight' => $row['weight'] ?? $voyageCar?->weight,
                 'price' => round((float) ($row['price'] ?? 0), 2),
@@ -1319,6 +1344,7 @@ class LandTripService
             'consignee_name' => $car->consignee_name,
             'model' => $car->model ?: $car->description,
             'color' => $car->color,
+            'year' => $car->year,
             'description' => $car->description ?: $car->model,
             'weight' => $car->weight !== null ? (string) $car->weight : null,
             'price' => number_format((float) $car->price, 2, '.', ''),
@@ -1330,6 +1356,8 @@ class LandTripService
             'location_status_color' => $car->locationStatus?->resolvedColor(),
             'land_trip_id' => $car->land_trip_id,
             'sort_order' => $car->sort_order,
+            'created_at' => optional($car->created_at)?->format('Y-m-d'),
+            'created_at_label' => optional($car->created_at)?->format('Y-m-d H:i'),
         ];
     }
 
@@ -1429,6 +1457,79 @@ class LandTripService
         $chassis = ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? '')))));
 
         return $chassis === '' ? null : $chassis;
+    }
+
+    private function nullableYear(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            $year = (int) $value;
+
+            return $year >= 1980 && $year <= 2100 ? $year : null;
+        }
+
+        if (preg_match('/(19|20)\d{2}/', (string) $value, $matches) === 1) {
+            $year = (int) $matches[0];
+
+            return $year >= 1980 && $year <= 2100 ? $year : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Duplicate chassis groups within a company (normalized chassis key).
+     *
+     * @return list<array{chassis_no: string, count: int, cars: list<array<string, mixed>>}>
+     */
+    public function companyChassisDuplicates(Company $company): array
+    {
+        $cars = LandTripCar::query()
+            ->with('locationStatus:id,code,name,name_ar,name_ckb,row_tone,color')
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->whereNotNull('chassis_no')
+            ->where('chassis_no', '!=', '')
+            ->orderBy('id')
+            ->get();
+
+        $buckets = [];
+        foreach ($cars as $car) {
+            $key = $this->normalizeChassis($car->chassis_no);
+            if ($key === null) {
+                continue;
+            }
+            $buckets[$key][] = $car;
+        }
+
+        $groups = [];
+        foreach ($buckets as $chassis => $items) {
+            if (count($items) < 2) {
+                continue;
+            }
+
+            $groups[] = [
+                'chassis_no' => $chassis,
+                'count' => count($items),
+                'cars' => collect($items)
+                    ->map(fn (LandTripCar $car): array => [
+                        'id' => $car->id,
+                        'chassis_no' => $car->chassis_no,
+                        'model' => $car->model ?: $car->description,
+                        'color' => $car->color,
+                        'year' => $car->year,
+                        'location_status_label' => $car->locationStatus?->localizedName(),
+                    ])
+                    ->values()
+                    ->all(),
+            ];
+        }
+
+        usort($groups, static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: strcmp($a['chassis_no'], $b['chassis_no']));
+
+        return $groups;
     }
 
     private function nullableString(mixed $value): ?string

@@ -57,6 +57,8 @@ const clonePreviewRow = (row) => ({
     cmr_waybill: cleanCmr(row.cmr_waybill),
     model: cleanDescription(row.model || row.description),
     color: cleanColor(row.color),
+    year: row.year ?? '',
+    notes: String(row.notes || '').trim().slice(0, 1000),
     description: cleanDescription(row.model || row.description),
     consignee_name: row.consignee_name ?? props.preview?.default_consignee ?? '',
     status_text: row.status_text ?? '',
@@ -258,6 +260,8 @@ const submitConfirm = () => {
             cmr_waybill: cleanCmr(row.cmr_waybill) || null,
             model: cleanDescription(row.model || row.description) || null,
             color: cleanColor(row.color) || null,
+            year: row.year === '' || row.year == null ? null : Number(row.year),
+            notes: String(row.notes || '').trim().slice(0, 1000) || null,
             description: cleanDescription(row.model || row.description) || null,
             consignee_name: row.consignee_name || null,
             status_text: row.status_text || null,
@@ -356,8 +360,10 @@ const submitConfirm = () => {
                                 <th class="px-3 py-3 min-w-36">{{ t('land_trips.cmr_waybill') }}</th>
                                 <th class="px-3 py-3 min-w-36">{{ t('land_trips.model') }}</th>
                                 <th class="px-3 py-3 min-w-28">{{ t('land_trips.color') }}</th>
+                                <th class="px-3 py-3 min-w-24">{{ t('land_trips.year') }}</th>
                                 <th class="px-3 py-3 min-w-44">{{ t('land_trips.location_status') }}</th>
                                 <th class="px-3 py-3 min-w-36">{{ t('land_trips.consignee') }}</th>
+                                <th class="px-3 py-3 min-w-36">{{ t('common.notes') }}</th>
                                 <th class="px-3 py-3">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
@@ -412,6 +418,17 @@ const submitConfirm = () => {
                                     />
                                 </td>
                                 <td class="px-3 py-2">
+                                    <input
+                                        v-model="row.year"
+                                        type="number"
+                                        min="1980"
+                                        max="2100"
+                                        step="1"
+                                        inputmode="numeric"
+                                        :class="fbInput"
+                                    />
+                                </td>
+                                <td class="px-3 py-2">
                                     <select v-model="row.location_status_id" :class="fbInput">
                                         <option value="">{{ t('land_trips.unspecified_location') }}</option>
                                         <option v-for="status in carStatuses" :key="status.id" :value="String(status.id)">
@@ -421,6 +438,15 @@ const submitConfirm = () => {
                                 </td>
                                 <td class="px-3 py-2">
                                     <input v-model="row.consignee_name" type="text" :class="fbInput" autocomplete="off" />
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input
+                                        v-model="row.notes"
+                                        type="text"
+                                        :class="fbInput"
+                                        maxlength="1000"
+                                        autocomplete="off"
+                                    />
                                 </td>
                                 <td class="px-3 py-2">
                                     <button type="button" :class="fbGhostButton" class="land-trip-import-ghost land-trip-import-delete" @click="removeRow(index)">

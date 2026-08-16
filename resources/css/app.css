@@ -2132,6 +2132,36 @@ html.dark .land-company-card.land-car-row-green,
     white-space: nowrap;
 }
 
+.land-hub-chassis-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.land-hub-entered-at {
+    font-size: 0.68rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    color: var(--erp-text-muted, #64748b);
+    white-space: nowrap;
+}
+
+.land-hub-notes-text {
+    display: inline-block;
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+html.dark .land-hub-entered-at,
+[data-theme='dark'] .land-hub-entered-at {
+    color: #94a3b8;
+}
+
 .land-chassis-cell {
     display: inline-flex;
     align-items: center;
@@ -2176,6 +2206,201 @@ html.dark .land-chassis-o-banner,
     color: #fde68a;
     background: rgba(120, 53, 15, 0.45);
     border-color: #d97706;
+}
+
+.land-duplicates-panel {
+    margin: 0 1rem 0.85rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #99f6e4;
+    background: #f0fdfa;
+}
+
+.land-duplicates-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.land-duplicates-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #134e4a;
+}
+
+.land-duplicates-help {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    color: #0f766e;
+}
+
+.land-duplicates-error {
+    color: #b91c1c;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.land-duplicates-empty {
+    font-size: 0.86rem;
+    color: #0f766e;
+}
+
+.land-duplicates-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.land-duplicates-group {
+    border: 1px solid #ccfbf1;
+    border-radius: 0.65rem;
+    background: #fff;
+    padding: 0.65rem 0.75rem;
+}
+
+.land-duplicates-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.45rem;
+}
+
+.land-duplicates-chassis {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #134e4a;
+}
+
+.land-duplicates-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #0f766e;
+    background: #ccfbf1;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+}
+
+.land-duplicates-cars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.land-duplicates-car-btn {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(8rem, 1.4fr) minmax(5rem, 1fr) 3.5rem minmax(5rem, 1fr);
+    gap: 0.5rem;
+    align-items: center;
+    text-align: start;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+    color: #0f172a;
+    padding: 0.45rem 0.55rem;
+    min-height: 2.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.land-duplicates-car-btn:hover,
+.land-duplicates-car-btn:focus-visible {
+    background: #ecfeff;
+    border-color: #5eead4;
+    outline: none;
+}
+
+.land-hub-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.5rem;
+    white-space: nowrap;
+}
+
+.land-hub-edit-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.land-hub-row-flash {
+    animation: land-hub-row-flash 1.6s ease;
+}
+
+@keyframes land-hub-row-flash {
+    0%,
+    100% {
+        box-shadow: inset 0 0 0 0 transparent;
+    }
+    25%,
+    60% {
+        box-shadow: inset 0 0 0 2px #0f766e;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .land-hub-row-flash {
+        animation: none;
+        box-shadow: inset 0 0 0 2px #0f766e;
+    }
+}
+
+html.dark .land-duplicates-panel,
+[data-theme='dark'] .land-duplicates-panel {
+    background: rgba(15, 118, 110, 0.18);
+    border-color: #0f766e;
+}
+
+html.dark .land-duplicates-title,
+[data-theme='dark'] .land-duplicates-title {
+    color: #99f6e4;
+}
+
+html.dark .land-duplicates-help,
+html.dark .land-duplicates-empty,
+[data-theme='dark'] .land-duplicates-help,
+[data-theme='dark'] .land-duplicates-empty {
+    color: #5eead4;
+}
+
+html.dark .land-duplicates-group,
+[data-theme='dark'] .land-duplicates-group {
+    background: rgba(17, 24, 39, 0.75);
+    border-color: #134e4a;
+}
+
+html.dark .land-duplicates-chassis,
+[data-theme='dark'] .land-duplicates-chassis {
+    color: #ccfbf1;
+}
+
+html.dark .land-duplicates-count,
+[data-theme='dark'] .land-duplicates-count {
+    background: rgba(15, 118, 110, 0.45);
+    color: #99f6e4;
+}
+
+html.dark .land-duplicates-car-btn,
+[data-theme='dark'] .land-duplicates-car-btn {
+    background: rgba(31, 41, 55, 0.9);
+    color: #e5e7eb;
+}
+
+html.dark .land-duplicates-car-btn:hover,
+html.dark .land-duplicates-car-btn:focus-visible,
+[data-theme='dark'] .land-duplicates-car-btn:hover,
+[data-theme='dark'] .land-duplicates-car-btn:focus-visible {
+    background: rgba(15, 118, 110, 0.35);
+    border-color: #14b8a6;
 }
 
 .land-hub-check {
