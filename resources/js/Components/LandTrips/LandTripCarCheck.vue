@@ -1,5 +1,7 @@
 <script setup>
 import axios from 'axios';
+import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
+import { sanitizeChassisNumber } from '@/composables/useChassisLetterO';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -19,7 +21,7 @@ const elsewhere = ref({});
 const results = ref([]);
 const toast = ref('');
 
-const normalize = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const normalize = (value) => sanitizeChassisNumber(value);
 
 const lines = computed(() => vinInput.value
     .split(/[\s,;]+/)
@@ -232,7 +234,8 @@ const statusLabel = (item) => {
                                 <thead>
                                     <tr>
                                         <th>{{ t('land_trips.chassis') }}</th>
-                                        <th>{{ t('common.description') }}</th>
+                                        <th>{{ t('land_trips.model') }}</th>
+                                        <th>{{ t('land_trips.color') }}</th>
                                         <th>{{ t('land_trips.location_status') }}</th>
                                         <th>{{ t('land_trips.consignee') }}</th>
                                         <th>{{ t('common.date') }}</th>
@@ -240,8 +243,11 @@ const statusLabel = (item) => {
                                 </thead>
                                 <tbody>
                                     <tr v-for="car in item.cars" :key="car.id">
-                                        <td class="font-mono">{{ car.chassis_no }}</td>
-                                        <td>{{ car.description || '—' }}</td>
+                                        <td>
+                                            <ChassisLetterOWarning :value="car.chassis_no" />
+                                        </td>
+                                        <td>{{ car.model || car.description || '—' }}</td>
+                                        <td>{{ car.color || '—' }}</td>
                                         <td>{{ car.location_label || t('land_trips.unspecified_location') }}</td>
                                         <td>{{ car.consignee_name || '—' }}</td>
                                         <td>{{ car.created_at || '—' }}</td>

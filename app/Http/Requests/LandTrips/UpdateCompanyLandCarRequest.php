@@ -22,6 +22,8 @@ class UpdateCompanyLandCarRequest extends FormRequest
             'chassis_no' => ['nullable', 'string', 'max:64'],
             'cmr_waybill' => ['nullable', 'string', 'max:80'],
             'consignee_name' => ['nullable', 'string', 'max:180'],
+            'model' => ['nullable', 'string', 'max:180'],
+            'color' => ['nullable', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:255'],
             'weight' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],

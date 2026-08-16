@@ -24,6 +24,8 @@ class SyncCompanyLandCarsRequest extends FormRequest
             'cars.*.chassis_no' => ['nullable', 'string', 'max:64'],
             'cars.*.cmr_waybill' => ['nullable', 'string', 'max:80'],
             'cars.*.consignee_name' => ['nullable', 'string', 'max:180'],
+            'cars.*.model' => ['nullable', 'string', 'max:180'],
+            'cars.*.color' => ['nullable', 'string', 'max:80'],
             'cars.*.description' => ['nullable', 'string', 'max:255'],
             'cars.*.weight' => ['nullable', 'numeric', 'min:0'],
             'cars.*.price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],

@@ -6,6 +6,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { fbButton, fbGhostButton, fbInput, fbLabel } from '@/flowbite';
 import { useLandTripStation } from '@/composables/useLandTripStation';
+import { sanitizeChassisNumber } from '@/composables/useChassisLetterO';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -35,7 +36,7 @@ const resetForm = useForm({});
 
 const rows = ref([]);
 
-const cleanChassis = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const cleanChassis = (value) => sanitizeChassisNumber(value);
 const cleanCmr = (value) => String(value || '')
     .replace(/[^A-Za-z0-9\s\-\/]/g, '')
     .replace(/\s+/g, ' ')
@@ -44,13 +45,19 @@ const cleanDescription = (value) => String(value || '')
     .replace(/[^A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+const cleanColor = (value) => String(value || '')
+    .replace(/[^A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const clonePreviewRow = (row) => ({
     uid: nextUid++,
     row_number: row.row_number ?? rows.value.length + 1,
     chassis_no: cleanChassis(row.chassis_no),
     cmr_waybill: cleanCmr(row.cmr_waybill),
-    description: cleanDescription(row.description),
+    model: cleanDescription(row.model || row.description),
+    color: cleanColor(row.color),
+    description: cleanDescription(row.model || row.description),
     consignee_name: row.consignee_name ?? props.preview?.default_consignee ?? '',
     status_text: row.status_text ?? '',
     location_status_id: row.location_status_id != null && row.location_status_id !== ''
@@ -83,7 +90,9 @@ const companyChassisSet = computed(() => new Set(
 
 const inspectRow = (row, seen) => {
     const chassis = cleanChassis(row.chassis_no);
-    const description = cleanDescription(row.description);
+    const model = cleanDescription(row.model || row.description);
+    const color = cleanColor(row.color);
+    const description = model;
     const cmrWaybill = cleanCmr(row.cmr_waybill);
     let reasonCode = null;
 
@@ -93,7 +102,7 @@ const inspectRow = (row, seen) => {
         reasonCode = 'chassis_used';
     } else if (seen.has(chassis)) {
         reasonCode = 'duplicate_in_file';
-    } else if (description.length > 255) {
+    } else if (model.length > 180 || description.length > 255) {
         reasonCode = 'description_too_long';
     } else if (companyChassisSet.value.has(chassis)) {
         reasonCode = 'already_in_company';
@@ -112,6 +121,8 @@ const inspectRow = (row, seen) => {
         ...row,
         chassis_no: chassis,
         cmr_waybill: cmrWaybill,
+        model,
+        color,
         description,
         status: chassis && !blocking ? 'ready' : 'skipped',
         reason_code: reasonCode,
@@ -219,8 +230,13 @@ const sanitizeRowField = (index, field) => {
         row.cmr_waybill = cleanCmr(row.cmr_waybill);
     }
 
-    if (field === 'description') {
-        row.description = cleanDescription(row.description);
+    if (field === 'description' || field === 'model') {
+        row.model = cleanDescription(row.model || row.description);
+        row.description = row.model;
+    }
+
+    if (field === 'color') {
+        row.color = cleanColor(row.color);
     }
 };
 
@@ -240,7 +256,9 @@ const submitConfirm = () => {
             row_number: Number(row.row_number) || index + 1,
             chassis_no: cleanChassis(row.chassis_no) || null,
             cmr_waybill: cleanCmr(row.cmr_waybill) || null,
-            description: cleanDescription(row.description) || null,
+            model: cleanDescription(row.model || row.description) || null,
+            color: cleanColor(row.color) || null,
+            description: cleanDescription(row.model || row.description) || null,
             consignee_name: row.consignee_name || null,
             status_text: row.status_text || null,
             location_status_id: row.location_status_id || null,
@@ -336,7 +354,8 @@ const submitConfirm = () => {
                                 <th class="px-3 py-3">{{ t('common.status') }}</th>
                                 <th class="px-3 py-3 min-w-44">{{ t('land_trips.chassis') }}</th>
                                 <th class="px-3 py-3 min-w-36">{{ t('land_trips.cmr_waybill') }}</th>
-                                <th class="px-3 py-3 min-w-44">{{ t('common.description') }}</th>
+                                <th class="px-3 py-3 min-w-36">{{ t('land_trips.model') }}</th>
+                                <th class="px-3 py-3 min-w-28">{{ t('land_trips.color') }}</th>
                                 <th class="px-3 py-3 min-w-44">{{ t('land_trips.location_status') }}</th>
                                 <th class="px-3 py-3 min-w-36">{{ t('land_trips.consignee') }}</th>
                                 <th class="px-3 py-3">{{ t('common.actions') }}</th>
@@ -376,11 +395,20 @@ const submitConfirm = () => {
                                 </td>
                                 <td class="px-3 py-2">
                                     <input
-                                        v-model="row.description"
+                                        v-model="row.model"
                                         type="text"
                                         :class="fbInput"
                                         autocomplete="off"
-                                        @blur="sanitizeRowField(index, 'description')"
+                                        @blur="sanitizeRowField(index, 'model')"
+                                    />
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input
+                                        v-model="row.color"
+                                        type="text"
+                                        :class="fbInput"
+                                        autocomplete="off"
+                                        @blur="sanitizeRowField(index, 'color')"
                                     />
                                 </td>
                                 <td class="px-3 py-2">

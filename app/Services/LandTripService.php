@@ -12,6 +12,7 @@ use App\Models\LandTripCar;
 use App\Models\User;
 use App\Models\Voyage;
 use App\Models\VoyageCar;
+use App\Support\ChassisLetterO;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -258,6 +259,14 @@ class LandTripService
             ->withQueryString();
     }
 
+    public function countChassisLetterO(Company $company): int
+    {
+        return (int) LandTripCar::query()
+            ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
+            ->whereRaw("UPPER(chassis_no) LIKE '%O%'")
+            ->count();
+    }
+
     /**
      * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null}  $filters
      * @return Collection<int, LandTripCar>
@@ -290,6 +299,8 @@ class LandTripService
                     ->where('land_trip_cars.chassis_no', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.consignee_name', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.description', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.model', 'like', "%{$search}%")
+                    ->orWhere('land_trip_cars.color', 'like', "%{$search}%")
                     ->orWhere('land_trip_cars.cmr_waybill', 'like', "%{$search}%");
             });
         }
@@ -504,7 +515,7 @@ class LandTripService
         $existing = LandTripCar::query()
             ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
             ->get()
-            ->keyBy(fn (LandTripCar $car) => strtoupper((string) $car->chassis_no));
+            ->keyBy(fn (LandTripCar $car) => $this->normalizeChassis($car->chassis_no) ?? '');
 
         $imported = 0;
         $updated = 0;
@@ -527,11 +538,14 @@ class LandTripService
             }
             $seen[$chassis] = true;
 
+            $catalog = $this->carCatalogFields($row);
             $payload = [
                 'chassis_no' => $chassis,
                 'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
                 'consignee_name' => trim((string) ($row['consignee_name'] ?? '')) ?: $company->name,
-                'description' => $this->nullableString($row['description'] ?? null),
+                'model' => $catalog['model'],
+                'color' => $catalog['color'],
+                'description' => $catalog['description'],
                 'location_status_id' => ! empty($row['location_status_id']) ? (int) $row['location_status_id'] : null,
                 'sort_order' => (int) ($row['row_number'] ?? 0),
             ];
@@ -541,6 +555,12 @@ class LandTripService
                 if (empty($payload['location_status_id'])) {
                     $payload['location_status_id'] = $car->location_status_id;
                 }
+                if ($payload['color'] === null) {
+                    unset($payload['color']);
+                }
+                if ($payload['model'] === null) {
+                    unset($payload['model'], $payload['description']);
+                }
                 $car->update($payload);
                 $updated++;
 
@@ -548,9 +568,10 @@ class LandTripService
             }
 
             $elsewhere = LandTripCar::query()
-                ->where('chassis_no', $chassis)
+                ->whereNotNull('chassis_no')
                 ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', '!=', $company->id))
-                ->exists();
+                ->get(['id', 'chassis_no'])
+                ->contains(fn (LandTripCar $car): bool => $this->normalizeChassis($car->chassis_no) === $chassis);
 
             if ($elsewhere) {
                 $skipped++;
@@ -558,7 +579,7 @@ class LandTripService
                 continue;
             }
 
-            $payload['car_id'] = $this->findOrCreateCar($chassis, $payload['description'])->id;
+            $payload['car_id'] = $this->findOrCreateCar($chassis, $payload['description'], $payload['color'])->id;
             $created = $trip->cars()->create($payload);
             $createdIds[] = (int) $created->id;
             $imported++;
@@ -634,6 +655,43 @@ class LandTripService
     }
 
     /**
+     * @param  array{model?: string|null, color?: string|null}  $data
+     */
+    public function updateCompanyCarDetails(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
+    {
+        $car->loadMissing('landTrip');
+
+        if ((int) $car->landTrip?->company_id !== (int) $company->id) {
+            throw ValidationException::withMessages([
+                'car' => 'This car does not belong to the selected company.',
+            ]);
+        }
+
+        $payload = [];
+        if (array_key_exists('model', $data)) {
+            $model = $this->nullableString($data['model']);
+            $payload['model'] = $model;
+            $payload['description'] = $model ?? $car->description;
+        }
+        if (array_key_exists('color', $data)) {
+            $payload['color'] = $this->nullableString($data['color']);
+        }
+
+        if ($payload !== []) {
+            $car->update($payload);
+        }
+
+        Log::info('Land trip car details updated.', [
+            'company_id' => $company->id,
+            'car_id' => $car->id,
+            'fields' => array_keys($payload),
+            'user_id' => $actor->id,
+        ]);
+
+        return $car->fresh();
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     public function updateCompanyCar(Company $company, LandTripCar $car, array $data, User $actor): LandTripCar
@@ -702,11 +760,8 @@ class LandTripService
 
             $chassis = $payload['chassis_no'] ?? null;
             if ($chassis) {
-                $duplicate = LandTripCar::query()
-                    ->where('chassis_no', $chassis)
-                    ->where('id', '!=', $car->id)
-                    ->exists();
-                if ($duplicate) {
+                $occupied = $this->occupiedChassisSet([$car->id]);
+                if (isset($occupied[$chassis])) {
                     throw ValidationException::withMessages([
                         'chassis_no' => 'This chassis number is already used.',
                     ]);
@@ -803,7 +858,12 @@ class LandTripService
             $consignee = $company->name;
         }
 
-        if ($chassis === null && empty($row['voyage_car_id']) && trim((string) ($row['description'] ?? '')) === '') {
+        if (
+            $chassis === null
+            && empty($row['voyage_car_id'])
+            && trim((string) ($row['description'] ?? '')) === ''
+            && trim((string) ($row['model'] ?? '')) === ''
+        ) {
             return null;
         }
 
@@ -828,7 +888,8 @@ class LandTripService
             $chassis = $chassis ?: $this->normalizeChassis($voyageCar->chassis_no);
         }
 
-        $carId = $chassis ? $this->findOrCreateCar($chassis, $row['description'] ?? $voyageCar?->description)->id : null;
+        $catalog = $this->carCatalogFields($row, $voyageCar?->description);
+        $carId = $chassis ? $this->findOrCreateCar($chassis, $catalog['description'], $catalog['color'])->id : null;
 
         return [
             'voyage_car_id' => $voyageCarId,
@@ -836,7 +897,9 @@ class LandTripService
             'chassis_no' => $chassis,
             'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
             'consignee_name' => $consignee,
-            'description' => $this->nullableString($row['description'] ?? $voyageCar?->description),
+            'model' => $catalog['model'],
+            'color' => $catalog['color'],
+            'description' => $catalog['description'],
             'weight' => $row['weight'] ?? $voyageCar?->weight,
             'price' => round((float) ($row['price'] ?? 0), 2),
             'notes' => $this->nullableString($row['notes'] ?? null),
@@ -1053,7 +1116,8 @@ class LandTripService
                 }
             }
 
-            $carId = $chassis ? $this->findOrCreateCar($chassis, $row['description'] ?? $voyageCar?->description)->id : null;
+            $catalog = $this->carCatalogFields($row, $voyageCar?->description);
+            $carId = $chassis ? $this->findOrCreateCar($chassis, $catalog['description'], $catalog['color'])->id : null;
 
             $normalized[] = [
                 'voyage_car_id' => $voyageCarId,
@@ -1061,7 +1125,9 @@ class LandTripService
                 'chassis_no' => $chassis,
                 'cmr_waybill' => $this->nullableString($row['cmr_waybill'] ?? null),
                 'consignee_name' => $consignee,
-                'description' => $row['description'] ?? $voyageCar?->description,
+                'model' => $catalog['model'],
+                'color' => $catalog['color'],
+                'description' => $catalog['description'],
                 'weight' => $row['weight'] ?? $voyageCar?->weight,
                 'price' => round((float) ($row['price'] ?? 0), 2),
                 'notes' => $row['notes'] ?? null,
@@ -1201,7 +1267,9 @@ class LandTripService
             ->map(fn (LandTripCar $car) => [
                 'id' => $car->id,
                 'chassis_no' => (string) ($car->chassis_no ?? ''),
-                'description' => (string) ($car->description ?? ''),
+                'model' => (string) ($car->model ?: $car->description ?? ''),
+                'color' => (string) ($car->color ?? ''),
+                'description' => (string) ($car->description ?: $car->model ?? ''),
                 'consignee_name' => (string) ($car->consignee_name ?? ''),
                 'location_label' => $car->locationStatus?->localizedName(),
                 'created_at' => optional($car->created_at)?->format('Y-m-d'),
@@ -1249,7 +1317,9 @@ class LandTripService
             'chassis_no' => $car->chassis_no,
             'cmr_waybill' => $car->cmr_waybill,
             'consignee_name' => $car->consignee_name,
-            'description' => $car->description,
+            'model' => $car->model ?: $car->description,
+            'color' => $car->color,
+            'description' => $car->description ?: $car->model,
             'weight' => $car->weight !== null ? (string) $car->weight : null,
             'price' => number_format((float) $car->price, 2, '.', ''),
             'notes' => $car->notes,
@@ -1309,17 +1379,54 @@ class LandTripService
         return $seen;
     }
 
-    private function findOrCreateCar(string $chassis, ?string $description): Car
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{model: ?string, color: ?string, description: ?string}
+     */
+    private function carCatalogFields(array $row, ?string $fallbackDescription = null): array
     {
-        return Car::query()->firstOrCreate(
+        $model = $this->nullableString($row['model'] ?? null)
+            ?? $this->nullableString($row['description'] ?? null)
+            ?? $this->nullableString($fallbackDescription);
+        $color = $this->nullableString($row['color'] ?? null);
+        $description = $this->nullableString($row['description'] ?? null)
+            ?? $model
+            ?? $this->nullableString($fallbackDescription);
+
+        return [
+            'model' => $model,
+            'color' => $color,
+            'description' => $description,
+        ];
+    }
+
+    private function findOrCreateCar(string $chassis, ?string $description, ?string $color = null): Car
+    {
+        $car = Car::query()->firstOrCreate(
             ['vin' => $chassis],
-            ['description' => $description]
+            array_filter([
+                'description' => $description,
+                'color' => $color,
+            ], static fn ($value): bool => $value !== null && $value !== '')
         );
+
+        $fill = [];
+        if (! $car->description && $description) {
+            $fill['description'] = $description;
+        }
+        if (! $car->color && $color) {
+            $fill['color'] = $color;
+        }
+        if ($fill !== []) {
+            $car->update($fill);
+        }
+
+        return $car;
     }
 
     private function normalizeChassis(mixed $value): ?string
     {
-        $chassis = strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? ''))));
+        $chassis = ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? '')))));
 
         return $chassis === '' ? null : $chassis;
     }

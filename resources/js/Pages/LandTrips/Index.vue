@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import { statusSurfaceStyle } from '@/composables/useLandTripStatusColor';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -82,8 +83,8 @@ const companyHref = (company) => {
                         <div class="erp-stat-label">{{ company.name }}</div>
                         <div class="erp-stat-value">{{ company.cars_count }}</div>
                         <div class="erp-stat-hint">{{ t('land_trips.cars') }}</div>
-                        <div v-if="company.matched_car?.chassis_no" class="erp-stat-hint font-monospace">
-                            {{ company.matched_car.chassis_no }}
+                        <div v-if="company.matched_car?.chassis_no" class="erp-stat-hint">
+                            <ChassisLetterOWarning :value="company.matched_car.chassis_no" />
                         </div>
                     </div>
                 </Link>

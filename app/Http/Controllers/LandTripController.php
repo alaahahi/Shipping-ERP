@@ -10,6 +10,7 @@ use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
 use App\Http\Requests\LandTrips\TransitionLandTripRequest;
+use App\Http\Requests\LandTrips\UpdateCompanyLandCarDetailsRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarPriceRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandManifestRequest;
 use App\Http\Requests\LandTrips\UpdateLandTripRequest;
@@ -106,6 +107,7 @@ class LandTripController extends Controller
             'locationLog' => $this->locationChangeService->meta($company),
             'importLog' => $this->importLogService->meta($company),
             'wallet' => $this->walletService->payload($company),
+            'chassisLetterOCount' => $this->landTripService->countChassisLetterO($company),
         ]);
     }
 
@@ -176,6 +178,20 @@ class LandTripController extends Controller
             $company,
             $car,
             (float) $request->validated('price'),
+            $request->user()
+        );
+
+        return back();
+    }
+
+    public function updateCompanyCarDetails(UpdateCompanyLandCarDetailsRequest $request, Company $company, LandTripCar $car): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->updateCompanyCarDetails(
+            $company,
+            $car,
+            $request->validated(),
             $request->user()
         );
 

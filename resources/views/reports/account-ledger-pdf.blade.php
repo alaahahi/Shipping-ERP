@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="{{ $locale }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}">
+<html lang="{{ $locale }}" dir="ltr">
 <head>
     <meta charset="utf-8">
-    <title>{{ $labels['ledger'] }} — {{ $payload['account']['code'] }}</title>
+    <title>{{ $payload['account']['code'] }} — {{ $labels['ledger'] }}</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111; direction: {{ $rtl ? 'rtl' : 'ltr' }}; }
-        h1 { font-size: 16px; margin: 0 0 2px; }
-        h2 { font-size: 13px; margin: 0 0 8px; font-weight: normal; }
-        .meta { color: #555; margin-bottom: 10px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111; direction: ltr; }
+        h1 { font-size: 16px; margin: 0 0 2px; {{ $rtl ? 'text-align: right;' : '' }} }
+        h2 { font-size: 13px; margin: 0 0 8px; font-weight: normal; {{ $rtl ? 'text-align: right;' : '' }} }
+        .meta { color: #555; margin-bottom: 10px; {{ $rtl ? 'text-align: right;' : '' }} }
         .summary { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         .summary td { border: 1px solid #ccc; padding: 5px 6px; }
-        .summary .lbl { background: #f3f3f3; font-weight: bold; width: 18%; }
+        .summary .lbl { background: #f3f3f3; font-weight: bold; width: 18%; {{ $rtl ? 'text-align: right;' : '' }} }
         table.lines { width: 100%; border-collapse: collapse; }
         .lines th, .lines td { border: 1px solid #ccc; padding: 4px 6px; text-align: {{ $rtl ? 'right' : 'left' }}; }
         .lines th { background: #f3f3f3; font-weight: bold; }
-        td.num, th.num { text-align: {{ $rtl ? 'left' : 'right' }}; }
+        td.num, th.num { text-align: right; }
         tfoot td { font-weight: bold; background: #fafafa; }
     </style>
 </head>

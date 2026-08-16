@@ -7,6 +7,7 @@ use App\Models\LandTrip;
 use App\Models\LandTripCar;
 use App\Models\LandTripCarStatus;
 use App\Models\User;
+use App\Support\ChassisLetterO;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -81,6 +82,7 @@ class LandTripExcelImportService
 
         $sheet->fromArray([
             'Vehicle Model',
+            'Color',
             'CMR',
             'VIN',
             '#',
@@ -91,26 +93,27 @@ class LandTripExcelImportService
             'Notes',
             'Entered At',
         ], null, 'A2');
-        $sheet->getStyle('A2:J2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:K2')->getFont()->setBold(true);
 
         $line = 3;
         $serial = 1;
         foreach ($cars as $car) {
-            $sheet->setCellValue("A{$line}", (string) ($car->description ?? ''));
-            $sheet->setCellValueExplicit("B{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit("C{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValue("D{$line}", $serial);
-            $sheet->setCellValue("E{$line}", $car->locationStatus?->localizedName() ?? '');
-            $sheet->setCellValue("F{$line}", (string) ($car->consignee_name ?? ''));
-            $sheet->setCellValue("G{$line}", (int) round((float) ($car->price ?? 0)));
-            $sheet->setCellValue("H{$line}", $car->weight !== null ? (string) $car->weight : '');
-            $sheet->setCellValue("I{$line}", (string) ($car->notes ?? ''));
-            $sheet->setCellValue("J{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
+            $sheet->setCellValue("A{$line}", (string) ($car->model ?: $car->description ?? ''));
+            $sheet->setCellValue("B{$line}", (string) ($car->color ?? ''));
+            $sheet->setCellValueExplicit("C{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("D{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValue("E{$line}", $serial);
+            $sheet->setCellValue("F{$line}", $car->locationStatus?->localizedName() ?? '');
+            $sheet->setCellValue("G{$line}", (string) ($car->consignee_name ?? ''));
+            $sheet->setCellValue("H{$line}", (int) round((float) ($car->price ?? 0)));
+            $sheet->setCellValue("I{$line}", $car->weight !== null ? (string) $car->weight : '');
+            $sheet->setCellValue("J{$line}", (string) ($car->notes ?? ''));
+            $sheet->setCellValue("K{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
             $line++;
             $serial++;
         }
 
-        foreach (range('A', 'J') as $column) {
+        foreach (range('A', 'K') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -341,7 +344,8 @@ class LandTripExcelImportService
                 continue;
             }
 
-            $model = $this->cell($cells, $columns['model'] ?? null);
+            $model = $this->sanitizeDescription($this->cell($cells, $columns['model'] ?? null));
+            $color = $this->sanitizeColor($this->cell($cells, $columns['color'] ?? null));
             $cmr = $this->cell($cells, $columns['cmr'] ?? null);
             $serial = $this->cell($cells, $columns['serial'] ?? null);
             $statusText = $this->cell($cells, $columns['status'] ?? null);
@@ -356,7 +360,9 @@ class LandTripExcelImportService
 
             $extracted[] = [
                 'row_number' => $sortOrder,
-                'description' => $this->sanitizeDescription($model),
+                'model' => $model,
+                'color' => $color,
+                'description' => $model,
                 'cmr_waybill' => $this->sanitizeCmr($cmr),
                 'chassis_no' => $chassis,
                 'status_text' => $statusText,
@@ -381,7 +387,9 @@ class LandTripExcelImportService
     {
         $rawChassis = trim((string) ($row['chassis_no'] ?? ''));
         [$normalized, $chassisError] = $this->inspectChassis($rawChassis);
-        $description = $this->sanitizeDescription($row['description'] ?? '');
+        $model = $this->sanitizeDescription($row['model'] ?? $row['description'] ?? '');
+        $color = $this->sanitizeColor($row['color'] ?? '');
+        $description = $this->sanitizeDescription($row['description'] ?? $model);
         $statusText = trim((string) ($row['status_text'] ?? ''));
         $status = $this->resolveStatus($row);
         $reasonCode = null;
@@ -392,7 +400,7 @@ class LandTripExcelImportService
             $reasonCode = 'chassis_used';
         } elseif ($normalized !== null && isset($seen[$normalized])) {
             $reasonCode = 'duplicate_in_file';
-        } elseif (mb_strlen($description) > 255) {
+        } elseif (mb_strlen($model) > 180 || mb_strlen($description) > 255) {
             $reasonCode = 'description_too_long';
         } elseif ($normalized !== null && isset($companyChassis[$normalized])) {
             $reasonCode = 'already_in_company';
@@ -408,7 +416,9 @@ class LandTripExcelImportService
             'status' => $ready ? 'ready' : 'skipped',
             'reason_code' => $reasonCode,
             'reason' => $reasonCode,
-            'description' => $description,
+            'model' => $model,
+            'color' => $color,
+            'description' => $description !== '' ? $description : $model,
             'cmr_waybill' => $this->sanitizeCmr($row['cmr_waybill'] ?? ''),
             'chassis_no' => $normalized ?? '',
             'normalized_chassis' => $normalized,
@@ -554,8 +564,10 @@ class LandTripExcelImportService
         foreach ($cells as $index => $cell) {
             $value = strtolower(trim($cell));
 
-            if (str_contains($value, 'vehicle model') || $value === 'car name') {
+            if (str_contains($value, 'vehicle model') || $value === 'car name' || $value === 'model' || str_contains($value, 'موديل') || str_contains($value, 'مۆدێل')) {
                 $map['model'] = $index;
+            } elseif (str_contains($value, 'color') || str_contains($value, 'colour') || str_contains($value, 'لون') || str_contains($value, 'ڕەنگ') || str_contains($value, 'رەنگ')) {
+                $map['color'] = $index;
             } elseif (str_contains($value, 'cmr') || str_contains($value, 'waybill')) {
                 $map['cmr'] = $index;
             } elseif (preg_match('/\bvin\b/', $value) || str_contains($value, 'chassis')) {
@@ -727,7 +739,7 @@ class LandTripExcelImportService
 
     private function sanitizeChassis(?string $value): string
     {
-        return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $value));
+        return ChassisLetterO::replace(strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $value)));
     }
 
     private function sanitizeCmr(?string $value): string
@@ -741,6 +753,14 @@ class LandTripExcelImportService
     private function sanitizeDescription(?string $value): string
     {
         $cleaned = (string) preg_replace('/[^\p{Arabic}A-Za-z\s]/u', '', (string) $value);
+        $cleaned = (string) preg_replace('/\s+/u', ' ', $cleaned);
+
+        return trim($cleaned);
+    }
+
+    private function sanitizeColor(?string $value): string
+    {
+        $cleaned = (string) preg_replace('/[^\p{Arabic}A-Za-z\s\-]/u', '', (string) $value);
         $cleaned = (string) preg_replace('/\s+/u', ' ', $cleaned);
 
         return trim($cleaned);

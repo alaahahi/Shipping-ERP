@@ -3,6 +3,7 @@
 namespace App\Http\Requests\LandTrips;
 
 use App\Enums\Permission;
+use App\Support\ChassisLetterO;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ConfirmImportLandTripCarsRequest extends FormRequest
@@ -28,7 +29,7 @@ class ConfirmImportLandTripCarsRequest extends FormRequest
                 $row['location_status_id'] = null;
             }
 
-            $chassis = trim((string) ($row['chassis_no'] ?? ''));
+            $chassis = ChassisLetterO::replace(strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', trim((string) ($row['chassis_no'] ?? '')))));
             if ($chassis === '') {
                 return null;
             }
@@ -53,6 +54,8 @@ class ConfirmImportLandTripCarsRequest extends FormRequest
             'rows.*.row_number' => ['nullable', 'integer', 'min:0'],
             'rows.*.chassis_no' => ['nullable', 'string', 'max:64'],
             'rows.*.cmr_waybill' => ['nullable', 'string', 'max:80'],
+            'rows.*.model' => ['nullable', 'string', 'max:180'],
+            'rows.*.color' => ['nullable', 'string', 'max:80'],
             'rows.*.description' => ['nullable', 'string', 'max:255'],
             'rows.*.consignee_name' => ['nullable', 'string', 'max:180'],
             'rows.*.status_text' => ['nullable', 'string', 'max:180'],

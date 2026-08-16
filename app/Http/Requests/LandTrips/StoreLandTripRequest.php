@@ -35,6 +35,8 @@ class StoreLandTripRequest extends FormRequest
             'cars.*.voyage_car_id' => ['nullable', 'integer', 'exists:voyage_cars,id'],
             'cars.*.chassis_no' => ['nullable', 'string', 'max:64'],
             'cars.*.consignee_name' => ['nullable', 'string', 'max:180'],
+            'cars.*.model' => ['nullable', 'string', 'max:180'],
+            'cars.*.color' => ['nullable', 'string', 'max:80'],
             'cars.*.description' => ['nullable', 'string', 'max:255'],
             'cars.*.weight' => ['nullable', 'numeric', 'min:0'],
             'cars.*.notes' => ['nullable', 'string', 'max:1000'],

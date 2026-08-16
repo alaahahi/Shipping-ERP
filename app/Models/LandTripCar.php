@@ -18,6 +18,8 @@ class LandTripCar extends Model
         'chassis_no',
         'cmr_waybill',
         'consignee_name',
+        'model',
+        'color',
         'description',
         'weight',
         'price',

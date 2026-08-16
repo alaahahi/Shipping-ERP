@@ -4,6 +4,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -89,7 +90,7 @@ const undoLast = () => {
                                     <summary>{{ change.chassis_preview || t('land_trips.cars') }}</summary>
                                     <ul class="mb-0 ps-3 mt-2">
                                         <li v-for="item in change.items" :key="item.id">
-                                            {{ item.chassis_no || '—' }}
+                                            <ChassisLetterOWarning :value="item.chassis_no" />
                                             :
                                             {{ locationLabel(item.from_location_label) }}
                                             →

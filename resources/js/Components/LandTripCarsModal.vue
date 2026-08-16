@@ -1,6 +1,7 @@
 <script setup>
 import { useLandTripStation } from '@/composables/useLandTripStation';
 import { statusRowStyle } from '@/composables/useLandTripStatusColor';
+import { sanitizeChassisNumber } from '@/composables/useChassisLetterO';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -22,6 +23,8 @@ const emptyRow = () => ({
     chassis_no: '',
     cmr_waybill: '',
     consignee_name: '',
+    model: '',
+    color: '',
     description: '',
     weight: '',
     notes: '',
@@ -51,7 +54,19 @@ const removeRow = (index) => {
 };
 
 const updateRow = (index, key, value) => {
-    const next = props.cars.map((row, i) => (i === index ? { ...row, [key]: value } : row));
+    const nextValue = key === 'chassis_no' ? sanitizeChassisNumber(value) : value;
+    const next = props.cars.map((row, i) => {
+        if (i !== index) {
+            return row;
+        }
+
+        const patch = { ...row, [key]: nextValue };
+        if (key === 'model') {
+            patch.description = nextValue;
+        }
+
+        return patch;
+    });
     emit('update:cars', next);
 };
 
@@ -67,9 +82,11 @@ const applyVoyageCar = (index, voyageCarId) => {
         return {
             ...row,
             voyage_car_id: selected.id,
-            chassis_no: selected.chassis_no ?? '',
+            chassis_no: sanitizeChassisNumber(selected.chassis_no ?? ''),
             consignee_name: selected.consignee_name ?? '',
-            description: selected.description ?? '',
+            model: selected.model || selected.description || '',
+            color: selected.color ?? '',
+            description: selected.description || selected.model || '',
             weight: selected.weight ?? '',
             price: integerPrice(row.price),
         };
@@ -83,10 +100,12 @@ const fillFromVoyage = () => {
         'update:cars',
         props.voyageCars.map((car) => ({
             voyage_car_id: car.id,
-            chassis_no: car.chassis_no ?? '',
+            chassis_no: sanitizeChassisNumber(car.chassis_no ?? ''),
             cmr_waybill: '',
             consignee_name: car.consignee_name ?? '',
-            description: car.description ?? '',
+            model: car.model || car.description || '',
+            color: car.color ?? '',
+            description: car.description || car.model || '',
             weight: car.weight ?? '',
             notes: '',
             price: 0,
@@ -125,9 +144,10 @@ const fillFromVoyage = () => {
                         <tr>
                             <th v-if="voyageCars.length" class="ps-3">{{ t('land_trips.voyage_car') }}</th>
                             <th :class="{ 'ps-3': !voyageCars.length }">{{ t('land_trips.chassis') }}</th>
+                            <th>{{ t('land_trips.model') }}</th>
+                            <th>{{ t('land_trips.color') }}</th>
                             <th>{{ t('land_trips.cmr_waybill') }}</th>
                             <th>{{ t('land_trips.consignee') }}</th>
-                            <th>{{ t('common.description') }}</th>
                             <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.car_price') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
@@ -136,7 +156,7 @@ const fillFromVoyage = () => {
                     </thead>
                     <tbody>
                         <tr v-if="cars.length === 0">
-                            <td :colspan="voyageCars.length ? 9 : 8" class="text-center text-secondary py-4">
+                            <td :colspan="voyageCars.length ? 10 : 9" class="text-center text-secondary py-4">
                                 {{ t('land_trips.no_car_rows') }}
                             </td>
                         </tr>
@@ -165,6 +185,20 @@ const fillFromVoyage = () => {
                                     @input="updateRow(index, 'chassis_no', $event.target.value)"
                                 />
                             </td>
+                            <td style="min-width: 140px">
+                                <input
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.model || row.description"
+                                    @input="updateRow(index, 'model', $event.target.value)"
+                                />
+                            </td>
+                            <td style="min-width: 110px">
+                                <input
+                                    class="form-control form-erp-control form-control-sm"
+                                    :value="row.color"
+                                    @input="updateRow(index, 'color', $event.target.value)"
+                                />
+                            </td>
                             <td style="min-width: 120px">
                                 <input
                                     class="form-control form-erp-control form-control-sm"
@@ -177,13 +211,6 @@ const fillFromVoyage = () => {
                                     class="form-control form-erp-control form-control-sm"
                                     :value="row.consignee_name"
                                     @input="updateRow(index, 'consignee_name', $event.target.value)"
-                                />
-                            </td>
-                            <td style="min-width: 150px">
-                                <input
-                                    class="form-control form-erp-control form-control-sm"
-                                    :value="row.description"
-                                    @input="updateRow(index, 'description', $event.target.value)"
                                 />
                             </td>
                             <td style="min-width: 180px">

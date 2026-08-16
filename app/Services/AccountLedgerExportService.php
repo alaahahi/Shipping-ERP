@@ -6,6 +6,7 @@ use App\Enums\AppLocale;
 use App\Enums\SettingKey;
 use App\Models\Account;
 use App\Support\ApplicationTimezone;
+use App\Support\PdfRtlText;
 use App\Support\ResolvedLocale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -105,11 +106,11 @@ class AccountLedgerExportService
         $locale = $this->locale();
 
         $pdf = Pdf::loadView('reports.account-ledger-pdf', [
-            'company' => $this->companyName(),
-            'payload' => $payload,
+            'company' => PdfRtlText::shape($this->companyName()),
+            'payload' => PdfRtlText::shapeArray($payload),
             'filters' => $filters,
-            'labels' => $this->labels(),
-            'period' => $this->periodLabel($filters, $this->labels()),
+            'labels' => PdfRtlText::shapeArray($this->labels()),
+            'period' => PdfRtlText::shape($this->periodLabel($filters, $this->labels())),
             'rtl' => $locale->isRtl(),
             'locale' => $locale->value,
             'generated_at' => ApplicationTimezone::formatNowLabel(),

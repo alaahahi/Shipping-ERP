@@ -7,6 +7,7 @@ import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import { useLandTripStation } from '@/composables/useLandTripStation';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -34,7 +35,9 @@ const carsForm = useForm({
         chassis_no: car.chassis_no ?? '',
         cmr_waybill: car.cmr_waybill ?? '',
         consignee_name: car.consignee_name ?? '',
-        description: car.description ?? '',
+        model: car.model || car.description || '',
+        color: car.color ?? '',
+        description: car.description || car.model || '',
         weight: car.weight ?? '',
         notes: car.notes ?? '',
         location_status_id: car.location_status_id ?? '',
@@ -182,24 +185,28 @@ const postFreight = () => {
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">{{ t('land_trips.chassis') }}</th>
+                            <th>{{ t('land_trips.model') }}</th>
+                            <th>{{ t('land_trips.color') }}</th>
                             <th>{{ t('land_trips.cmr_waybill') }}</th>
                             <th>{{ t('land_trips.consignee') }}</th>
-                            <th>{{ t('common.description') }}</th>
                             <th>{{ t('land_trips.location_status') }}</th>
                             <th>{{ t('land_trips.weight') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="!trip.cars?.length">
-                            <td colspan="6">
+                            <td colspan="7">
                                 <EmptyState icon="C">{{ t('land_trips.no_cars') }}</EmptyState>
                             </td>
                         </tr>
                         <tr v-for="car in trip.cars" :key="car.id" :class="rowClass(car)">
-                            <td class="ps-4 font-monospace">{{ car.chassis_no || '—' }}</td>
+                            <td class="ps-4">
+                                <ChassisLetterOWarning :value="car.chassis_no" />
+                            </td>
+                            <td>{{ car.model || car.description || '—' }}</td>
+                            <td>{{ car.color || '—' }}</td>
                             <td>{{ car.cmr_waybill || '—' }}</td>
                             <td>{{ car.consignee_name }}</td>
-                            <td>{{ car.description || '—' }}</td>
                             <td>{{ carStationLabel(car) }}</td>
                             <td>{{ car.weight || '—' }}</td>
                         </tr>

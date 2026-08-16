@@ -6,6 +6,7 @@ import LandTripCompanyWallet from '@/Components/LandTripCompanyWallet.vue';
 import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
+import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
 import { useLandTripStation } from '@/composables/useLandTripStation';
@@ -26,6 +27,7 @@ const props = defineProps({
     locationLog: { type: Object, default: () => ({ can_undo: false }) },
     importLog: { type: Object, default: () => ({ can_undo: false }) },
     wallet: { type: Object, default: () => ({ balances: [], summary: null, entries: [], currencies: ['USD'] }) },
+    chassisLetterOCount: { type: Number, default: 0 },
 });
 
 const page = usePage();
@@ -59,6 +61,8 @@ const emptyCarRow = () => ({
     chassis_no: '',
     cmr_waybill: '',
     consignee_name: '',
+    model: '',
+    color: '',
     description: '',
     weight: '',
     price: 0,
@@ -557,6 +561,35 @@ const savePrice = (car, value) => {
         },
     });
 };
+
+const saveCarDetails = (car, field, value) => {
+    const next = String(value ?? '').trim();
+    const current = String(car[field] ?? '').trim();
+    if (next === current) {
+        return;
+    }
+
+    router.patch(route('land-trips.companies.cars.update', [props.company.id, car.id]), {
+        [field]: next,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            loadedCars.value = loadedCars.value.map((row) => {
+                if (row.id !== car.id) {
+                    return row;
+                }
+
+                const patch = { ...row, [field]: next };
+                if (field === 'model') {
+                    patch.description = next || row.description;
+                }
+
+                return patch;
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -767,6 +800,14 @@ const savePrice = (car, value) => {
                     </div>
                 </div>
 
+                <div
+                    v-if="chassisLetterOCount > 0 && hubTab === 'cars'"
+                    class="land-chassis-o-banner"
+                    role="status"
+                >
+                    {{ t('land_trips.chassis_letter_o_banner', { count: chassisLetterOCount }) }}
+                </div>
+
                 <div class="table-responsive land-hub-table" :class="{ 'is-loading': filtering && !loadingMore }">
                     <table class="table erp-table align-middle mb-0 land-hub-cars">
                         <thead>
@@ -784,16 +825,17 @@ const savePrice = (car, value) => {
                                 </th>
                                 <th :class="['land-hub-seq-col', canManage ? '' : 'ps-4']">{{ t('land_trips.sequence') }}</th>
                                 <th>{{ t('land_trips.chassis') }}</th>
+                                <th>{{ t('land_trips.model') }}</th>
+                                <th>{{ t('land_trips.color') }}</th>
                                 <th>{{ t('land_trips.cmr_waybill') }}</th>
                                 <th>{{ t('land_trips.consignee') }}</th>
-                                <th>{{ t('common.description') }}</th>
                                 <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 8 : 7">
+                                <td :colspan="canManage ? 9 : 8">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -834,10 +876,35 @@ const savePrice = (car, value) => {
                                     </label>
                                 </td>
                                 <td :class="['land-hub-seq', canManage ? '' : 'ps-4']">{{ index + 1 }}</td>
-                                <td class="font-monospace fw-semibold">{{ car.chassis_no || '—' }}</td>
+                                <td>
+                                    <ChassisLetterOWarning :value="car.chassis_no" />
+                                </td>
+                                <td style="min-width: 8.5rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="text"
+                                        class="form-control form-control-sm form-erp-control"
+                                        :value="car.model || car.description || ''"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.model')"
+                                        @change="saveCarDetails(car, 'model', $event.target.value)"
+                                    />
+                                    <span v-else>{{ car.model || car.description || '—' }}</span>
+                                </td>
+                                <td style="min-width: 7rem">
+                                    <input
+                                        v-if="canManage"
+                                        type="text"
+                                        class="form-control form-control-sm form-erp-control"
+                                        :value="car.color || ''"
+                                        :disabled="moveForm.processing || deletingSelected"
+                                        :aria-label="t('land_trips.color')"
+                                        @change="saveCarDetails(car, 'color', $event.target.value)"
+                                    />
+                                    <span v-else>{{ car.color || '—' }}</span>
+                                </td>
                                 <td>{{ car.cmr_waybill || '—' }}</td>
                                 <td>{{ car.consignee_name || '—' }}</td>
-                                <td>{{ car.description || '—' }}</td>
                                 <td style="min-width: 7.5rem">
                                     <input
                                         v-if="canManage"
