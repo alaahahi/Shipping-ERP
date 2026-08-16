@@ -7,6 +7,7 @@ use App\Enums\LandTripStatus;
 use App\Models\Car;
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\LandCompanyCmrFile;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
 use App\Models\User;
@@ -15,9 +16,11 @@ use App\Models\VoyageCar;
 use App\Support\ChassisLetterO;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class LandTripService
@@ -265,6 +268,148 @@ class LandTripService
             ->whereHas('landTrip', fn ($builder) => $builder->where('company_id', $company->id))
             ->whereRaw("UPPER(chassis_no) LIKE '%O%'")
             ->count();
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function companyCmrGroups(Company $company, array $filters = []): array
+    {
+        $cars = $this->companyCarsQuery($company, $filters)
+            ->orderByRaw("CASE WHEN TRIM(COALESCE(land_trip_cars.cmr_waybill, '')) = '' THEN 1 ELSE 0 END")
+            ->orderBy('land_trip_cars.cmr_waybill')
+            ->orderBy('land_trip_cars.id')
+            ->get(['land_trip_cars.id', 'land_trip_cars.chassis_no', 'land_trip_cars.cmr_waybill', 'land_trip_cars.model', 'land_trip_cars.description']);
+
+        $files = LandCompanyCmrFile::query()
+            ->where('company_id', $company->id)
+            ->get()
+            ->keyBy(fn (LandCompanyCmrFile $file) => (string) $file->cmr_key);
+
+        /** @var array<string, array<string, mixed>> $groups */
+        $groups = [];
+
+        foreach ($cars as $car) {
+            $key = $this->normalizeCmrKey($car->cmr_waybill);
+            if (! isset($groups[$key])) {
+                $file = $files->get($key);
+                $groups[$key] = [
+                    'cmr_key' => $key,
+                    'cmr_label' => $key === '' ? null : $key,
+                    'is_unspecified' => $key === '',
+                    'cars_count' => 0,
+                    'chassis_nos' => [],
+                    'attachment' => $file ? [
+                        'id' => $file->id,
+                        'original_name' => $file->original_name,
+                        'url' => $file->publicUrl(),
+                    ] : null,
+                ];
+            }
+
+            $groups[$key]['cars_count']++;
+            $chassis = trim((string) ($car->chassis_no ?? ''));
+            if ($chassis !== '') {
+                $groups[$key]['chassis_nos'][] = $chassis;
+            }
+        }
+
+        foreach ($files as $key => $file) {
+            if (isset($groups[$key])) {
+                continue;
+            }
+
+            $groups[$key] = [
+                'cmr_key' => (string) $key,
+                'cmr_label' => $key === '' ? null : (string) $key,
+                'is_unspecified' => $key === '',
+                'cars_count' => 0,
+                'chassis_nos' => [],
+                'attachment' => [
+                    'id' => $file->id,
+                    'original_name' => $file->original_name,
+                    'url' => $file->publicUrl(),
+                ],
+            ];
+        }
+
+        return array_values($groups);
+    }
+
+    public function storeCompanyCmrFile(Company $company, ?string $cmrKey, UploadedFile $file, User $actor): LandCompanyCmrFile
+    {
+        $key = $this->normalizeCmrKey($cmrKey);
+
+        return DB::transaction(function () use ($company, $key, $file, $actor): LandCompanyCmrFile {
+            $existing = LandCompanyCmrFile::query()
+                ->where('company_id', $company->id)
+                ->where('cmr_key', $key)
+                ->first();
+
+            if ($existing) {
+                $this->deleteStoredCmrFile($existing);
+            }
+
+            $path = $file->store('land-cmr-files/'.$company->id, 'public');
+
+            $record = LandCompanyCmrFile::query()->updateOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'cmr_key' => $key,
+                ],
+                [
+                    'attachment_path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                    'uploaded_by' => $actor->id,
+                ]
+            );
+
+            Log::info('Land company CMR file uploaded.', [
+                'company_id' => $company->id,
+                'cmr_key' => $key,
+                'file_id' => $record->id,
+                'user_id' => $actor->id,
+            ]);
+
+            return $record->fresh();
+        });
+    }
+
+    public function destroyCompanyCmrFile(Company $company, ?string $cmrKey, User $actor): void
+    {
+        $key = $this->normalizeCmrKey($cmrKey);
+        $record = LandCompanyCmrFile::query()
+            ->where('company_id', $company->id)
+            ->where('cmr_key', $key)
+            ->first();
+
+        if (! $record) {
+            return;
+        }
+
+        $this->deleteStoredCmrFile($record);
+        $record->delete();
+
+        Log::info('Land company CMR file deleted.', [
+            'company_id' => $company->id,
+            'cmr_key' => $key,
+            'user_id' => $actor->id,
+        ]);
+    }
+
+    private function deleteStoredCmrFile(LandCompanyCmrFile $file): void
+    {
+        if ($file->attachment_path && Storage::disk('public')->exists($file->attachment_path)) {
+            Storage::disk('public')->delete($file->attachment_path);
+        }
+    }
+
+    private function normalizeCmrKey(?string $value): string
+    {
+        $cleaned = strtoupper(trim((string) preg_replace('/\s+/', ' ', (string) ($value ?? ''))));
+
+        return mb_substr($cleaned, 0, 80);
     }
 
     /**
