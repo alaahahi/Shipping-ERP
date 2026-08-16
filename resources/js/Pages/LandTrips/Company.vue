@@ -9,6 +9,7 @@ import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
 import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vue';
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
+import LandTripModelGroups from '@/Components/LandTrips/LandTripModelGroups.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
@@ -850,6 +851,17 @@ const duplicateCarCount = computed(() => (
                             <span class="land-hub-chip-dot" aria-hidden="true" />
                             <span class="land-hub-chip-label">{{ t('land_trips.view_by_cmr') }}</span>
                         </button>
+                        <button
+                            type="button"
+                            class="land-hub-chip"
+                            :class="{ 'is-active': carsViewMode === 'model' }"
+                            :aria-pressed="carsViewMode === 'model'"
+                            :style="chipStyle('#0F766E')"
+                            @click="carsViewMode = 'model'"
+                        >
+                            <span class="land-hub-chip-dot" aria-hidden="true" />
+                            <span class="land-hub-chip-label">{{ t('land_trips.view_by_model') }}</span>
+                        </button>
                     </div>
 
                     <div class="land-hub-controls">
@@ -870,7 +882,7 @@ const duplicateCarCount = computed(() => (
                                 id="land-hub-sort"
                                 v-model="filterForm.sort"
                                 class="form-select form-erp-control"
-                                :disabled="carsViewMode === 'cmr'"
+                                :disabled="carsViewMode !== 'list'"
                             >
                                 <option value="newest">{{ t('land_trips.sort_newest') }}</option>
                                 <option value="oldest">{{ t('land_trips.sort_oldest') }}</option>
@@ -983,6 +995,13 @@ const duplicateCarCount = computed(() => (
                     @renamed="applyFilters"
                 />
 
+                <LandTripModelGroups
+                    v-else-if="carsViewMode === 'model'"
+                    :company-id="company.id"
+                    :search="filters.search || ''"
+                    :location-status-id="filters.location_status_id || ''"
+                />
+
                 <div
                     v-show="carsViewMode === 'list'"
                     class="table-responsive land-hub-table"
@@ -1007,7 +1026,6 @@ const duplicateCarCount = computed(() => (
                                 <th>{{ t('land_trips.model') }}</th>
                                 <th>{{ t('land_trips.color') }}</th>
                                 <th>{{ t('land_trips.year') }}</th>
-                                <th>{{ t('land_trips.consignee') }}</th>
                                 <th>{{ t('land_trips.car_price') }}</th>
                                 <th>{{ t('land_trips.location_status') }}</th>
                                 <th class="pe-3 text-end">{{ t('common.actions') }}</th>
@@ -1015,7 +1033,7 @@ const duplicateCarCount = computed(() => (
                         </thead>
                         <tbody>
                             <tr v-if="!loadedCars.length">
-                                <td :colspan="canManage ? 10 : 9">
+                                <td :colspan="canManage ? 9 : 8">
                                     <EmptyState
                                         :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
                                         icon="C"
@@ -1094,19 +1112,6 @@ const duplicateCarCount = computed(() => (
                                     <span v-else>{{ car.color || '—' }}</span>
                                 </td>
                                 <td class="tabular-nums">{{ car.year || '—' }}</td>
-                                <td style="min-width: 8rem">
-                                    <input
-                                        v-if="canManage"
-                                        type="text"
-                                        class="form-control form-control-sm form-erp-control"
-                                        :value="car.consignee_name || ''"
-                                        :disabled="moveForm.processing || deletingSelected"
-                                        :aria-label="t('land_trips.consignee')"
-                                        maxlength="180"
-                                        @change="saveCarDetails(car, 'consignee_name', $event.target.value)"
-                                    />
-                                    <span v-else>{{ car.consignee_name || '—' }}</span>
-                                </td>
                                 <td style="min-width: 7.5rem">
                                     <input
                                         v-if="canManage"

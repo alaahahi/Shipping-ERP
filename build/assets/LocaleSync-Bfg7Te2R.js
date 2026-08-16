@@ -1,0 +1,1 @@
+import{u as t,A as c,T as o,c as n,I as r,o as p}from"./app-BWZKtrOS.js";const u={class:"d-none","aria-hidden":"true"},m={__name:"LocaleSync",setup(_){const a=r(),{locale:s}=t();return c(()=>a.props.appSettings?.locale,e=>{e&&(s.value=e,o(e))},{immediate:!0}),(e,l)=>(p(),n("span",u))}};export{m as _};
