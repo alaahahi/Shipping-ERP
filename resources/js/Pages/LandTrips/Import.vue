@@ -4,7 +4,7 @@ import FlashMessage from '@/Components/FlashMessage.vue';
 import InputError from '@/Components/InputError.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
-import { fbButton, fbGhostButton, fbInput, fbLabel } from '@/flowbite';
+import { fbButton, fbGhostButton, fbInput, fbLabel, fbLink } from '@/flowbite';
 import { useLandTripStation } from '@/composables/useLandTripStation';
 import { sanitizeChassisNumber } from '@/composables/useChassisLetterO';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
@@ -278,11 +278,11 @@ const submitConfirm = () => {
         <template #header>{{ t('land_trips.import') }}</template>
         <FlashMessage :message="success" />
 
-        <div class="land-trip-import">
+        <div class="land-trip-import mx-auto w-full max-w-7xl">
             <div class="mb-3">
                 <Link
                     :href="route('land-trips.companies.show', trip.company_id)"
-                    :class="['text-sm font-medium text-teal-700 hover:underline dark:text-teal-400']"
+                    :class="fbLink"
                 >
                     ← {{ t('land_trips.back_company') }}
                 </Link>
@@ -290,20 +290,29 @@ const submitConfirm = () => {
 
             <PageHeader :title="t('land_trips.import')" :subtitle="t('land_trips.import_help')" />
 
-            <form class="land-trip-import-panel mb-4 rounded-lg border border-gray-200 p-4 dark:border-slate-700" @submit.prevent="submitPreview">
-                <div class="max-w-xl">
-                    <label :class="fbLabel">{{ t('land_trips.excel_file') }}</label>
-                    <input
-                        ref="fileInput"
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        :class="[fbInput, 'land-trip-import-file']"
-                        @change="onFileChange"
-                    />
-                    <InputError :message="uploadForm.errors.file" />
-                </div>
-                <div class="mt-4">
-                    <button type="submit" :class="fbButton" class="!w-auto" :disabled="uploadForm.processing || !uploadForm.file">
+            <form
+                class="land-trip-import-panel land-trip-import-upload mb-4 w-full max-w-2xl rounded-lg border border-gray-200 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-slate-700 dark:shadow-none dark:hover:shadow-none"
+                @submit.prevent="submitPreview"
+            >
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div class="min-w-0 flex-1">
+                        <label :class="fbLabel" for="land-trip-excel-file">{{ t('land_trips.excel_file') }}</label>
+                        <input
+                            id="land-trip-excel-file"
+                            ref="fileInput"
+                            type="file"
+                            accept=".xlsx,.xls,.csv"
+                            :class="[fbInput, 'land-trip-import-file']"
+                            @change="onFileChange"
+                        />
+                        <InputError :message="uploadForm.errors.file" />
+                    </div>
+                    <button
+                        type="submit"
+                        :class="fbButton"
+                        class="!w-full shrink-0 sm:!w-auto sm:min-w-28"
+                        :disabled="uploadForm.processing || !uploadForm.file"
+                    >
                         {{ uploadForm.processing ? t('common.saving') : t('land_trips.preview') }}
                     </button>
                 </div>
@@ -311,7 +320,7 @@ const submitConfirm = () => {
 
             <div v-if="preview" class="land-trip-import-panel overflow-hidden rounded-lg border border-gray-200 dark:border-slate-700">
                 <div class="land-trip-import-toolbar flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 p-4 dark:border-slate-700">
-                    <div>
+                    <div class="min-w-0">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('land_trips.preview_title') }}</h3>
                         <p class="land-trip-import-filename mt-1 text-sm text-gray-700 dark:text-gray-200">
                             {{ preview.original_name }}

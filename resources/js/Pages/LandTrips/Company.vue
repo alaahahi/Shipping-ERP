@@ -576,15 +576,23 @@ const savePrice = (car, value) => {
 };
 
 const saveCarDetails = (car, field, value) => {
-    const next = String(value ?? '').trim();
-    const current = String(car[field] ?? '').trim();
+    let next = String(value ?? '').trim();
+    let current = String(car[field] ?? '').trim();
+
+    if (field === 'year') {
+        next = next === '' ? '' : String(Number.parseInt(next, 10) || '');
+        current = car.year == null || car.year === '' ? '' : String(car.year);
+    }
+
     if (next === current) {
         return;
     }
 
-    router.patch(route('land-trips.companies.cars.update', [props.company.id, car.id]), {
-        [field]: next,
-    }, {
+    const payload = field === 'year'
+        ? { year: next === '' ? null : Number(next) }
+        : { [field]: next };
+
+    router.patch(route('land-trips.companies.cars.update', [props.company.id, car.id]), payload, {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
@@ -593,7 +601,12 @@ const saveCarDetails = (car, field, value) => {
                     return row;
                 }
 
-                const patch = { ...row, [field]: next };
+                const patch = { ...row };
+                if (field === 'year') {
+                    patch.year = next === '' ? null : Number(next);
+                } else {
+                    patch[field] = next;
+                }
                 if (field === 'model') {
                     patch.description = next || row.description;
                 }

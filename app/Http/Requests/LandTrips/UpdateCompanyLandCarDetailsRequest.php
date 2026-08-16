@@ -12,6 +12,13 @@ class UpdateCompanyLandCarDetailsRequest extends FormRequest
         return $this->user()?->can(Permission::LandTripsManage->value) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('year') && $this->input('year') === '') {
+            $this->merge(['year' => null]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

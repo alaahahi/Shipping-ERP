@@ -25,7 +25,7 @@ use Illuminate\Validation\ValidationException;
 
 class LandTripService
 {
-    public const COMPANY_CARS_PER_PAGE = 50;
+    public const COMPANY_CARS_PER_PAGE = 100;
 
     public function __construct(
         private readonly LandTripCarStatusService $carStatusService,
