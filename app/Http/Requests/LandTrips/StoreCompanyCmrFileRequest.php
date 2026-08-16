@@ -14,9 +14,9 @@ class StoreCompanyCmrFileRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $cmr = trim((string) $this->input('cmr_key', ''));
+        $cmr = strtoupper(trim((string) preg_replace('/\s+/', ' ', (string) $this->input('cmr_key', ''))));
         $this->merge([
-            'cmr_key' => $cmr,
+            'cmr_key' => mb_substr($cmr, 0, 80),
         ]);
     }
 

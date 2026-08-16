@@ -6,6 +6,8 @@ use App\Enums\LandTripStatus;
 use App\Enums\Permission;
 use App\Http\Requests\LandTrips\BulkDeleteCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
+use App\Http\Requests\LandTrips\DestroyCompanyCmrFileRequest;
+use App\Http\Requests\LandTrips\StoreCompanyCmrFileRequest;
 use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
@@ -220,6 +222,52 @@ class LandTripController extends Controller
         return response()->json([
             'groups' => $this->landTripService->companyChassisDuplicates($company),
         ]);
+    }
+
+    public function companyCmrGroups(Request $request, Company $company): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return response()->json([
+            'groups' => $this->landTripService->companyCmrGroups($company, [
+                'search' => $request->string('search')->toString(),
+                'location_status_id' => $request->string('location_status_id')->toString(),
+            ]),
+        ]);
+    }
+
+    public function storeCompanyCmrFile(StoreCompanyCmrFileRequest $request, Company $company): JsonResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $file = $this->landTripService->storeCompanyCmrFile(
+            $company,
+            $request->validated('cmr_key'),
+            $request->file('file'),
+            $request->user()
+        );
+
+        return response()->json([
+            'cmr_key' => $file->cmr_key,
+            'attachment' => [
+                'id' => $file->id,
+                'original_name' => $file->original_name,
+                'url' => $file->publicUrl(),
+            ],
+        ]);
+    }
+
+    public function destroyCompanyCmrFile(DestroyCompanyCmrFileRequest $request, Company $company): JsonResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $this->landTripService->destroyCompanyCmrFile(
+            $company,
+            $request->validated('cmr_key'),
+            $request->user()
+        );
+
+        return response()->json(['ok' => true]);
     }
 
     public function updateCompanyManifest(UpdateCompanyLandManifestRequest $request, Company $company): RedirectResponse

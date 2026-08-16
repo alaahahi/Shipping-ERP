@@ -7,6 +7,7 @@ import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
+import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
@@ -43,6 +44,8 @@ const duplicatesLoading = ref(false);
 const duplicatesError = ref('');
 const selectedIds = ref([]);
 const hubTab = ref('cars');
+const carsViewMode = ref('list');
+const cmrGroupsRef = ref(null);
 
 watch(hubTab, (tab) => {
     if (tab !== 'wallet') {
@@ -832,6 +835,7 @@ const duplicateCarCount = computed(() => (
                                 id="land-hub-sort"
                                 v-model="filterForm.sort"
                                 class="form-select form-erp-control"
+                                :disabled="carsViewMode === 'cmr'"
                             >
                                 <option value="newest">{{ t('land_trips.sort_newest') }}</option>
                                 <option value="oldest">{{ t('land_trips.sort_oldest') }}</option>
@@ -839,7 +843,27 @@ const duplicateCarCount = computed(() => (
                                 <option value="sequence">{{ t('land_trips.sort_sequence') }}</option>
                             </select>
                         </div>
-                        <div v-if="canManage" class="land-hub-bulk">
+                        <div class="land-hub-view-toggle" role="group" :aria-label="t('land_trips.cars_view_mode')">
+                            <button
+                                type="button"
+                                class="land-hub-view-btn"
+                                :class="{ 'is-active': carsViewMode === 'list' }"
+                                :aria-pressed="carsViewMode === 'list'"
+                                @click="carsViewMode = 'list'"
+                            >
+                                {{ t('land_trips.view_list') }}
+                            </button>
+                            <button
+                                type="button"
+                                class="land-hub-view-btn"
+                                :class="{ 'is-active': carsViewMode === 'cmr' }"
+                                :aria-pressed="carsViewMode === 'cmr'"
+                                @click="carsViewMode = 'cmr'"
+                            >
+                                {{ t('land_trips.view_by_cmr') }}
+                            </button>
+                        </div>
+                        <div v-if="canManage && carsViewMode === 'list'" class="land-hub-bulk">
                             <label class="land-hub-bulk-label" for="land-hub-move">{{ t('land_trips.move_to') }}</label>
                             <select
                                 id="land-hub-move"
@@ -933,7 +957,21 @@ const duplicateCarCount = computed(() => (
                     </div>
                 </div>
 
-                <div class="table-responsive land-hub-table" :class="{ 'is-loading': filtering && !loadingMore }">
+                <LandTripCmrGroups
+                    v-if="carsViewMode === 'cmr'"
+                    ref="cmrGroupsRef"
+                    :company-id="company.id"
+                    :can-manage="canManage"
+                    :search="filters.search || ''"
+                    :location-status-id="filters.location_status_id || ''"
+                    @toast="toastMessage = $event"
+                />
+
+                <div
+                    v-show="carsViewMode === 'list'"
+                    class="table-responsive land-hub-table"
+                    :class="{ 'is-loading': filtering && !loadingMore }"
+                >
                     <table class="table erp-table align-middle mb-0 land-hub-cars">
                         <thead>
                             <tr>
@@ -1107,7 +1145,7 @@ const duplicateCarCount = computed(() => (
                     </table>
                 </div>
 
-                <div v-if="loadedCars.length || hasMoreCars" class="land-hub-pager">
+                <div v-if="carsViewMode === 'list' && (loadedCars.length || hasMoreCars)" class="land-hub-pager">
                     <div
                         v-if="hasMoreCars"
                         ref="loadMoreSentinel"

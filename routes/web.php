@@ -106,6 +106,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars');
     Route::get('/land-trips/companies/{company}/cars/duplicates', [LandTripController::class, 'companyCarDuplicates'])
         ->name('land-trips.companies.cars.duplicates');
+    Route::get('/land-trips/companies/{company}/cmr-groups', [LandTripController::class, 'companyCmrGroups'])
+        ->name('land-trips.companies.cmr-groups');
+    Route::post('/land-trips/companies/{company}/cmr-files', [LandTripController::class, 'storeCompanyCmrFile'])
+        ->name('land-trips.companies.cmr-files.store');
+    Route::delete('/land-trips/companies/{company}/cmr-files', [LandTripController::class, 'destroyCompanyCmrFile'])
+        ->name('land-trips.companies.cmr-files.destroy');
     Route::get('/land-trips/companies/{company}/car-check', [LandTripController::class, 'companyCarCheck'])
         ->name('land-trips.companies.car-check');
     Route::post('/land-trips/companies/{company}/cars', [LandTripController::class, 'syncCompanyCars'])
