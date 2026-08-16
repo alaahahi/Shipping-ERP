@@ -2876,6 +2876,19 @@ html.dark .land-hub-check input[type='checkbox'],
     background-repeat: no-repeat !important;
 }
 
+/* Dark unchecked rule above also matches :checked; restore teal fill + light mark */
+html.dark .land-hub-check .form-check-input:checked,
+html.dark .land-hub-check input[type='checkbox']:checked,
+[data-theme='dark'] .land-hub-check .form-check-input:checked,
+[data-theme='dark'] .land-hub-check input[type='checkbox']:checked {
+    background-color: #0f766e !important;
+    border-color: #14b8a6 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
+    background-size: 0.78rem !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
 .land-hub-check .form-check-input:focus,
 .land-hub-check input[type='checkbox']:focus {
     outline: 0;

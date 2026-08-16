@@ -36,7 +36,7 @@ const submit = () => form.post(route('accounts.store'));
         </div>
 
         <form
-            class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:max-w-3xl"
+            class="erp-card p-4 lg:max-w-3xl"
             @submit.prevent="submit"
         >
             <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
@@ -62,7 +62,7 @@ const submit = () => form.post(route('accounts.store'));
                     <select v-model="form.currency" :class="fbInput" required>
                         <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                     </select>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('accounts.aed_hint') }}</p>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ t('accounts.aed_hint') }}</p>
                     <InputError :message="form.errors.currency" />
                 </div>
                 <div class="md:col-span-4">
@@ -85,7 +85,7 @@ const submit = () => form.post(route('accounts.store'));
                             <label for="show_on_dashboard" class="text-sm font-medium text-gray-900 dark:text-white">
                                 {{ t('accounts.show_on_dashboard') }}
                             </label>
-                            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">{{ t('accounts.show_on_dashboard_help') }}</p>
+                            <p class="mb-0 text-sm text-gray-600 dark:text-gray-300">{{ t('accounts.show_on_dashboard_help') }}</p>
                         </div>
                     </div>
                 </div>

@@ -21,6 +21,7 @@ const props = defineProps({
 const page = usePage();
 const { t } = useI18n();
 const success = computed(() => page.props.flash?.success);
+const deleteError = computed(() => page.props.errors?.account);
 
 const filterForm = useForm({
     search: props.filters.search ?? '',
@@ -200,6 +201,13 @@ const typeBadgeClass = (type) => {
         <template #header>{{ t('accounts.title') }}</template>
 
         <FlashMessage :message="success" />
+        <div
+            v-if="deleteError"
+            class="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+            role="alert"
+        >
+            {{ deleteError }}
+        </div>
 
         <PageHeader :kicker="t('nav.finance')" :title="t('accounts.title')">
             <template #actions>
@@ -343,7 +351,7 @@ const typeBadgeClass = (type) => {
                                         {{ t('common.edit') }}
                                     </Link>
                                     <button
-                                        v-if="canManage && !account.is_system"
+                                        v-if="canManage"
                                         type="button"
                                         :class="compactDanger"
                                         class="!px-2.5 !py-1.5 text-xs"

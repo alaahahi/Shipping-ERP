@@ -1,8 +1,9 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import { fbButton, fbCheckbox, fbGhostButton, fbInput, fbLabel, fbLink } from '@/flowbite';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { fbButton, fbCheckbox, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink } from '@/flowbite';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -12,7 +13,14 @@ const props = defineProps({
     parents: { type: Array, default: () => [] },
 });
 
+const page = usePage();
 const { t } = useI18n();
+const deleteError = computed(() => page.props.errors?.account);
+
+const locksStructure = computed(() => Boolean(props.account.is_company_receivable));
+const locksTypeCurrency = computed(
+    () => locksStructure.value || Boolean(props.account.has_posted_movements),
+);
 
 const form = useForm({
     code: props.account.code,
@@ -26,6 +34,11 @@ const form = useForm({
 });
 
 const submit = () => form.put(route('accounts.update', props.account.id));
+
+const destroy = () => {
+    if (!window.confirm(t('accounts.delete_confirm', { code: props.account.code }))) return;
+    router.delete(route('accounts.destroy', props.account.id));
+};
 </script>
 
 <template>
@@ -36,20 +49,34 @@ const submit = () => form.put(route('accounts.update', props.account.id));
             <Link :href="route('accounts.index')" :class="fbLink">← {{ t('accounts.back') }}</Link>
         </div>
 
+        <div
+            v-if="deleteError"
+            class="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300 lg:max-w-3xl"
+            role="alert"
+        >
+            {{ deleteError }}
+        </div>
+
         <form
             class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:max-w-3xl"
             @submit.prevent="submit"
         >
             <div
                 v-if="account.is_system"
+                class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+                {{ t('accounts.system_edit_hint') }}
+            </div>
+            <div
+                v-if="locksTypeCurrency"
                 class="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900/50 dark:text-gray-300"
             >
-                {{ t('accounts.system_locked') }}
+                {{ locksStructure ? t('accounts.company_ar_locked') : t('accounts.posted_structure_locked') }}
             </div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div class="md:col-span-4">
                     <label :class="fbLabel">{{ t('accounts.code') }}</label>
-                    <input v-model="form.code" :class="fbInput" :disabled="account.is_system" required />
+                    <input v-model="form.code" :class="fbInput" :disabled="locksStructure" required />
                     <InputError :message="form.errors.code" />
                 </div>
                 <div class="md:col-span-8">
@@ -59,19 +86,21 @@ const submit = () => form.put(route('accounts.update', props.account.id));
                 </div>
                 <div class="md:col-span-4">
                     <label :class="fbLabel">{{ t('accounts.type') }}</label>
-                    <select v-model="form.type" :class="fbInput" :disabled="account.is_system" required>
+                    <select v-model="form.type" :class="fbInput" :disabled="locksTypeCurrency" required>
                         <option v-for="type in types" :key="type.value" :value="type.value">{{ type.label }}</option>
                     </select>
+                    <InputError :message="form.errors.type" />
                 </div>
                 <div class="md:col-span-4">
                     <label :class="fbLabel">{{ t('common.currency') }}</label>
-                    <select v-model="form.currency" :class="fbInput" :disabled="account.is_system" required>
+                    <select v-model="form.currency" :class="fbInput" :disabled="locksTypeCurrency" required>
                         <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                     </select>
+                    <InputError :message="form.errors.currency" />
                 </div>
                 <div class="md:col-span-4">
                     <label :class="fbLabel">{{ t('accounts.parent') }}</label>
-                    <select v-model="form.parent_id" :class="fbInput">
+                    <select v-model="form.parent_id" :class="fbInput" :disabled="locksStructure">
                         <option :value="null">{{ t('accounts.none_parent') }}</option>
                         <option v-for="parent in parents" :key="parent.id" :value="parent.id">{{ parent.label }}</option>
                     </select>
@@ -97,11 +126,20 @@ const submit = () => form.put(route('accounts.update', props.account.id));
                     </div>
                 </div>
             </div>
-            <div class="mt-4 flex flex-wrap justify-end gap-2">
-                <Link :href="route('accounts.index')" :class="fbGhostButton">{{ t('common.cancel') }}</Link>
-                <button :class="[fbButton, '!w-auto']" :disabled="form.processing">
-                    {{ form.processing ? t('common.saving') : t('users.save_changes') }}
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <button
+                    type="button"
+                    :class="[fbDangerButton, '!w-auto']"
+                    @click="destroy"
+                >
+                    {{ t('common.delete') }}
                 </button>
+                <div class="flex flex-wrap gap-2">
+                    <Link :href="route('accounts.index')" :class="fbGhostButton">{{ t('common.cancel') }}</Link>
+                    <button :class="[fbButton, '!w-auto']" :disabled="form.processing">
+                        {{ form.processing ? t('common.saving') : t('users.save_changes') }}
+                    </button>
+                </div>
             </div>
         </form>
     </AppLayout>

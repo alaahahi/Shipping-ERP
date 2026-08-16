@@ -101,6 +101,7 @@ class AccountController extends Controller
                 'show_on_dashboard' => $account->show_on_dashboard,
                 'description' => $account->description,
                 'balance' => $this->accountService->balance($account),
+                'has_posted_movements' => $this->accountService->hasPostedMovements($account),
             ],
             'filters' => $filters,
             'period_debit' => $ledger['period_debit'],
@@ -193,6 +194,8 @@ class AccountController extends Controller
                 'is_active' => $account->is_active,
                 'show_on_dashboard' => $account->show_on_dashboard,
                 'is_system' => $account->is_system,
+                'has_posted_movements' => $this->accountService->hasPostedMovements($account),
+                'is_company_receivable' => $this->accountService->isCompanyReceivable($account),
             ],
             ...$this->formOptions(),
         ]);
@@ -218,11 +221,11 @@ class AccountController extends Controller
         return back();
     }
 
-    public function destroy(Account $account): RedirectResponse
+    public function destroy(Request $request, Account $account): RedirectResponse
     {
         Gate::authorize('delete', $account);
 
-        $this->accountService->delete($account);
+        $this->accountService->delete($account, $request->user());
 
         return redirect()
             ->route('accounts.index')

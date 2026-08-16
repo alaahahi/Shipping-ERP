@@ -30,6 +30,6 @@ class AccountPolicy
 
     public function delete(User $user, Account $account): bool
     {
-        return $user->can(Permission::AccountingManage->value) && ! $account->is_system;
+        return $user->can(Permission::AccountingManage->value);
     }
 }

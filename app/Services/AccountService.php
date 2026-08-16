@@ -13,6 +13,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AccountService
@@ -106,14 +107,25 @@ class AccountService
         return DB::transaction(function () use ($account, $data): Account {
             $isCompanyAr = $this->companyReceivableAccounts->isCompanyReceivable($account);
 
-            if ($account->is_system || $isCompanyAr) {
+            // Company AR subsidiaries stay structurally tied to the control account.
+            if ($isCompanyAr) {
                 $data['code'] = $account->code;
                 $data['type'] = $account->type->value;
                 $data['currency'] = $account->currency->value;
-            }
-
-            if ($isCompanyAr) {
                 $data['parent_id'] = $account->parent_id;
+            } elseif ($this->hasPostedMovements($account)) {
+                // Preserve double-entry integrity once the account has posted history.
+                if (($data['type'] ?? null) !== $account->type->value) {
+                    throw ValidationException::withMessages([
+                        'type' => 'Account type cannot be changed after posted journal movements.',
+                    ]);
+                }
+
+                if (($data['currency'] ?? null) !== $account->currency->value) {
+                    throw ValidationException::withMessages([
+                        'currency' => 'Account currency cannot be changed after posted journal movements.',
+                    ]);
+                }
             }
 
             $this->assertParentCompatible($data, $account->id);
@@ -133,17 +145,11 @@ class AccountService
         });
     }
 
-    public function delete(Account $account): void
+    public function delete(Account $account, ?User $actor = null): void
     {
-        if ($account->is_system) {
+        if ($this->hasPostedMovements($account)) {
             throw ValidationException::withMessages([
-                'account' => 'System accounts cannot be deleted.',
-            ]);
-        }
-
-        if ($account->journalLines()->exists()) {
-            throw ValidationException::withMessages([
-                'account' => 'Accounts with journal history cannot be deleted.',
+                'account' => 'This account cannot be deleted because it has posted journal movements.',
             ]);
         }
 
@@ -159,7 +165,27 @@ class AccountService
             ]);
         }
 
-        $account->delete();
+        DB::transaction(function () use ($account, $actor): void {
+            Log::info('Account soft-deleted', [
+                'account_id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'is_system' => (bool) $account->is_system,
+                'deleted_by' => $actor?->id,
+            ]);
+
+            $account->delete();
+        });
+    }
+
+    public function hasPostedMovements(Account $account): bool
+    {
+        return $this->postedLinesQuery($account)->exists();
+    }
+
+    public function isCompanyReceivable(Account $account): bool
+    {
+        return $this->companyReceivableAccounts->isCompanyReceivable($account);
     }
 
     /**

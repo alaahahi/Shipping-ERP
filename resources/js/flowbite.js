@@ -27,4 +27,4 @@ export const fbAlertSuccess =
     'p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400';
 
 export const fbCheckbox =
-    'w-4 h-4 border border-gray-300 rounded-sm bg-gray-50 focus:ring-3 focus:ring-teal-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-teal-600 dark:ring-offset-gray-800';
+    'w-4 h-4 text-teal-700 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-teal-300 dark:bg-gray-700 dark:border-gray-500 dark:focus:ring-teal-600 dark:ring-offset-gray-800 dark:checked:bg-teal-600 dark:checked:border-teal-500';
