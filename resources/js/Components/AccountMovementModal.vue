@@ -173,7 +173,7 @@ const submit = () => {
                             <input
                                 id="movement-account"
                                 v-model="accountInputValue"
-                                type="search"
+                                type="text"
                                 autocomplete="off"
                                 :class="fbInput"
                                 class="pe-10"
@@ -199,11 +199,11 @@ const submit = () => {
                             v-if="accountMenuOpen"
                             id="movement-account-list"
                             role="listbox"
-                            class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-gray-300 bg-white text-sm shadow-lg dark:border-gray-600 dark:bg-gray-700"
+                            class="erp-account-combo-menu absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border text-sm shadow-lg"
                         >
                             <li
                                 v-if="filteredCounterpartAccounts.length === 0"
-                                class="px-3 py-2 text-gray-500 dark:text-gray-400"
+                                class="erp-account-combo-empty px-3 py-2"
                             >
                                 {{ t('common.no_results') }}
                             </li>
@@ -212,9 +212,9 @@ const submit = () => {
                                 :key="item.id"
                                 role="option"
                                 :aria-selected="String(form.counterpart_account_id) === String(item.id)"
-                                class="cursor-pointer px-3 py-2 text-gray-900 hover:bg-teal-50 dark:text-white dark:hover:bg-teal-900/40"
+                                class="erp-account-combo-option cursor-pointer px-3 py-2"
                                 :class="{
-                                    'bg-teal-50 dark:bg-teal-900/40':
+                                    'is-selected':
                                         String(form.counterpart_account_id) === String(item.id),
                                 }"
                                 @mousedown.prevent="selectCounterpart(item)"
@@ -257,7 +257,7 @@ const submit = () => {
                         id="movement-file"
                         type="file"
                         accept="image/*"
-                        :class="fbInput"
+                        :class="[fbInput, 'erp-file-input']"
                         @change="onFile"
                     />
                     <InputError :message="form.errors.attachment" />

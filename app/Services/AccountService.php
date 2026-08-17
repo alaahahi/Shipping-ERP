@@ -411,7 +411,7 @@ class AccountService
             'closing_balance' => $this->formatAmount($closing),
             'period_debit' => $this->formatAmount($periodTotals['debit']),
             'period_credit' => $this->formatAmount($periodTotals['credit']),
-            'period_net' => $this->formatAmount($periodTotals['credit'] - $periodTotals['debit']),
+            'period_net' => $this->formatAmount($periodTotals['debit'] - $periodTotals['credit']),
             'lines' => $paginator,
         ];
     }
@@ -477,7 +477,7 @@ class AccountService
             'closing_balance' => $this->formatAmount($closing),
             'period_debit' => $this->formatAmount($periodTotals['debit']),
             'period_credit' => $this->formatAmount($periodTotals['credit']),
-            'period_net' => $this->formatAmount($periodTotals['credit'] - $periodTotals['debit']),
+            'period_net' => $this->formatAmount($periodTotals['debit'] - $periodTotals['credit']),
             'lines' => $lines,
         ];
     }

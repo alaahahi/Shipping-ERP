@@ -94,7 +94,7 @@ class AccountMovementTest extends TestCase
                 ->where('account.balance', '-2000.00')
                 ->where('period_debit', '0.00')
                 ->where('period_credit', '2000.00')
-                ->where('period_net', '2000.00')
+                ->where('period_net', '-2000.00')
                 ->where('lines.data.0.balance', '-1000.00')
                 ->where('lines.data.1.balance', '-2000.00')
                 ->where('lines.data.0.counterpart.code', $bank->code)

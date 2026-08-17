@@ -3256,6 +3256,46 @@ html.dark .land-car-selected > td,
     margin: auto;
 }
 
+.erp-account-combo-menu {
+    background: var(--erp-surface) !important;
+    border-color: var(--erp-border) !important;
+    color: var(--erp-text);
+    box-shadow: var(--erp-shadow);
+}
+
+.erp-account-combo-empty {
+    color: var(--erp-text-muted);
+}
+
+.erp-account-combo-option {
+    color: var(--erp-text);
+}
+
+.erp-account-combo-option:hover,
+.erp-account-combo-option.is-selected {
+    background: var(--erp-primary-soft);
+    color: var(--erp-text);
+}
+
+.erp-file-input {
+    color: var(--erp-text);
+}
+
+.erp-file-input::file-selector-button {
+    margin-inline-end: 0.75rem;
+    border: 1px solid var(--erp-border);
+    border-radius: 0.5rem;
+    background: var(--erp-surface-soft);
+    color: var(--erp-text);
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+}
+
+html.dark .erp-file-input,
+[data-theme='dark'] .erp-file-input {
+    color: #e5e7eb;
+}
+
 .erp-settings-tabs {
     display: flex;
     flex-wrap: wrap;

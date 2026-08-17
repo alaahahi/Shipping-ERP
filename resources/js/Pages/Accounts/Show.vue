@@ -200,7 +200,7 @@ const reverseLine = (line) => {
             <div class="erp-stat account-ledger-net">
                 <div class="erp-stat-label">{{ t('accounts.period_net') }}</div>
                 <p class="erp-stat-value" style="font-size: 1.2rem">
-                    <MoneyAmount :value="period_net" tone="credit" show-zero />
+                    <MoneyAmount :value="period_net" tone="balance" show-zero />
                 </p>
             </div>
         </div>
