@@ -1,1 +1,0 @@
-import{G as o,_ as s,$ as r,a0 as n,J as u}from"./app-x_oh3l1z.js";const e=u(s());function h(){const a=()=>{e.value=s(),r(e.value)},t=()=>{e.value=n(e.value==="dark"?"light":"dark")};return o(a),{theme:e,toggleTheme:t,sync:a}}export{h as u};

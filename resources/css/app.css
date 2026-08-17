@@ -3227,6 +3227,25 @@ html.dark .land-car-selected > td,
     color: var(--erp-success);
 }
 
+/* Ledger balance: positive (مدين صافي) green, negative (دائن صافي) red */
+.account-ledger-table .erp-amount-balance.is-owing,
+.account-ledger-net .erp-amount-balance.is-owing,
+.account-ledger-hero-balance .erp-amount-balance.is-owing {
+    color: var(--erp-success);
+}
+
+.account-ledger-table .erp-amount-balance.is-owed,
+.account-ledger-net .erp-amount-balance.is-owed,
+.account-ledger-hero-balance .erp-amount-balance.is-owed {
+    color: var(--erp-danger);
+}
+
+.account-ledger-table .erp-amount-balance.is-settled,
+.account-ledger-net .erp-amount-balance.is-settled,
+.account-ledger-hero-balance .erp-amount-balance.is-settled {
+    color: var(--erp-text-muted);
+}
+
 .account-ledger-inflow::before {
     background: var(--erp-success);
 }
