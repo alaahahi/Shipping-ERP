@@ -638,11 +638,12 @@ class AccountService
         return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $value);
     }
 
+    /**
+     * Ledger / balance sign for display: always مدين − دائن (debit − credit).
+     */
     private function signedFromTotals(Account $account, float $debit, float $credit): float
     {
-        return $account->type->isDebitNormal()
-            ? $debit - $credit
-            : $credit - $debit;
+        return $debit - $credit;
     }
 
     private function formatAmount(float $amount): string
