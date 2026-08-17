@@ -207,8 +207,6 @@ const viewingArchive = computed(() => archiveStatusIds.value.includes(String(fil
 const selectedCount = computed(() => selectedIds.value.length);
 const activeStatusId = computed(() => String(filterForm.location_status_id || ''));
 const filtering = ref(false);
-let searchTimer = null;
-let searchRequest = 0;
 
 const carSearchHay = (car) => [
     car.chassis_no,
@@ -262,54 +260,7 @@ watch(
         applyFilters();
     },
 );
-
-const carsQueryParams = (page = 1) => ({
-    page,
-    search: String(filterForm.search ?? '').trim() || undefined,
-    location_status_id: filterForm.location_status_id || undefined,
-    sort: filterForm.sort && filterForm.sort !== 'newest' ? filterForm.sort : undefined,
-});
-
-const runCarSearch = async () => {
-    const requestId = ++searchRequest;
-    filtering.value = true;
-    replaceLoadedCars.value = true;
-    selectedIds.value = [];
-
-    try {
-        const { data } = await axios.get(route('land-trips.companies.cars', props.company.id), {
-            params: carsQueryParams(1),
-        });
-        if (requestId !== searchRequest) {
-            return;
-        }
-        loadedCars.value = [...(data.data ?? [])];
-        currentPage.value = data.current_page ?? 1;
-        lastPage.value = data.last_page ?? 1;
-        replaceLoadedCars.value = false;
-    } finally {
-        if (requestId === searchRequest) {
-            filtering.value = false;
-        }
-    }
-};
-
-watch(
-    () => filterForm.search,
-    () => {
-        if (searchTimer) {
-            clearTimeout(searchTimer);
-        }
-        searchTimer = setTimeout(() => {
-            runCarSearch();
-        }, 280);
-    },
-);
-
 onBeforeUnmount(() => {
-    if (searchTimer) {
-        clearTimeout(searchTimer);
-    }
     loadMoreObserver?.disconnect();
 });
 
@@ -371,7 +322,11 @@ const loadMore = async () => {
     loadingMore.value = true;
     try {
         const { data } = await axios.get(route('land-trips.companies.cars', props.company.id), {
-            params: carsQueryParams(currentPage.value + 1),
+            params: {
+                page: currentPage.value + 1,
+                location_status_id: filterForm.location_status_id || undefined,
+                sort: filterForm.sort && filterForm.sort !== 'newest' ? filterForm.sort : undefined,
+            },
         });
         currentPage.value = data.current_page ?? currentPage.value + 1;
         lastPage.value = data.last_page ?? lastPage.value;

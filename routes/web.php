@@ -102,8 +102,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/companies/{company}/direct-charges', [CompanyDirectChargeController::class, 'store'])
         ->name('companies.direct-charges.store');
 
-    Route::get('/land-trips/search-companies', [LandTripController::class, 'searchCompanies'])
-        ->name('land-trips.search-companies');
     Route::get('/land-trips/companies/{company}', [LandTripController::class, 'showCompany'])
         ->name('land-trips.companies.show');
     Route::get('/land-trips/companies/{company}/cars', [LandTripController::class, 'companyCars'])
