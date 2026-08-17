@@ -153,6 +153,16 @@
     "loading_more": "Loading more…",
     "scroll_for_more": "Scroll to load more"
   },
+  "action_pin": {
+    "title": "PIN confirmation",
+    "label": "PIN code",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "wrong": "Incorrect PIN.",
+    "message_void": "Enter the PIN to void voucher {voucher}.",
+    "message_reverse": "Enter the PIN to reverse voucher {voucher}.",
+    "message_payment": "Enter the PIN to post this receipt or payment."
+  },
   "settings": {
     "title": "Settings",
     "company_profile": "Company profile",

@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class JournalEntry extends Model
 {
@@ -78,10 +77,15 @@ class JournalEntry extends Model
 
     public function attachmentUrl(): ?string
     {
-        if (! $this->attachment_path) {
+        if (! $this->attachment_path || ! $this->id) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->attachment_path);
+        // Relative to the current request base path so previews work on
+        // shipping-erp.test, localhost/XAMPP subfolders, and artisan serve.
+        // Absolute Storage::url() embeds APP_URL and often 404s on the wrong host.
+        $base = rtrim((string) request()->getBasePath(), '/');
+
+        return ($base === '' ? '' : $base).'/journals/'.$this->id.'/attachment';
     }
 }

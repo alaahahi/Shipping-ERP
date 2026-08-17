@@ -132,7 +132,11 @@ class SettingService
             return null;
         }
 
-        return Storage::disk('public')->url($path);
+        // Relative to the current request base path so logos work on
+        // shipping-erp.test, localhost/XAMPP subfolders, and artisan serve.
+        $base = rtrim((string) request()->getBasePath(), '/');
+
+        return ($base === '' ? '' : $base).'/storage/'.ltrim(str_replace('\\', '/', $path), '/');
     }
 
     public function storeLogo(UploadedFile $file): string
@@ -140,6 +144,7 @@ class SettingService
         $this->deleteStoredLogo();
         $path = $file->store('company', 'public');
         $this->updateMany([SettingKey::CompanyLogo->value => $path]);
+        $this->forgetCache();
 
         return $path;
     }
@@ -148,6 +153,7 @@ class SettingService
     {
         $this->deleteStoredLogo();
         $this->updateMany([SettingKey::CompanyLogo->value => '']);
+        $this->forgetCache();
     }
 
     private function deleteStoredLogo(): void

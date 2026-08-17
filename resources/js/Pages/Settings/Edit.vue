@@ -84,17 +84,25 @@ const submit = () => {
     form
         .transform((data) => {
             const company = { ...data.company };
+            const logoFile = company.logo instanceof File ? company.logo : null;
+            delete company.logo;
 
-            // Empty logo must not be sent as a field (breaks multipart + image rules).
-            if (!(company.logo instanceof File)) {
-                delete company.logo;
-            }
-
-            return {
+            const payload = {
                 ...data,
                 company,
                 _method: 'put',
             };
+
+            // Flat file field is more reliable in multipart FormData than nested company[logo].
+            if (logoFile) {
+                payload.logo = logoFile;
+            }
+
+            if (company.remove_logo) {
+                payload.remove_logo = true;
+            }
+
+            return payload;
         })
         .post(route('settings.update'), {
             forceFormData: true,

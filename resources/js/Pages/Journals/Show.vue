@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
+import { useActionPin } from '@/composables/useActionPin';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -12,6 +13,7 @@ defineProps({
 
 const page = usePage();
 const { t } = useI18n();
+const { requireActionPin } = useActionPin();
 const success = computed(() => page.props.flash?.success);
 const posting = ref(false);
 
@@ -28,13 +30,19 @@ const postEntry = (id) => {
     });
 };
 
-const voidEntry = (id) => {
+const voidEntry = async (id, voucher) => {
+    const ok = await requireActionPin(t('action_pin.message_void', { voucher }));
+    if (!ok) {
+        return;
+    }
+
     const reason = window.prompt(t('journals.void_reason')) ?? '';
     router.post(route('journals.void', id), { void_reason: reason });
 };
 
-const reverseEntry = (id, voucher) => {
-    if (!window.confirm(t('journals.reverse_confirm', { voucher }))) {
+const reverseEntry = async (id, voucher) => {
+    const ok = await requireActionPin(t('action_pin.message_reverse', { voucher }));
+    if (!ok) {
         return;
     }
     router.post(route('journals.reverse', id));
@@ -83,7 +91,7 @@ const reverseEntry = (id, voucher) => {
                     v-if="canManage && entry.status === 'posted'"
                     type="button"
                     class="btn btn-outline-danger"
-                    @click="voidEntry(entry.id)"
+                    @click="voidEntry(entry.id, entry.voucher_number)"
                 >
                     {{ t('journals.void') }}
                 </button>

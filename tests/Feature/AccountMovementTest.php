@@ -177,6 +177,24 @@ class AccountMovementTest extends TestCase
         $this->assertNotNull($entry->attachment_path);
         $this->assertEquals(40.0, (float) JournalLine::query()->where('journal_entry_id', $entry->id)->where('account_id', $cash->id)->value('debit'));
         Storage::disk('public')->assertExists($entry->attachment_path);
+
+        $attachmentUrl = $entry->attachmentUrl();
+        $this->assertNotNull($attachmentUrl);
+        $this->assertStringContainsString('/journals/'.$entry->id.'/attachment', $attachmentUrl);
+        $this->assertStringNotContainsString('http://', $attachmentUrl);
+        $this->assertStringNotContainsString('https://', $attachmentUrl);
+
+        $this->actingAs($user)
+            ->get(route('journals.attachment', $entry))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->get(route('accounts.show', $cash))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('lines.data', 1)
+                ->where('lines.data.0.attachment_url', $attachmentUrl)
+                ->where('lines.data.0.has_attachment', true));
     }
 
     public function test_voiding_a_movement_removes_it_from_the_posted_ledger(): void

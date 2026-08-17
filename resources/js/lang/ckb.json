@@ -153,6 +153,16 @@
     "notes": "تێبینی",
     "open": "کردنەوە"
   },
+  "action_pin": {
+    "title": "پشتڕاستکردنەوە بە PIN",
+    "label": "کۆدی PIN",
+    "confirm": "پشتڕاستکردنەوە",
+    "cancel": "هەڵوەشاندنەوە",
+    "wrong": "کۆدی PIN هەڵەیە.",
+    "message_void": "بۆ هەڵوەشاندنەوەی سند {voucher} کۆدی PIN بنووسە.",
+    "message_reverse": "بۆ پێچەوانەکردنەوەی سند {voucher} کۆدی PIN بنووسە.",
+    "message_payment": "بۆ پۆستکردنی وەرگرتن یان پارەدان کۆدی PIN بنووسە."
+  },
   "settings": {
     "title": "ڕێکخستنەکان",
     "company_profile": "پرۆفایلی کۆمپانیا",

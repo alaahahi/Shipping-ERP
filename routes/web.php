@@ -280,6 +280,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/journals/create', [JournalEntryController::class, 'create'])->name('journals.create');
     Route::post('/journals', [JournalEntryController::class, 'store'])->name('journals.store');
     Route::get('/journals/{journal}/print', [JournalEntryController::class, 'print'])->name('journals.print');
+    Route::get('/journals/{journal}/attachment', [JournalEntryController::class, 'showAttachment'])
+        ->name('journals.attachment');
     Route::get('/journals/{journal}', [JournalEntryController::class, 'show'])->name('journals.show');
     Route::get('/journals/{journal}/edit', [JournalEntryController::class, 'edit'])->name('journals.edit');
     Route::put('/journals/{journal}', [JournalEntryController::class, 'update'])->name('journals.update');

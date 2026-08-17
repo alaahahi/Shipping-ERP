@@ -1,5 +1,6 @@
 <script setup>
 import InputError from '@/Components/InputError.vue';
+import { useActionPin } from '@/composables/useActionPin';
 import { fbDangerButton, fbGhostButton, fbInput, fbLabel, fbSuccessButton } from '@/flowbite';
 import { useForm } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -14,6 +15,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 const { t } = useI18n();
+const { requireActionPin } = useActionPin();
 const fileKey = ref(0);
 const accountQuery = ref('');
 const accountMenuOpen = ref(false);
@@ -131,10 +133,15 @@ const onFile = (event) => {
     form.attachment = event.target.files?.[0] ?? null;
 };
 
-const submit = () => {
+const submit = async () => {
     if (!form.counterpart_account_id) {
         form.setError('counterpart_account_id', t('accounts.select_counterpart'));
         accountMenuOpen.value = true;
+        return;
+    }
+
+    const ok = await requireActionPin(t('action_pin.message_payment'));
+    if (!ok) {
         return;
     }
 

@@ -153,6 +153,16 @@
     "loading_more": "جاري تحميل المزيد…",
     "scroll_for_more": "مرّر لتحميل المزيد"
   },
+  "action_pin": {
+    "title": "تأكيد برمز PIN",
+    "label": "رمز PIN",
+    "confirm": "تأكيد",
+    "cancel": "إلغاء",
+    "wrong": "رمز PIN غير صحيح.",
+    "message_void": "أدخل رمز PIN لإبطال السند {voucher}.",
+    "message_reverse": "أدخل رمز PIN لعكس السند {voucher}.",
+    "message_payment": "أدخل رمز PIN لترحيل حركة القبض أو الدفع."
+  },
   "settings": {
     "title": "الإعدادات",
     "company_profile": "ملف الشركة",

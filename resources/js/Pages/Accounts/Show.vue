@@ -3,6 +3,7 @@ import AccountMovementModal from '@/Components/AccountMovementModal.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
+import { useActionPin } from '@/composables/useActionPin';
 import { fbButton, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink, fbSuccessButton } from '@/flowbite';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { onBeforeUnmount, ref, watch } from 'vue';
@@ -20,6 +21,7 @@ const props = defineProps({
 });
 
 const { t } = useI18n();
+const { requireActionPin } = useActionPin();
 const movementOpen = ref(false);
 const movementType = ref('receipt');
 const previewUrl = ref(null);
@@ -125,8 +127,11 @@ const saveEdit = () => {
     });
 };
 
-const voidLine = (line) => {
-    if (!window.confirm(t('accounts.void_confirm', { voucher: line.voucher_number }))) {
+const voidLine = async (line) => {
+    const ok = await requireActionPin(
+        t('action_pin.message_void', { voucher: line.voucher_number })
+    );
+    if (!ok) {
         return;
     }
 
@@ -135,8 +140,11 @@ const voidLine = (line) => {
     });
 };
 
-const reverseLine = (line) => {
-    if (!window.confirm(t('accounts.reverse_confirm', { voucher: line.voucher_number }))) {
+const reverseLine = async (line) => {
+    const ok = await requireActionPin(
+        t('action_pin.message_reverse', { voucher: line.voucher_number })
+    );
+    if (!ok) {
         return;
     }
 

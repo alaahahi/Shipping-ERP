@@ -1,4 +1,5 @@
 <script setup>
+import ActionPinModal from '@/Components/ActionPinModal.vue';
 import AppHeaderNav from '@/Components/AppHeaderNav.vue';
 import LocaleSync from '@/Components/LocaleSync.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -189,5 +190,7 @@ const localeLabel = (locale) => t(`language.${locale.value}`) || locale.label;
                 <slot />
             </div>
         </div>
+
+        <ActionPinModal />
     </div>
 </template>

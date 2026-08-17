@@ -14,8 +14,10 @@ use App\Support\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class JournalEntryController extends Controller
 {
@@ -111,6 +113,25 @@ class JournalEntryController extends Controller
             'voucher' => $this->transformCashVoucher($journal),
             'printedAt' => ApplicationTimezone::formatNowLabel(),
         ]);
+    }
+
+    public function showAttachment(JournalEntry $journal): StreamedResponse
+    {
+        Gate::authorize('view', $journal);
+
+        if (! $journal->attachment_path || ! Storage::disk('public')->exists($journal->attachment_path)) {
+            abort(404);
+        }
+
+        $downloadName = basename($journal->attachment_path);
+
+        return Storage::disk('public')->response(
+            $journal->attachment_path,
+            $downloadName,
+            [
+                'Content-Disposition' => 'inline; filename="'.$downloadName.'"',
+            ]
+        );
     }
 
     public function edit(JournalEntry $journal): Response
