@@ -52,7 +52,17 @@ const stripSearchFromAddressBar = () => {
     }
 
     const url = new URL(next, window.location.origin);
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    const state = window.history.state;
+    if (state && typeof state === 'object' && state.page && typeof state.page === 'object') {
+        window.history.replaceState(
+            { ...state, page: { ...state.page, url: `${url.pathname}${url.search}` } },
+            '',
+            path,
+        );
+        return;
+    }
+    window.history.replaceState(state, '', path);
 };
 
 const normalizedSearch = () => String(search.value ?? '').trim().toLowerCase();
@@ -104,7 +114,23 @@ const companyPageLinks = computed(() => (props.companies.links ?? []).map((link)
 
 const cardStyle = (company) => statusSurfaceStyle(company.card_color || '#0F766E', { solid: true });
 
-const companyHref = (company) => route('land-trips.companies.show', company.id);
+const companyHref = (company) => {
+    const base = route('land-trips.companies.show', company.id);
+    const params = new URLSearchParams();
+    const query = String(search.value ?? '').trim();
+    const matchedId = company.matched_car?.id;
+
+    if (matchedId) {
+        params.set('highlight', String(matchedId));
+    }
+    if (query !== '') {
+        params.set('search', query);
+    }
+
+    const qs = params.toString();
+
+    return qs ? `${base}?${qs}` : base;
+};
 
 const runCompanySearch = async () => {
     const query = String(search.value ?? '').trim();

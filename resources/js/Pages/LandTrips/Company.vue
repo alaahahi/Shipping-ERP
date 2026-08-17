@@ -67,7 +67,7 @@ const filterForm = useForm({
     location_status_id: props.filters.location_status_id ?? '',
     sort: props.filters.sort || 'newest',
 });
-const carSearch = ref('');
+const carSearch = ref(String(props.filters.search ?? '').trim());
 
 const emptyCarRow = () => ({
     voyage_car_id: null,

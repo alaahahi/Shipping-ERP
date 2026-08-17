@@ -106,7 +106,7 @@ class LandTripController extends Controller
         Gate::authorize('viewAny', LandTrip::class);
 
         $filters = $this->landTripService->resolveCompanyCarFilters($company, [
-            'search' => '',
+            'search' => trim($request->string('search')->toString()),
             'location_status_id' => $request->string('location_status_id')->toString(),
             'highlight_car_id' => $request->integer('highlight') ?: null,
             'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
@@ -124,7 +124,7 @@ class LandTripController extends Controller
             'statusSummary' => $this->landTripService->companyStatusSummary($company),
             'carStatuses' => $this->landTripService->carStatusOptions(),
             'filters' => [
-                'search' => '',
+                'search' => $filters['search'] ?? '',
                 'location_status_id' => $filters['location_status_id'],
                 'sort' => $this->landTripService->normalizeCompanyCarSort($filters['sort'] ?? null),
             ],
