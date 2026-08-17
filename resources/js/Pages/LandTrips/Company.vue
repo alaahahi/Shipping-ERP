@@ -1095,7 +1095,7 @@ const duplicateCarCount = computed(() => (
                     ref="cmrGroupsRef"
                     :company-id="company.id"
                     :can-manage="canManage"
-                    :search="filterForm.search"
+                    :search="carSearch"
                     :location-status-id="filters.location_status_id || ''"
                     @toast="toastMessage = $event"
                     @renamed="applyFilters"
@@ -1104,7 +1104,7 @@ const duplicateCarCount = computed(() => (
                 <LandTripModelGroups
                     v-else-if="carsViewMode === 'model'"
                     :company-id="company.id"
-                    :search="filterForm.search"
+                    :search="carSearch"
                     :location-status-id="filters.location_status_id || ''"
                 />
 
@@ -1144,7 +1144,7 @@ const duplicateCarCount = computed(() => (
                                     <EmptyState
                                         :title="viewingArchive
                                     ? t('land_trips.empty_archive')
-                                    : (String(filterForm.search ?? '').trim()
+                                    : (String(carSearch ?? '').trim()
                                         ? t('common.no_results')
                                         : t('land_trips.empty_cars'))"
                                         icon="C"
