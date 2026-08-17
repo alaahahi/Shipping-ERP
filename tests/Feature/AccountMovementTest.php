@@ -206,6 +206,52 @@ class AccountMovementTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('lines.total', 0));
     }
 
+    public function test_reversing_a_movement_posts_swapped_entry_and_voids_original(): void
+    {
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($user)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 80,
+            'entry_date' => '2026-08-15',
+            'description' => 'Cash receipt to reverse',
+        ])->assertRedirect();
+
+        $original = JournalEntry::query()->latest('id')->firstOrFail();
+        $originalLines = $original->lines()->orderBy('id')->get();
+
+        $this->actingAs($user)
+            ->post(route('accounts.journals.reverse', [$cash, $original]))
+            ->assertRedirect(route('accounts.show', $cash));
+
+        $original->refresh();
+        $this->assertSame(JournalStatus::Void, $original->status);
+        $this->assertStringContainsString('Reversed by', (string) $original->void_reason);
+
+        $reversal = JournalEntry::query()->where('id', '!=', $original->id)->latest('id')->firstOrFail();
+        $this->assertSame(JournalStatus::Posted, $reversal->status);
+        $this->assertSame('REV:'.$original->voucher_number, $reversal->reference);
+        $this->assertStringContainsString('Reversal of '.$original->voucher_number, $reversal->description);
+
+        $reversalLines = $reversal->lines()->orderBy('account_id')->get();
+        $this->assertCount(2, $reversalLines);
+
+        foreach ($originalLines as $line) {
+            $match = $reversalLines->firstWhere('account_id', $line->account_id);
+            $this->assertNotNull($match);
+            $this->assertSame((float) $line->credit, (float) $match->debit);
+            $this->assertSame((float) $line->debit, (float) $match->credit);
+        }
+
+        $this->actingAs($user)
+            ->get(route('accounts.show', $cash))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('lines.total', 1));
+    }
+
     public function test_viewer_can_print_posted_voucher(): void
     {
         $user = User::factory()->create();

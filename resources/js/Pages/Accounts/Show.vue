@@ -4,8 +4,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { fbButton, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink, fbSuccessButton } from '@/flowbite';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -19,9 +19,7 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
 });
 
-const page = usePage();
 const { t } = useI18n();
-const deleteError = computed(() => page.props.errors?.account);
 const movementOpen = ref(false);
 const movementType = ref('receipt');
 const previewUrl = ref(null);
@@ -109,12 +107,14 @@ const voidLine = (line) => {
     });
 };
 
-const destroy = () => {
-    if (!window.confirm(t('accounts.delete_confirm', { code: props.account.code }))) {
+const reverseLine = (line) => {
+    if (!window.confirm(t('accounts.reverse_confirm', { voucher: line.voucher_number }))) {
         return;
     }
 
-    router.delete(route('accounts.destroy', props.account.id));
+    router.post(route('accounts.journals.reverse', [props.account.id, line.journal_entry_id]), {}, {
+        preserveScroll: true,
+    });
 };
 </script>
 
@@ -149,23 +149,7 @@ const destroy = () => {
                 >
                     {{ t('common.edit') }}
                 </Link>
-                <button
-                    v-if="canManage"
-                    type="button"
-                    :class="fbDangerButton"
-                    @click="destroy"
-                >
-                    {{ t('common.delete') }}
-                </button>
             </div>
-        </div>
-
-        <div
-            v-if="deleteError"
-            class="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
-            role="alert"
-        >
-            {{ deleteError }}
         </div>
 
         <div v-if="canManage" class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -347,6 +331,15 @@ const destroy = () => {
                                         @click="openEdit(line)"
                                     >
                                         {{ t('common.edit') }}
+                                    </button>
+                                    <button
+                                        v-if="canManage"
+                                        type="button"
+                                        :class="fbGhostButton"
+                                        class="!px-2 !py-1 text-xs"
+                                        @click="reverseLine(line)"
+                                    >
+                                        {{ t('accounts.reverse') }}
                                     </button>
                                     <button
                                         v-if="canManage"

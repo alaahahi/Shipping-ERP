@@ -178,6 +178,18 @@ class AccountController extends Controller
             ->with('success', 'Movement voided.');
     }
 
+    public function reverseMovement(Request $request, Account $account, JournalEntry $journal): RedirectResponse
+    {
+        Gate::authorize('reverse', $journal);
+        $this->accountService->assertTouchesAccount($account, $journal);
+
+        $this->accountService->reverseMovement($journal, $request->user());
+
+        return redirect()
+            ->route('accounts.show', $account)
+            ->with('success', 'Movement reversed.');
+    }
+
     public function edit(Account $account): Response
     {
         Gate::authorize('update', $account);

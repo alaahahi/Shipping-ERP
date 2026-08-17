@@ -159,6 +159,71 @@ class JournalService
     }
 
     /**
+     * Post a reversing entry (debit↔credit) and void the original so the ledger
+     * keeps a single correct effect (flipped sides) without double-counting.
+     */
+    public function reverse(JournalEntry $entry, User $actor): JournalEntry
+    {
+        if (! $entry->isPosted()) {
+            throw ValidationException::withMessages([
+                'status' => 'Only posted entries can be reversed.',
+            ]);
+        }
+
+        $entry->load('lines');
+
+        if ($entry->lines->count() < 2) {
+            throw ValidationException::withMessages([
+                'lines' => 'A journal entry requires at least two lines to reverse.',
+            ]);
+        }
+
+        $swappedLines = $entry->lines->map(fn ($line) => [
+            'account_id' => $line->account_id,
+            'company_id' => $line->company_id,
+            'voyage_id' => $line->voyage_id,
+            'owner_id' => $line->owner_id,
+            'debit' => $line->credit,
+            'credit' => $line->debit,
+            'memo' => $line->memo,
+        ])->all();
+
+        $originalDescription = trim((string) $entry->description);
+        $description = 'Reversal of '.$entry->voucher_number;
+        if ($originalDescription !== '') {
+            $description .= ' · '.$originalDescription;
+        }
+
+        return DB::transaction(function () use ($entry, $actor, $swappedLines, $description): JournalEntry {
+            $draft = $this->createDraft([
+                'entry_date' => now()->toDateString(),
+                'currency' => $entry->currency->value,
+                'reference' => 'REV:'.$entry->voucher_number,
+                'description' => $description,
+                'lines' => $swappedLines,
+            ], $actor);
+
+            $reversal = $this->post($draft, $actor);
+
+            $this->void(
+                $entry,
+                $actor,
+                'Reversed by '.$reversal->voucher_number
+            );
+
+            Log::info('Journal entry reversed', [
+                'original_journal_entry_id' => $entry->id,
+                'original_voucher_number' => $entry->voucher_number,
+                'reversal_journal_entry_id' => $reversal->id,
+                'reversal_voucher_number' => $reversal->voucher_number,
+                'reversed_by' => $actor->id,
+            ]);
+
+            return $reversal;
+        });
+    }
+
+    /**
      * Posted entries may change description and attachment only — never amounts or accounts.
      *
      * @param  array{description: string, remove_attachment?: bool}  $data

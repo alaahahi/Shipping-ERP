@@ -177,6 +177,17 @@ class JournalEntryController extends Controller
             ->with('success', 'Journal entry voided.');
     }
 
+    public function reverse(Request $request, JournalEntry $journal): RedirectResponse
+    {
+        Gate::authorize('reverse', $journal);
+
+        $reversal = $this->journalService->reverse($journal, $request->user());
+
+        return redirect()
+            ->route('journals.show', $reversal)
+            ->with('success', 'Journal entry reversed.');
+    }
+
     /**
      * @return array<string, mixed>
      */

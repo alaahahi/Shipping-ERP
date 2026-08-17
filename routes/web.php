@@ -94,6 +94,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounts.journals.update');
     Route::post('/accounts/{account}/journals/{journal}/void', [AccountController::class, 'voidMovement'])
         ->name('accounts.journals.void');
+    Route::post('/accounts/{account}/journals/{journal}/reverse', [AccountController::class, 'reverseMovement'])
+        ->name('accounts.journals.reverse');
 
     Route::resource('ships', ShipController::class);
     Route::resource('companies', CompanyController::class);
@@ -283,6 +285,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/journals/{journal}', [JournalEntryController::class, 'update'])->name('journals.update');
     Route::post('/journals/{journal}/post', [JournalEntryController::class, 'post'])->name('journals.post');
     Route::post('/journals/{journal}/void', [JournalEntryController::class, 'void'])->name('journals.void');
+    Route::post('/journals/{journal}/reverse', [JournalEntryController::class, 'reverse'])->name('journals.reverse');
 
     Route::get('/money-vouchers', [MoneyVoucherController::class, 'index'])->name('money-vouchers.index');
     Route::get('/money-vouchers/create', [MoneyVoucherController::class, 'create'])->name('money-vouchers.create');

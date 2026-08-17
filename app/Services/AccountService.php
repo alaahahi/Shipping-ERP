@@ -189,7 +189,7 @@ class AccountService
     }
 
     /**
-     * @return list<array{id: int, label: string}>
+     * @return list<array{id: int, code: string, name: string, label: string}>
      */
     public function counterpartOptions(Account $account): array
     {
@@ -201,6 +201,8 @@ class AccountService
             ->get(['id', 'code', 'name'])
             ->map(fn (Account $item) => [
                 'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
                 'label' => "{$item->code} — {$item->name}",
             ])
             ->all();
@@ -332,6 +334,11 @@ class AccountService
     public function voidMovement(JournalEntry $entry, User $actor, ?string $reason = null): JournalEntry
     {
         return $this->journalService->void($entry, $actor, $reason);
+    }
+
+    public function reverseMovement(JournalEntry $entry, User $actor): JournalEntry
+    {
+        return $this->journalService->reverse($entry, $actor);
     }
 
     /**

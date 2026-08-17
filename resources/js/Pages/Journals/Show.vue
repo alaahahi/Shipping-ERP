@@ -32,6 +32,13 @@ const voidEntry = (id) => {
     const reason = window.prompt(t('journals.void_reason')) ?? '';
     router.post(route('journals.void', id), { void_reason: reason });
 };
+
+const reverseEntry = (id, voucher) => {
+    if (!window.confirm(t('journals.reverse_confirm', { voucher }))) {
+        return;
+    }
+    router.post(route('journals.reverse', id));
+};
 </script>
 
 <template>
@@ -63,6 +70,14 @@ const voidEntry = (id) => {
                     @click="postEntry(entry.id)"
                 >
                     {{ posting ? t('common.posting') : t('journals.post') }}
+                </button>
+                <button
+                    v-if="canManage && entry.status === 'posted'"
+                    type="button"
+                    class="btn btn-erp-ghost"
+                    @click="reverseEntry(entry.id, entry.voucher_number)"
+                >
+                    {{ t('journals.reverse') }}
                 </button>
                 <button
                     v-if="canManage && entry.status === 'posted'"

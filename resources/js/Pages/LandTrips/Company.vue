@@ -699,7 +699,7 @@ const duplicateCarCount = computed(() => (
                     ? t('land_trips.wallet_help')
                     : hubTab === 'check'
                         ? t('land_trips.check_help')
-                        : t('land_trips.company_cars_help')"
+                        : ''"
             >
                 <template #actions>
                     <template v-if="hubTab === 'cars'">
