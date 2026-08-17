@@ -3258,6 +3258,20 @@ html.dark .land-car-selected > td,
     background: var(--erp-success);
 }
 
+.account-ledger-filters {
+    overflow: hidden;
+    border-radius: 0.9rem;
+    border: 1px solid var(--erp-border);
+    background: var(--erp-surface-soft);
+    box-shadow: var(--erp-shadow-soft);
+}
+
+html.dark .account-ledger-filters,
+[data-theme='dark'] .account-ledger-filters {
+    background: #0f172a;
+    border-color: #334155;
+}
+
 .erp-modal-backdrop {
     position: fixed;
     inset: 0;

@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { fbButton, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink, fbSuccessButton } from '@/flowbite';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -23,6 +23,7 @@ const { t } = useI18n();
 const movementOpen = ref(false);
 const movementType = ref('receipt');
 const previewUrl = ref(null);
+let filterTimer = null;
 
 const filterForm = useForm({
     date_from: props.filters.date_from ?? '',
@@ -49,8 +50,35 @@ const applyFilters = () => {
     filterForm.get(route('accounts.show', props.account.id), {
         preserveState: true,
         replace: true,
+        preserveScroll: true,
     });
 };
+
+const scheduleFilters = (delay = 350) => {
+    if (filterTimer) {
+        clearTimeout(filterTimer);
+    }
+
+    filterTimer = setTimeout(() => {
+        applyFilters();
+    }, delay);
+};
+
+watch(
+    () => [filterForm.date_from, filterForm.date_to],
+    () => scheduleFilters(0)
+);
+
+watch(
+    () => [filterForm.voucher, filterForm.description, filterForm.amount],
+    () => scheduleFilters(350)
+);
+
+onBeforeUnmount(() => {
+    if (filterTimer) {
+        clearTimeout(filterTimer);
+    }
+});
 
 const exportQuery = () => ({
     date_from: filterForm.date_from || undefined,
@@ -205,11 +233,8 @@ const reverseLine = (line) => {
             </div>
         </div>
 
-        <div class="mb-3 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-            <form
-                class="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center"
-                @submit.prevent="applyFilters"
-            >
+        <div class="account-ledger-filters mb-3">
+            <form class="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center" @submit.prevent>
                 <input
                     v-model="filterForm.date_from"
                     type="date"
@@ -244,12 +269,13 @@ const reverseLine = (line) => {
                     :class="[fbInput, '!py-2 sm:w-32']"
                     :placeholder="t('accounts.search_amount')"
                 />
-                <div class="flex flex-wrap gap-2">
-                    <button type="submit" :class="[fbButton, '!w-auto !px-3 !py-2']">{{ t('common.filter') }}</button>
-                    <Link :href="route('accounts.show', account.id)" :class="[fbGhostButton, '!w-auto']">
-                        {{ t('common.reset') }}
-                    </Link>
-                </div>
+                <Link
+                    v-if="filters.date_from || filters.date_to || filters.voucher || filters.description || filters.amount"
+                    :href="route('accounts.show', account.id)"
+                    :class="[fbGhostButton, '!w-auto']"
+                >
+                    {{ t('common.reset') }}
+                </Link>
             </form>
         </div>
 

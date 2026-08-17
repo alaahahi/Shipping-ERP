@@ -80,7 +80,30 @@ const removeLogo = () => {
     form.company.remove_logo = true;
 };
 
-const submit = () => form.put(route('settings.update'), { forceFormData: true });
+const submit = () => {
+    form
+        .transform((data) => {
+            const company = { ...data.company };
+
+            // Empty logo must not be sent as a field (breaks multipart + image rules).
+            if (!(company.logo instanceof File)) {
+                delete company.logo;
+            }
+
+            return {
+                ...data,
+                company,
+                _method: 'put',
+            };
+        })
+        .post(route('settings.update'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => {
+                form.transform((data) => data);
+            },
+        });
+};
 
 const countryForm = useForm({
     name: '',
