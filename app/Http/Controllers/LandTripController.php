@@ -56,16 +56,12 @@ class LandTripController extends Controller
     {
         Gate::authorize('viewAny', LandTrip::class);
 
-        $filters = [
-            'search' => $request->string('search')->toString(),
-        ];
-
         $companies = $this->landTripService
-            ->paginateCompanies($filters);
+            ->paginateCompanies();
 
         $chassisMatches = $this->landTripService->matchedCarsByChassis(
             collect($companies->items())->pluck('id')->all(),
-            $filters['search']
+            null
         );
 
         $companies->through(function (Company $company) use ($chassisMatches) {
@@ -76,7 +72,7 @@ class LandTripController extends Controller
 
         return Inertia::render('LandTrips/Index', [
             'companies' => $companies,
-            'filters' => $filters,
+            'filters' => ['search' => ''],
             'canManage' => $request->user()?->can(Permission::LandTripsManage->value) ?? false,
         ]);
     }
@@ -110,7 +106,7 @@ class LandTripController extends Controller
         Gate::authorize('viewAny', LandTrip::class);
 
         $filters = $this->landTripService->resolveCompanyCarFilters($company, [
-            'search' => $request->string('search')->toString(),
+            'search' => '',
             'location_status_id' => $request->string('location_status_id')->toString(),
             'highlight_car_id' => $request->integer('highlight') ?: null,
             'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
@@ -128,7 +124,7 @@ class LandTripController extends Controller
             'statusSummary' => $this->landTripService->companyStatusSummary($company),
             'carStatuses' => $this->landTripService->carStatusOptions(),
             'filters' => [
-                'search' => $filters['search'],
+                'search' => '',
                 'location_status_id' => $filters['location_status_id'],
                 'sort' => $this->landTripService->normalizeCompanyCarSort($filters['sort'] ?? null),
             ],

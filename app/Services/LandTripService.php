@@ -86,7 +86,7 @@ class LandTripService
             });
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        return $query->paginate($perPage);
     }
 
     /**
@@ -257,9 +257,7 @@ class LandTripService
 
         $this->applyCompanyCarSort($query, $filters);
 
-        return $query
-            ->paginate($perPage, ['*'], 'page', $page)
-            ->withQueryString();
+        return $query->paginate($perPage, ['*'], 'page', $page);
     }
 
     public function countChassisLetterO(Company $company): int

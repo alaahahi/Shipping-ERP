@@ -41,6 +41,7 @@ const clear = () => {
                 :placeholder="placeholder"
                 autocomplete="off"
                 enterkeyhint="search"
+                @search.prevent
             />
             <button
                 v-if="value"

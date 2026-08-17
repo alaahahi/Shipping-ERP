@@ -8,7 +8,7 @@ import LandTripSearchBar from '@/Components/LandTrips/LandTripSearchBar.vue';
 import { statusSurfaceStyle } from '@/composables/useLandTripStatusColor';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -25,6 +25,35 @@ const remoteCompanies = ref(null);
 const searching = ref(false);
 let searchTimer = null;
 let searchRequest = 0;
+
+const stripSearchFromHref = (href) => {
+    if (!href) {
+        return href;
+    }
+
+    try {
+        const url = new URL(href, window.location.origin);
+        if (!url.searchParams.has('search')) {
+            return href;
+        }
+        url.searchParams.delete('search');
+        const query = url.searchParams.toString();
+
+        return `${url.pathname}${query ? `?${query}` : ''}${url.hash}`;
+    } catch {
+        return href;
+    }
+};
+
+const stripSearchFromAddressBar = () => {
+    const next = stripSearchFromHref(window.location.href);
+    if (!next || next === window.location.href) {
+        return;
+    }
+
+    const url = new URL(next, window.location.origin);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
 
 const normalizedSearch = () => String(search.value ?? '').trim().toLowerCase();
 
@@ -67,6 +96,11 @@ const emptyMessage = computed(() => {
 
     return t('land_trips.no_companies');
 });
+
+const companyPageLinks = computed(() => (props.companies.links ?? []).map((link) => ({
+    ...link,
+    url: stripSearchFromHref(link.url),
+})));
 
 const cardStyle = (company) => statusSurfaceStyle(company.card_color || '#0F766E', { solid: true });
 
@@ -112,12 +146,17 @@ watch(search, () => {
         searchRequest += 1;
         remoteCompanies.value = null;
         searching.value = false;
+        stripSearchFromAddressBar();
         return;
     }
 
     searchTimer = setTimeout(() => {
         runCompanySearch();
     }, 280);
+});
+
+onMounted(() => {
+    stripSearchFromAddressBar();
 });
 
 onBeforeUnmount(() => {
@@ -161,12 +200,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div
-            v-if="!normalizedSearch() && companies.links?.length > 3"
+            v-if="!normalizedSearch() && companyPageLinks.length > 3"
             class="mt-3 d-flex flex-wrap gap-2 justify-content-center"
         >
             <component
                 :is="link.url ? Link : 'span'"
-                v-for="(link, index) in companies.links"
+                v-for="(link, index) in companyPageLinks"
                 :key="index"
                 :href="link.url || undefined"
                 class="btn btn-sm"

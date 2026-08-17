@@ -64,10 +64,10 @@ watch(hubTab, (tab) => {
 });
 
 const filterForm = useForm({
-    search: '',
     location_status_id: props.filters.location_status_id ?? '',
     sort: props.filters.sort || 'newest',
 });
+const carSearch = ref('');
 
 const emptyCarRow = () => ({
     voyage_car_id: null,
@@ -152,8 +152,8 @@ watch(success, (message) => {
 const exportHref = computed(() => {
     const base = route('land-trips.companies.export', props.company.id);
     const params = new URLSearchParams();
-    if (String(filterForm.search ?? '').trim() !== '') {
-        params.set('search', String(filterForm.search).trim());
+    if (String(carSearch.value ?? '').trim() !== '') {
+        params.set('search', String(carSearch.value).trim());
     }
     if (filterForm.location_status_id) {
         params.set('location_status_id', String(filterForm.location_status_id));
@@ -222,7 +222,7 @@ const carSearchHay = (car) => [
 ].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' ').toLowerCase();
 
 const displayedCars = computed(() => {
-    const query = String(filterForm.search ?? '').trim().toLowerCase();
+    const query = String(carSearch.value ?? '').trim().toLowerCase();
     if (!query) {
         return loadedCars.value;
     }
@@ -251,6 +251,9 @@ const applyFilters = () => {
             },
             onFinish: () => {
                 filtering.value = false;
+                if (String(carSearch.value ?? '').trim() !== '') {
+                    runCarSearch();
+                }
             },
         },
     );
@@ -263,12 +266,50 @@ watch(
     },
 );
 
-const carsQueryParams = (page = 1) => ({
-    page,
-    search: String(filterForm.search ?? '').trim() || undefined,
-    location_status_id: filterForm.location_status_id || undefined,
-    sort: filterForm.sort && filterForm.sort !== 'newest' ? filterForm.sort : undefined,
-});
+const carsQueryParams = (page = 1) => {
+    const params = { page };
+    const query = String(carSearch.value ?? '').trim();
+    if (query !== '') {
+        params.search = query;
+    }
+    if (filterForm.location_status_id) {
+        params.location_status_id = filterForm.location_status_id;
+    }
+    if (filterForm.sort && filterForm.sort !== 'newest') {
+        params.sort = filterForm.sort;
+    }
+
+    return params;
+};
+
+const restoreCarsFromProps = () => {
+    loadedCars.value = [...(props.cars.data ?? [])];
+    currentPage.value = props.cars.current_page ?? 1;
+    lastPage.value = props.cars.last_page ?? 1;
+    replaceLoadedCars.value = false;
+    selectedIds.value = [];
+};
+
+const stripSearchFromAddressBar = () => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('page') && !url.searchParams.has('search')) {
+        return;
+    }
+    url.searchParams.delete('page');
+    url.searchParams.delete('search');
+    const query = url.searchParams.toString();
+    const next = `${url.pathname}${query ? `?${query}` : ''}${url.hash}`;
+    const state = window.history.state;
+    if (state && typeof state === 'object' && state.page && typeof state.page === 'object') {
+        window.history.replaceState(
+            { ...state, page: { ...state.page, url: `${url.pathname}${query ? `?${query}` : ''}` } },
+            '',
+            next,
+        );
+        return;
+    }
+    window.history.replaceState(state, '', next);
+};
 
 const runCarSearch = async () => {
     const requestId = ++searchRequest;
@@ -295,11 +336,24 @@ const runCarSearch = async () => {
 };
 
 watch(
-    () => filterForm.search,
-    () => {
+    carSearch,
+    (value) => {
         if (searchTimer) {
             clearTimeout(searchTimer);
         }
+
+        const query = String(value ?? '').trim();
+        if (query === '') {
+            searchRequest += 1;
+            restoreCarsFromProps();
+            filtering.value = false;
+            stripSearchFromAddressBar();
+            searchTimer = setTimeout(() => {
+                runCarSearch();
+            }, 0);
+            return;
+        }
+
         searchTimer = setTimeout(() => {
             runCarSearch();
         }, 280);
@@ -382,13 +436,7 @@ const loadMore = async () => {
 };
 
 onMounted(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('page') || url.searchParams.has('search')) {
-        url.searchParams.delete('page');
-        url.searchParams.delete('search');
-        const query = url.searchParams.toString();
-        window.history.replaceState(window.history.state, '', `${url.pathname}${query ? `?${query}` : ''}${url.hash}`);
-    }
+    stripSearchFromAddressBar();
 
     loadMoreObserver = new IntersectionObserver(
         (entries) => {
@@ -929,7 +977,7 @@ const duplicateCarCount = computed(() => (
                     <div class="land-hub-controls">
                         <div class="land-hub-search">
                             <LandTripSearchBar
-                                v-model="filterForm.search"
+                                v-model="carSearch"
                                 input-id="land-hub-search"
                                 :placeholder="t('land_trips.search_cars')"
                             />
