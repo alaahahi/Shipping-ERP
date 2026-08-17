@@ -108,7 +108,7 @@ const userName = computed(() => page.props.auth?.user?.name ?? '');
             </div>
         </div>
 
-        <div v-if="can('accounting.view') && pinnedAccounts.length" class="mb-4">
+        <div v-if="can('accounting.view') && pinnedAccounts.length" class="mb-4 dashboard-pinned-accounts">
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
                 <div>
                     <h3 class="erp-panel-title mb-1">{{ t('dashboard.pinned_accounts') }}</h3>

@@ -639,11 +639,15 @@ class AccountService
     }
 
     /**
-     * Ledger / balance sign for display: always مدين − دائن (debit − credit).
+     * Ledger / balance sign by account normal:
+     * debit-normal (asset/expense) = مدين − دائن; credit-normal = دائن − مدين.
+     * period_net cards stay مدين − دائن separately.
      */
     private function signedFromTotals(Account $account, float $debit, float $credit): float
     {
-        return $debit - $credit;
+        return $account->type->isDebitNormal()
+            ? $debit - $credit
+            : $credit - $debit;
     }
 
     private function formatAmount(float $amount): string

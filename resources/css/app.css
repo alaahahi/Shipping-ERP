@@ -1151,6 +1151,19 @@ html body .form-check:not(.form-switch) .form-check-input[type='checkbox']:check
     letter-spacing: 0.01em;
 }
 
+/* Quick accounts: positive green, negative red (ledger-style; not company-debt semantics) */
+.dashboard-pinned-accounts .erp-amount-balance.is-owing {
+    color: var(--erp-success);
+}
+
+.dashboard-pinned-accounts .erp-amount-balance.is-owed {
+    color: var(--erp-danger);
+}
+
+.dashboard-pinned-accounts .erp-amount-balance.is-settled {
+    color: var(--erp-text-muted);
+}
+
 .erp-debt-card.is-critical {
     background: linear-gradient(155deg, #c2410c 0%, #7c2d12 100%);
 }
