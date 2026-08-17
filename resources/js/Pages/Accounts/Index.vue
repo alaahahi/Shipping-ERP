@@ -4,6 +4,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import FlashMessage from '@/Components/FlashMessage.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import { useActionPin } from '@/composables/useActionPin';
 import { fbButton, fbGhostButton, fbInput } from '@/flowbite';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -20,6 +21,7 @@ const props = defineProps({
 
 const page = usePage();
 const { t } = useI18n();
+const { requireActionPin } = useActionPin();
 const success = computed(() => page.props.flash?.success);
 const deleteError = computed(() => page.props.errors?.account);
 
@@ -168,8 +170,21 @@ onBeforeUnmount(() => {
     observer?.disconnect();
 });
 
-const destroy = (account) => {
-    if (!window.confirm(t('accounts.delete_confirm', { code: account.code }))) return;
+const canDeleteAccount = (account) =>
+    Boolean(props.canManage) && !Boolean(account.has_posted_movements);
+
+const destroy = async (account) => {
+    if (!canDeleteAccount(account)) {
+        return;
+    }
+
+    const ok = await requireActionPin(
+        t('action_pin.message_delete_account', { code: account.code }),
+    );
+    if (!ok) {
+        return;
+    }
+
     router.delete(route('accounts.destroy', account.id));
 };
 
@@ -351,7 +366,7 @@ const typeBadgeClass = (type) => {
                                         {{ t('common.edit') }}
                                     </Link>
                                     <button
-                                        v-if="canManage"
+                                        v-if="canDeleteAccount(account)"
                                         type="button"
                                         :class="compactDanger"
                                         class="!px-2.5 !py-1.5 text-xs"

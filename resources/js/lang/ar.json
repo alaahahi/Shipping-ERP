@@ -161,7 +161,8 @@
     "wrong": "رمز PIN غير صحيح.",
     "message_void": "أدخل رمز PIN لإبطال السند {voucher}.",
     "message_reverse": "أدخل رمز PIN لعكس السند {voucher}.",
-    "message_payment": "أدخل رمز PIN لترحيل حركة القبض أو الدفع."
+    "message_payment": "أدخل رمز PIN لترحيل حركة القبض أو الدفع.",
+    "message_delete_account": "أدخل رمز PIN لحذف الحساب {code}."
   },
   "settings": {
     "title": "الإعدادات",

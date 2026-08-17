@@ -3403,15 +3403,19 @@ html.dark .erp-table a,
     text-decoration: underline;
 }
 
-.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owing {
-    color: var(--erp-danger);
-}
-
-.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owed {
+/* Chart of Accounts: positive green, negative red (same as ledger) */
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owing,
+.accounts-chart-table .erp-amount-balance.is-owing {
     color: var(--erp-success);
 }
 
-.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-settled {
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-owed,
+.accounts-chart-table .erp-amount-balance.is-owed {
+    color: var(--erp-danger);
+}
+
+.accounts-chart-table a.accounts-chart-link .erp-amount-balance.is-settled,
+.accounts-chart-table .erp-amount-balance.is-settled {
     color: var(--erp-text-muted);
 }
 

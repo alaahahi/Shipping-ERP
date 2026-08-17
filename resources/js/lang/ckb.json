@@ -161,7 +161,8 @@
     "wrong": "کۆدی PIN هەڵەیە.",
     "message_void": "بۆ هەڵوەشاندنەوەی سند {voucher} کۆدی PIN بنووسە.",
     "message_reverse": "بۆ پێچەوانەکردنەوەی سند {voucher} کۆدی PIN بنووسە.",
-    "message_payment": "بۆ پۆستکردنی وەرگرتن یان پارەدان کۆدی PIN بنووسە."
+    "message_payment": "بۆ پۆستکردنی وەرگرتن یان پارەدان کۆدی PIN بنووسە.",
+    "message_delete_account": "بۆ سڕینەوەی هەژماری {code} کۆدی PIN بنووسە."
   },
   "settings": {
     "title": "ڕێکخستنەکان",

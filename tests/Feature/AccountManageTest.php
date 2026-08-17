@@ -120,6 +120,29 @@ class AccountManageTest extends TestCase
         $this->assertNotSoftDeleted($cash);
     }
 
+    public function test_chart_index_flags_posted_movements_for_delete_ux(): void
+    {
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->postMovement($user, $cash, $bank);
+
+        $this->actingAs($user)
+            ->get(route('accounts.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Accounts/Index')
+                ->has('accounts.data')
+                ->where('accounts.data', function ($accounts) use ($cash) {
+                    $cashRow = collect($accounts)->firstWhere('id', $cash->id);
+
+                    return is_array($cashRow)
+                        && ($cashRow['has_posted_movements'] ?? null) === true;
+                })
+            );
+    }
+
     private function postMovement(User $user, Account $debit, Account $credit): void
     {
         $entry = JournalEntry::query()->create([

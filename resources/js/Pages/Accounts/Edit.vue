@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
+import { useActionPin } from '@/composables/useActionPin';
 import { fbButton, fbCheckbox, fbDangerButton, fbGhostButton, fbInput, fbLabel, fbLink } from '@/flowbite';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -15,11 +16,15 @@ const props = defineProps({
 
 const page = usePage();
 const { t } = useI18n();
+const { requireActionPin } = useActionPin();
 const deleteError = computed(() => page.props.errors?.account);
 
 const locksStructure = computed(() => Boolean(props.account.is_company_receivable));
 const locksTypeCurrency = computed(
     () => locksStructure.value || Boolean(props.account.has_posted_movements),
+);
+const canDelete = computed(
+    () => !Boolean(props.account.has_posted_movements) && !Boolean(props.account.is_company_receivable),
 );
 
 const form = useForm({
@@ -35,8 +40,18 @@ const form = useForm({
 
 const submit = () => form.put(route('accounts.update', props.account.id));
 
-const destroy = () => {
-    if (!window.confirm(t('accounts.delete_confirm', { code: props.account.code }))) return;
+const destroy = async () => {
+    if (!canDelete.value) {
+        return;
+    }
+
+    const ok = await requireActionPin(
+        t('action_pin.message_delete_account', { code: props.account.code }),
+    );
+    if (!ok) {
+        return;
+    }
+
     router.delete(route('accounts.destroy', props.account.id));
 };
 </script>
@@ -128,13 +143,14 @@ const destroy = () => {
             </div>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
                 <button
+                    v-if="canDelete"
                     type="button"
                     :class="[fbDangerButton, '!w-auto']"
                     @click="destroy"
                 >
                     {{ t('common.delete') }}
                 </button>
-                <div class="flex flex-wrap gap-2">
+                <div class="ms-auto flex flex-wrap gap-2">
                     <Link :href="route('accounts.index')" :class="fbGhostButton">{{ t('common.cancel') }}</Link>
                     <button :class="[fbButton, '!w-auto']" :disabled="form.processing">
                         {{ form.processing ? t('common.saving') : t('users.save_changes') }}

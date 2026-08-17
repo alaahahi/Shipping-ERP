@@ -308,6 +308,7 @@ class AccountController extends Controller
             'is_active' => $account->is_active,
             'show_on_dashboard' => $account->show_on_dashboard,
             'balance' => $this->accountService->balance($account),
+            'has_posted_movements' => $this->accountService->hasPostedMovements($account),
         ];
     }
 
