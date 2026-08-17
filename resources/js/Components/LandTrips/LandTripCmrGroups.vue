@@ -26,8 +26,34 @@ const editValue = ref('');
 const editInputRef = ref(null);
 const fileInputs = ref({});
 
-const groupCount = computed(() => groups.value.length);
-const carCount = computed(() => groups.value.reduce((sum, g) => sum + (g.cars_count || 0), 0));
+const matchesGroup = (group, query) => {
+    if (!query) {
+        return true;
+    }
+
+    const hay = [
+        group.cmr_label,
+        group.cmr_key,
+        ...(group.chassis_nos ?? []),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return hay.includes(query);
+};
+
+const visibleGroups = computed(() => {
+    const query = String(props.search ?? '').trim().toLowerCase();
+    if (!query) {
+        return groups.value;
+    }
+
+    return groups.value.filter((group) => matchesGroup(group, query));
+});
+
+const groupCount = computed(() => visibleGroups.value.length);
+const carCount = computed(() => visibleGroups.value.reduce((sum, g) => sum + (g.cars_count || 0), 0));
 const busy = computed(() => uploadingKey.value !== null || removingKey.value !== null || renamingKey.value !== null);
 
 const loadGroups = async () => {
@@ -37,7 +63,6 @@ const loadGroups = async () => {
     try {
         const { data } = await axios.get(route('land-trips.companies.cmr-groups', props.companyId), {
             params: {
-                search: String(props.search ?? '').trim() || undefined,
                 location_status_id: props.locationStatusId || undefined,
             },
         });
@@ -51,7 +76,7 @@ const loadGroups = async () => {
 };
 
 watch(
-    () => [props.companyId, props.search, props.locationStatusId],
+    () => [props.companyId, props.locationStatusId],
     () => {
         loadGroups();
     },
@@ -221,7 +246,7 @@ defineExpose({ reload: loadGroups });
             <div v-for="n in 3" :key="n" class="land-cmr-group is-skeleton" />
         </div>
 
-        <div v-else-if="!loading && !groups.length" class="land-cmr-groups-empty">
+        <div v-else-if="!loading && !visibleGroups.length" class="land-cmr-groups-empty">
             {{ t('land_trips.cmr_groups_empty') }}
         </div>
 
@@ -233,7 +258,7 @@ defineExpose({ reload: loadGroups });
             appear
         >
             <article
-                v-for="(group, index) in groups"
+                v-for="(group, index) in visibleGroups"
                 :key="group.cmr_key === '' ? '__unspecified__' : group.cmr_key"
                 class="land-cmr-group"
                 :class="{ 'is-unspecified': group.is_unspecified }"

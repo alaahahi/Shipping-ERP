@@ -64,7 +64,7 @@ watch(hubTab, (tab) => {
 });
 
 const filterForm = useForm({
-    search: props.filters.search ?? '',
+    search: '',
     location_status_id: props.filters.location_status_id ?? '',
     sort: props.filters.sort || 'newest',
 });
@@ -118,16 +118,12 @@ let loadMoreObserver = null;
 const companyUrl = (overrides = {}) => {
     const base = route('land-trips.companies.show', props.company.id);
     const params = new URLSearchParams();
-    const search = overrides.search !== undefined ? overrides.search : filterForm.search;
     const locationId = overrides.location_status_id !== undefined
         ? overrides.location_status_id
         : filterForm.location_status_id;
     const sort = overrides.sort !== undefined ? overrides.sort : filterForm.sort;
     const highlight = overrides.highlight !== undefined ? overrides.highlight : props.highlightCarId;
 
-    if (String(search ?? '').trim() !== '') {
-        params.set('search', String(search).trim());
-    }
     if (locationId) {
         params.set('location_status_id', String(locationId));
     }
@@ -229,12 +225,7 @@ const displayedCars = computed(() => {
         return loadedCars.value;
     }
 
-    const local = loadedCars.value.filter((car) => carSearchHay(car).includes(query));
-    if (local.length === 0 && filtering.value) {
-        return loadedCars.value;
-    }
-
-    return local;
+    return loadedCars.value.filter((car) => carSearchHay(car).includes(query));
 });
 
 const pageIds = computed(() => displayedCars.value.map((car) => car.id));
@@ -243,41 +234,7 @@ const allPageSelected = computed(
     () => pageIds.value.length > 0 && pageIds.value.every((id) => selectedIds.value.includes(id)),
 );
 
-const filtersUnchanged = () => (
-    String(filterForm.search ?? '').trim() === String(props.filters.search ?? '').trim()
-    && String(filterForm.location_status_id || '') === String(props.filters.location_status_id || '')
-    && String(filterForm.sort || 'newest') === String(props.filters.sort || 'newest')
-);
-
-const canFilterSearchLocally = () => {
-    if (hasMoreCars.value || carsViewMode.value !== 'list') {
-        return false;
-    }
-
-    const applied = String(props.filters.search ?? '').trim().toLowerCase();
-    const next = String(filterForm.search ?? '').trim().toLowerCase();
-    const locationSame = String(filterForm.location_status_id || '') === String(props.filters.location_status_id || '');
-    const sortSame = String(filterForm.sort || 'newest') === String(props.filters.sort || 'newest');
-
-    if (!locationSame || !sortSame) {
-        return false;
-    }
-
-    return applied === '' || next.includes(applied);
-};
-
 const applyFilters = () => {
-    if (filtersUnchanged()) {
-        filtering.value = false;
-        return;
-    }
-
-    if (canFilterSearchLocally()) {
-        window.history.replaceState(window.history.state, '', companyUrl());
-        filtering.value = false;
-        return;
-    }
-
     selectedIds.value = [];
     replaceLoadedCars.value = true;
     router.get(
@@ -287,7 +244,6 @@ const applyFilters = () => {
             preserveState: true,
             replace: true,
             preserveScroll: true,
-            only: ['cars', 'filters'],
             onStart: () => {
                 filtering.value = true;
             },
@@ -298,36 +254,13 @@ const applyFilters = () => {
     );
 };
 
-let filterTimer = null;
-watch(
-    () => filterForm.search,
-    () => {
-        clearTimeout(filterTimer);
-        filterTimer = setTimeout(() => applyFilters(), 300);
-    },
-);
-watch(
-    () => props.filters.search,
-    (value) => {
-        const next = value ?? '';
-        if (next !== filterForm.search) {
-            filterForm.search = next;
-        }
-    },
-);
 watch(
     () => filterForm.sort,
     () => {
         applyFilters();
     },
 );
-watch(carsViewMode, (mode) => {
-    if (mode !== 'list' && !filtersUnchanged()) {
-        applyFilters();
-    }
-});
 onBeforeUnmount(() => {
-    clearTimeout(filterTimer);
     loadMoreObserver?.disconnect();
 });
 
@@ -391,7 +324,6 @@ const loadMore = async () => {
         const { data } = await axios.get(route('land-trips.companies.cars', props.company.id), {
             params: {
                 page: currentPage.value + 1,
-                search: filterForm.search || undefined,
                 location_status_id: filterForm.location_status_id || undefined,
                 sort: filterForm.sort && filterForm.sort !== 'newest' ? filterForm.sort : undefined,
             },
@@ -406,8 +338,9 @@ const loadMore = async () => {
 
 onMounted(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has('page')) {
+    if (url.searchParams.has('page') || url.searchParams.has('search')) {
         url.searchParams.delete('page');
+        url.searchParams.delete('search');
         const query = url.searchParams.toString();
         window.history.replaceState(window.history.state, '', `${url.pathname}${query ? `?${query}` : ''}${url.hash}`);
     }
@@ -900,14 +833,6 @@ const duplicateCarCount = computed(() => (
                 </div>
             </div>
 
-            <LandTripSearchBar
-                v-show="hubTab === 'cars'"
-                v-model="filterForm.search"
-                input-id="land-hub-search"
-                :placeholder="t('land_trips.search_cars')"
-                :searching="filtering"
-            />
-
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
 
             <LandTripCarCheck v-if="hubTab === 'check'" :active="true" :company-id="company.id" />
@@ -957,6 +882,13 @@ const duplicateCarCount = computed(() => (
                     </div>
 
                     <div class="land-hub-controls">
+                        <div class="land-hub-search">
+                            <LandTripSearchBar
+                                v-model="filterForm.search"
+                                input-id="land-hub-search"
+                                :placeholder="t('land_trips.search_cars')"
+                            />
+                        </div>
                         <div class="land-hub-sort">
                             <label class="visually-hidden" for="land-hub-sort">{{ t('land_trips.sort_cars') }}</label>
                             <select
@@ -1070,7 +1002,7 @@ const duplicateCarCount = computed(() => (
                     ref="cmrGroupsRef"
                     :company-id="company.id"
                     :can-manage="canManage"
-                    :search="filters.search || ''"
+                    :search="filterForm.search"
                     :location-status-id="filters.location_status_id || ''"
                     @toast="toastMessage = $event"
                     @renamed="applyFilters"
@@ -1079,14 +1011,14 @@ const duplicateCarCount = computed(() => (
                 <LandTripModelGroups
                     v-else-if="carsViewMode === 'model'"
                     :company-id="company.id"
-                    :search="filters.search || ''"
+                    :search="filterForm.search"
                     :location-status-id="filters.location_status_id || ''"
                 />
 
                 <div
                     v-show="carsViewMode === 'list'"
                     class="table-responsive land-hub-table"
-                    :class="{ 'is-loading': filtering && !loadingMore, 'land-live-search-results--busy': filtering }"
+                    :class="{ 'is-loading': filtering && !loadingMore }"
                 >
                     <table class="table erp-table align-middle mb-0 land-hub-cars">
                         <thead>

@@ -15,8 +15,34 @@ const groups = ref([]);
 const loading = ref(false);
 const error = ref('');
 
-const groupCount = computed(() => groups.value.length);
-const carCount = computed(() => groups.value.reduce((sum, g) => sum + (g.cars_count || 0), 0));
+const matchesGroup = (group, query) => {
+    if (!query) {
+        return true;
+    }
+
+    const hay = [
+        group.model_label,
+        group.model_key,
+        ...(group.chassis_nos ?? []),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return hay.includes(query);
+};
+
+const visibleGroups = computed(() => {
+    const query = String(props.search ?? '').trim().toLowerCase();
+    if (!query) {
+        return groups.value;
+    }
+
+    return groups.value.filter((group) => matchesGroup(group, query));
+});
+
+const groupCount = computed(() => visibleGroups.value.length);
+const carCount = computed(() => visibleGroups.value.reduce((sum, g) => sum + (g.cars_count || 0), 0));
 
 const loadGroups = async () => {
     loading.value = true;
@@ -25,7 +51,6 @@ const loadGroups = async () => {
     try {
         const { data } = await axios.get(route('land-trips.companies.model-groups', props.companyId), {
             params: {
-                search: String(props.search ?? '').trim() || undefined,
                 location_status_id: props.locationStatusId || undefined,
             },
         });
@@ -39,7 +64,7 @@ const loadGroups = async () => {
 };
 
 watch(
-    () => [props.companyId, props.search, props.locationStatusId],
+    () => [props.companyId, props.locationStatusId],
     () => {
         loadGroups();
     },
@@ -71,7 +96,7 @@ defineExpose({ reload: loadGroups });
             <div v-for="n in 3" :key="n" class="land-cmr-group is-skeleton" />
         </div>
 
-        <div v-else-if="!loading && !groups.length" class="land-cmr-groups-empty">
+        <div v-else-if="!loading && !visibleGroups.length" class="land-cmr-groups-empty">
             {{ t('land_trips.model_groups_empty') }}
         </div>
 
@@ -83,7 +108,7 @@ defineExpose({ reload: loadGroups });
             appear
         >
             <article
-                v-for="(group, index) in groups"
+                v-for="(group, index) in visibleGroups"
                 :key="group.model_key === '' ? '__unspecified__' : group.model_key"
                 class="land-cmr-group"
                 :class="{ 'is-unspecified': group.is_unspecified }"

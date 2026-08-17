@@ -1968,17 +1968,7 @@ html.dark .land-company-card.land-car-row-green,
 }
 
 .land-filter-compact {
-    max-width: 20rem;
-}
-
-.land-live-search {
-    position: sticky;
-    top: 3.75rem;
-    z-index: 20;
-    margin-bottom: 0.85rem;
-    padding-block: 0.65rem;
-    background: color-mix(in srgb, var(--erp-bg) 92%, transparent);
-    backdrop-filter: blur(12px);
+    max-width: 28rem;
 }
 
 .land-live-search-form {
@@ -1991,12 +1981,17 @@ html.dark .land-company-card.land-car-row-green,
 
 .land-live-search-icon {
     position: absolute;
-    inset-inline-start: 0.85rem;
+    inset-inline-start: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     display: inline-flex;
     color: var(--erp-text-muted);
     pointer-events: none;
+}
+
+.land-live-search-input {
+    padding-inline-start: 2.5rem !important;
+    padding-inline-end: 2.35rem !important;
 }
 
 .land-live-search-input[type='search']::-webkit-search-decoration,
@@ -2005,25 +2000,21 @@ html.dark .land-company-card.land-car-row-green,
     appearance: none;
 }
 
-.land-live-search-status,
 .land-live-search-clear {
     position: absolute;
-    inset-inline-end: 0.45rem;
+    inset-inline-end: 0.35rem;
     top: 50%;
     transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 1.75rem;
+    height: 1.75rem;
     padding: 0;
     border: 0;
     border-radius: 999px;
     background: transparent;
     color: var(--erp-text-muted);
-}
-
-.land-live-search-clear {
     cursor: pointer;
 }
 
@@ -2032,30 +2023,10 @@ html.dark .land-company-card.land-car-row-green,
     color: var(--erp-text);
 }
 
-.land-live-search-spinner {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid var(--erp-border);
-    border-top-color: var(--erp-primary);
-    border-radius: 999px;
-    animation: land-live-search-spin 0.7s linear infinite;
-}
-
-@keyframes land-live-search-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.land-live-search-results--busy {
-    opacity: 0.72;
-    transition: opacity 160ms ease;
-}
-
-@media (max-width: 991.98px) {
-    .land-live-search {
-        top: 3.5rem;
-    }
+.land-hub-search .land-live-search-input {
+    min-height: 2.5rem;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
 }
 
 .land-company-card {
@@ -2227,9 +2198,9 @@ html.dark .land-company-card.land-car-row-green,
 }
 
 .land-hub-search {
-    flex: 1 0 12rem;
-    width: min(22rem, 100%);
-    max-width: 22rem;
+    flex: 1 1 16rem;
+    width: min(28rem, 100%);
+    max-width: 28rem;
     min-width: 0;
 }
 

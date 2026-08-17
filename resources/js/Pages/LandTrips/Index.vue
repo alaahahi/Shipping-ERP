@@ -6,8 +6,8 @@ import PageHeader from '@/Components/PageHeader.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import LandTripSearchBar from '@/Components/LandTrips/LandTripSearchBar.vue';
 import { statusSurfaceStyle } from '@/composables/useLandTripStatusColor';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -19,60 +19,19 @@ const props = defineProps({
 const page = usePage();
 const { t } = useI18n();
 const success = computed(() => page.props.flash?.success);
-const search = ref(props.filters.search ?? '');
-const searching = ref(false);
-let searchTimer = null;
-let searchVisit = 0;
+const search = ref('');
 
-const normalizedSearch = () => String(search.value ?? '').trim();
-const appliedSearch = () => String(props.filters.search ?? '').trim();
-
-watch(
-    () => props.filters.search,
-    (value) => {
-        const next = value ?? '';
-        if (next !== search.value) {
-            search.value = next;
-        }
-    },
-);
-
-const applySearch = () => {
-    const value = normalizedSearch();
-    if (value === appliedSearch()) {
-        searching.value = false;
+onMounted(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('search')) {
         return;
     }
-
-    const visit = ++searchVisit;
-    router.get(
-        route('land-trips.index'),
-        { search: value || undefined },
-        {
-            preserveState: true,
-            replace: true,
-            preserveScroll: true,
-            only: ['companies', 'filters'],
-            onStart: () => {
-                if (visit === searchVisit) {
-                    searching.value = true;
-                }
-            },
-            onFinish: () => {
-                if (visit === searchVisit) {
-                    searching.value = false;
-                }
-            },
-        },
-    );
-};
-
-watch(search, () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(applySearch, 300);
+    url.searchParams.delete('search');
+    const query = url.searchParams.toString();
+    window.history.replaceState(window.history.state, '', `${url.pathname}${query ? `?${query}` : ''}${url.hash}`);
 });
 
-onBeforeUnmount(() => clearTimeout(searchTimer));
+const normalizedSearch = () => String(search.value ?? '').trim().toLowerCase();
 
 const matchesCompany = (company, query) => {
     if (!query) {
@@ -94,23 +53,15 @@ const matchesCompany = (company, query) => {
 
 const visibleCompanies = computed(() => {
     const rows = props.companies.data ?? [];
-    const query = normalizedSearch().toLowerCase();
+    const query = normalizedSearch();
     if (!query) {
         return rows;
     }
 
-    const local = rows.filter((company) => matchesCompany(company, query));
-    if (local.length === 0 && searching.value) {
-        return rows;
-    }
-
-    return local;
+    return rows.filter((company) => matchesCompany(company, query));
 });
 
 const emptyMessage = computed(() => {
-    if (searching.value && normalizedSearch() !== '') {
-        return t('land_trips.check_searching');
-    }
     if (normalizedSearch() !== '') {
         return t('common.no_results');
     }
@@ -120,16 +71,7 @@ const emptyMessage = computed(() => {
 
 const cardStyle = (company) => statusSurfaceStyle(company.card_color || '#0F766E', { solid: true });
 
-const companyHref = (company) => {
-    if (company.matched_car?.id) {
-        return route('land-trips.companies.show', {
-            company: company.id,
-            highlight: company.matched_car.id,
-        });
-    }
-
-    return route('land-trips.companies.show', company.id);
-};
+const companyHref = (company) => route('land-trips.companies.show', company.id);
 </script>
 
 <template>
@@ -140,16 +82,17 @@ const companyHref = (company) => {
 
         <PageHeader :kicker="t('nav.operations')" :title="t('land_trips.title')" :subtitle="t('land_trips.companies_help')" />
 
-        <LandTripSearchBar
-            v-model="search"
-            input-id="land-trips-company-search"
-            :placeholder="t('land_trips.search_companies')"
-            :searching="searching"
-        />
+        <div class="land-filter-compact mb-3">
+            <LandTripSearchBar
+                v-model="search"
+                input-id="land-trips-company-search"
+                :placeholder="t('land_trips.search_companies')"
+            />
+        </div>
 
         <EmptyState v-if="!visibleCompanies.length" icon="C">{{ emptyMessage }}</EmptyState>
 
-        <div v-else class="row g-3" :class="{ 'land-live-search-results--busy': searching }">
+        <div v-else class="row g-3">
             <div v-for="company in visibleCompanies" :key="company.id" class="col-6 col-md-4 col-xl-3">
                 <Link :href="companyHref(company)" class="text-decoration-none">
                     <div class="erp-stat is-clickable land-company-card h-100" :style="cardStyle(company)">
