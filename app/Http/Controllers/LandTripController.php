@@ -81,6 +81,30 @@ class LandTripController extends Controller
         ]);
     }
 
+    public function searchCompanies(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        $search = trim($request->string('search')->toString());
+        if ($search === '') {
+            return response()->json(['companies' => []]);
+        }
+
+        $companies = $this->landTripService->paginateCompanies(['search' => $search], 40);
+        $chassisMatches = $this->landTripService->matchedCarsByChassis(
+            collect($companies->items())->pluck('id')->all(),
+            $search
+        );
+
+        $items = collect($companies->items())->map(function (Company $company) use ($chassisMatches) {
+            $company->matched_car = $chassisMatches[$company->id] ?? null;
+
+            return $this->landTripService->transformCompanyHub($company);
+        })->values();
+
+        return response()->json(['companies' => $items]);
+    }
+
     public function showCompany(Request $request, Company $company): Response
     {
         Gate::authorize('viewAny', LandTrip::class);
