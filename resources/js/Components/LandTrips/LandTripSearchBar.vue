@@ -28,7 +28,7 @@ const clear = () => {
 <template>
     <div class="land-live-search">
         <form class="land-live-search-form" @submit.prevent>
-            <label class="sr-only" :for="inputId">{{ placeholder }}</label>
+            <label class="visually-hidden" :for="inputId">{{ placeholder }}</label>
             <div class="land-live-search-field">
                 <span class="land-live-search-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">

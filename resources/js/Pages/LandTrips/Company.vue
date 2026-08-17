@@ -10,6 +10,7 @@ import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vu
 import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vue';
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import LandTripModelGroups from '@/Components/LandTrips/LandTripModelGroups.vue';
+import LandTripSearchBar from '@/Components/LandTrips/LandTripSearchBar.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
@@ -210,13 +211,73 @@ const viewingArchive = computed(() => archiveStatusIds.value.includes(String(fil
 const selectedCount = computed(() => selectedIds.value.length);
 const activeStatusId = computed(() => String(filterForm.location_status_id || ''));
 const filtering = ref(false);
-const pageIds = computed(() => loadedCars.value.map((car) => car.id));
+
+const carSearchHay = (car) => [
+    car.chassis_no,
+    car.consignee_name,
+    car.description,
+    car.model,
+    car.color,
+    car.notes,
+    car.cmr_waybill,
+    car.year,
+].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' ').toLowerCase();
+
+const displayedCars = computed(() => {
+    const query = String(filterForm.search ?? '').trim().toLowerCase();
+    if (!query) {
+        return loadedCars.value;
+    }
+
+    const local = loadedCars.value.filter((car) => carSearchHay(car).includes(query));
+    if (local.length === 0 && filtering.value) {
+        return loadedCars.value;
+    }
+
+    return local;
+});
+
+const pageIds = computed(() => displayedCars.value.map((car) => car.id));
 const hasMoreCars = computed(() => currentPage.value < lastPage.value);
 const allPageSelected = computed(
     () => pageIds.value.length > 0 && pageIds.value.every((id) => selectedIds.value.includes(id)),
 );
 
+const filtersUnchanged = () => (
+    String(filterForm.search ?? '').trim() === String(props.filters.search ?? '').trim()
+    && String(filterForm.location_status_id || '') === String(props.filters.location_status_id || '')
+    && String(filterForm.sort || 'newest') === String(props.filters.sort || 'newest')
+);
+
+const canFilterSearchLocally = () => {
+    if (hasMoreCars.value || carsViewMode.value !== 'list') {
+        return false;
+    }
+
+    const applied = String(props.filters.search ?? '').trim().toLowerCase();
+    const next = String(filterForm.search ?? '').trim().toLowerCase();
+    const locationSame = String(filterForm.location_status_id || '') === String(props.filters.location_status_id || '');
+    const sortSame = String(filterForm.sort || 'newest') === String(props.filters.sort || 'newest');
+
+    if (!locationSame || !sortSame) {
+        return false;
+    }
+
+    return applied === '' || next.includes(applied);
+};
+
 const applyFilters = () => {
+    if (filtersUnchanged()) {
+        filtering.value = false;
+        return;
+    }
+
+    if (canFilterSearchLocally()) {
+        window.history.replaceState(window.history.state, '', companyUrl());
+        filtering.value = false;
+        return;
+    }
+
     selectedIds.value = [];
     replaceLoadedCars.value = true;
     router.get(
@@ -226,6 +287,7 @@ const applyFilters = () => {
             preserveState: true,
             replace: true,
             preserveScroll: true,
+            only: ['cars', 'filters'],
             onStart: () => {
                 filtering.value = true;
             },
@@ -241,7 +303,16 @@ watch(
     () => filterForm.search,
     () => {
         clearTimeout(filterTimer);
-        filterTimer = setTimeout(() => applyFilters(), 350);
+        filterTimer = setTimeout(() => applyFilters(), 300);
+    },
+);
+watch(
+    () => props.filters.search,
+    (value) => {
+        const next = value ?? '';
+        if (next !== filterForm.search) {
+            filterForm.search = next;
+        }
     },
 );
 watch(
@@ -250,6 +321,11 @@ watch(
         applyFilters();
     },
 );
+watch(carsViewMode, (mode) => {
+    if (mode !== 'list' && !filtersUnchanged()) {
+        applyFilters();
+    }
+});
 onBeforeUnmount(() => {
     clearTimeout(filterTimer);
     loadMoreObserver?.disconnect();
@@ -824,6 +900,14 @@ const duplicateCarCount = computed(() => (
                 </div>
             </div>
 
+            <LandTripSearchBar
+                v-show="hubTab === 'cars'"
+                v-model="filterForm.search"
+                input-id="land-hub-search"
+                :placeholder="t('land_trips.search_cars')"
+                :searching="filtering"
+            />
+
             <CompanyCountryMap v-show="hubTab === 'cars'" :active="hubTab === 'cars'" :countries="countryMapRows" />
 
             <LandTripCarCheck v-if="hubTab === 'check'" :active="true" :company-id="company.id" />
@@ -873,17 +957,6 @@ const duplicateCarCount = computed(() => (
                     </div>
 
                     <div class="land-hub-controls">
-                        <form class="land-hub-search" @submit.prevent>
-                            <label class="visually-hidden" for="land-hub-search">{{ t('land_trips.search_cars') }}</label>
-                            <input
-                                id="land-hub-search"
-                                v-model="filterForm.search"
-                                type="search"
-                                class="form-control form-erp-control"
-                                :placeholder="t('land_trips.search_cars')"
-                                autocomplete="off"
-                            />
-                        </form>
                         <div class="land-hub-sort">
                             <label class="visually-hidden" for="land-hub-sort">{{ t('land_trips.sort_cars') }}</label>
                             <select
@@ -1013,7 +1086,7 @@ const duplicateCarCount = computed(() => (
                 <div
                     v-show="carsViewMode === 'list'"
                     class="table-responsive land-hub-table"
-                    :class="{ 'is-loading': filtering && !loadingMore }"
+                    :class="{ 'is-loading': filtering && !loadingMore, 'land-live-search-results--busy': filtering }"
                 >
                     <table class="table erp-table align-middle mb-0 land-hub-cars">
                         <thead>
@@ -1041,10 +1114,14 @@ const duplicateCarCount = computed(() => (
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="!loadedCars.length">
+                            <tr v-if="!displayedCars.length">
                                 <td :colspan="canManage ? 10 : 9">
                                     <EmptyState
-                                        :title="viewingArchive ? t('land_trips.empty_archive') : t('land_trips.empty_cars')"
+                                        :title="viewingArchive
+                                    ? t('land_trips.empty_archive')
+                                    : (String(filterForm.search ?? '').trim()
+                                        ? t('common.no_results')
+                                        : t('land_trips.empty_cars'))"
                                         icon="C"
                                     >
                                         <template v-if="!viewingArchive">
@@ -1065,7 +1142,7 @@ const duplicateCarCount = computed(() => (
                                 </td>
                             </tr>
                             <tr
-                                v-for="(car, index) in loadedCars"
+                                v-for="(car, index) in displayedCars"
                                 :id="`land-car-${car.id}`"
                                 :key="car.id"
                                 :class="rowClass(car)"
@@ -1214,7 +1291,7 @@ const duplicateCarCount = computed(() => (
                     </table>
                 </div>
 
-                <div v-if="carsViewMode === 'list' && (loadedCars.length || hasMoreCars)" class="land-hub-pager">
+                <div v-if="carsViewMode === 'list' && (displayedCars.length || hasMoreCars)" class="land-hub-pager">
                     <div
                         v-if="hasMoreCars"
                         ref="loadMoreSentinel"
