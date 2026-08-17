@@ -158,6 +158,7 @@
     "label": "رمز PIN",
     "confirm": "تأكيد",
     "cancel": "إلغاء",
+    "hint": "يُتحقق تلقائياً عند إدخال جميع الأرقام.",
     "wrong": "رمز PIN غير صحيح.",
     "message_void": "أدخل رمز PIN لإبطال السند {voucher}.",
     "message_reverse": "أدخل رمز PIN لعكس السند {voucher}.",

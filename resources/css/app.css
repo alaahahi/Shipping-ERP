@@ -3682,6 +3682,10 @@ body:has(.erp-print-shell) {
     padding: 1.25rem 1.5rem 2rem;
 }
 
+.erp-print-sheet:has(.cash-voucher-sheet) {
+    max-width: 210mm;
+}
+
 .erp-print-header {
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
@@ -4022,19 +4026,10 @@ body:has(.erp-print-shell) {
 }
 
 @media print {
-    @page {
-        size: A4 portrait;
-        margin: 8mm;
-    }
-
     .erp-print-sheet:has(.cash-voucher-sheet) {
         padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
-    }
-
-    .cash-voucher-sheet {
-        max-width: none;
     }
 
     .cash-voucher {
@@ -4043,8 +4038,26 @@ body:has(.erp-print-shell) {
         border-radius: 6px;
     }
 
+    .cash-voucher-header {
+        padding: 0.4rem 0.6rem;
+    }
+
+    .cash-voucher-body {
+        padding: 0.45rem 0.6rem 0.4rem;
+    }
+
+    .cash-voucher-body p {
+        margin-bottom: 0.32rem;
+        font-size: 0.82rem;
+    }
+
+    .cash-voucher-bottom {
+        margin-top: 0.5rem;
+    }
+
     .cash-voucher-cut {
-        margin: 0.45rem 0;
+        margin: 0.3rem 0;
+        height: 0.9rem;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -4117,6 +4130,39 @@ body:has(.erp-print-shell) {
     .erp-print-table td {
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
+    }
+}
+
+/* Cash vouchers must win over the global landscape @page above. */
+@media print {
+    @page cash-voucher {
+        size: A4 portrait;
+        margin: 8mm;
+    }
+
+    html.cash-voucher-print,
+    html.cash-voucher-print body,
+    .cash-voucher-print,
+    .erp-print-sheet:has(.cash-voucher-sheet),
+    .cash-voucher-sheet {
+        page: cash-voucher;
+        min-width: 0 !important;
+    }
+
+    html.cash-voucher-print,
+    html.cash-voucher-print body,
+    .erp-print-shell:has(.cash-voucher-sheet),
+    .erp-print-sheet:has(.cash-voucher-sheet) {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .cash-voucher-sheet {
+        width: 100%;
+        max-width: 100%;
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
 }
 
@@ -4311,6 +4357,128 @@ body:has(.erp-print-shell) {
 
 .erp-modal-dialog.is-narrow {
     width: min(28rem, 100%);
+}
+
+.action-pin-otp-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.action-pin-otp-wrap .otp-input-container {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.action-pin-otp-wrap .otp-input-container > div {
+    margin: 0;
+}
+
+.action-pin-otp-wrap input.action-pin-digit {
+    width: 2.75rem;
+    min-width: 2.4rem;
+    height: 3.25rem;
+    padding: 0;
+    margin: 0;
+    appearance: none;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+    caret-color: #0f766e;
+}
+
+.action-pin-otp-wrap input.action-pin-digit:focus {
+    outline: none;
+    border-color: #0f766e;
+    box-shadow: 0 0 0 4px rgb(13 148 136 / 0.28);
+}
+
+.action-pin-otp-wrap.is-error input.action-pin-digit {
+    border-color: #b91c1c;
+    box-shadow: 0 0 0 4px rgb(185 28 28 / 0.18);
+}
+
+.action-pin-otp-wrap input.action-pin-digit.is-complete {
+    border-color: #0f766e;
+}
+
+.action-pin-otp-wrap.is-error input.action-pin-digit.is-complete {
+    border-color: #b91c1c;
+}
+
+.action-pin-otp-wrap input.action-pin-digit::-webkit-inner-spin-button,
+.action-pin-otp-wrap input.action-pin-digit::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+html.dark .action-pin-otp-wrap input.action-pin-digit,
+[data-theme='dark'] .action-pin-otp-wrap input.action-pin-digit {
+    background: #374151;
+    border-color: #4b5563;
+    color: #fff;
+}
+
+html.dark .action-pin-otp-wrap input.action-pin-digit:focus,
+[data-theme='dark'] .action-pin-otp-wrap input.action-pin-digit:focus {
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 4px rgb(15 118 110 / 0.45);
+}
+
+html.dark .action-pin-otp-wrap input.action-pin-digit.is-complete,
+[data-theme='dark'] .action-pin-otp-wrap input.action-pin-digit.is-complete {
+    border-color: #14b8a6;
+}
+
+html.dark .action-pin-otp-wrap.is-error input.action-pin-digit,
+html.dark .action-pin-otp-wrap.is-error input.action-pin-digit.is-complete,
+[data-theme='dark'] .action-pin-otp-wrap.is-error input.action-pin-digit,
+[data-theme='dark'] .action-pin-otp-wrap.is-error input.action-pin-digit.is-complete {
+    border-color: #f87171;
+    box-shadow: 0 0 0 4px rgb(248 113 113 / 0.22);
+}
+
+@media (max-width: 380px) {
+    .action-pin-otp-wrap input.action-pin-digit {
+        width: 2.4rem;
+        height: 2.9rem;
+        font-size: 1.1rem;
+    }
+}
+
+@keyframes action-pin-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-0.4rem);
+    }
+    40% {
+        transform: translateX(0.4rem);
+    }
+    60% {
+        transform: translateX(-0.28rem);
+    }
+    80% {
+        transform: translateX(0.28rem);
+    }
+}
+
+.action-pin-otp-wrap.is-shaking {
+    animation: action-pin-shake 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .action-pin-otp-wrap.is-shaking {
+        animation: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

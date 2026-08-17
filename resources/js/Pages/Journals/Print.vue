@@ -1,7 +1,7 @@
 <script setup>
 import PrintLayout from '@/Layouts/PrintLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
@@ -28,6 +28,23 @@ const signatureLabel = computed(() =>
 
 const datetimeLabel = computed(() => props.printedAt || props.entry.entry_date || '');
 const copies = [1, 2];
+const printPageClass = 'cash-voucher-print';
+
+onMounted(() => {
+    document.documentElement.classList.add(printPageClass);
+
+    if (!document.querySelector('style[data-cash-voucher-page]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-cash-voucher-page', '');
+        style.textContent = '@page { size: A4 portrait; margin: 8mm; }';
+        document.head.appendChild(style);
+    }
+});
+
+onBeforeUnmount(() => {
+    document.documentElement.classList.remove(printPageClass);
+    document.querySelector('style[data-cash-voucher-page]')?.remove();
+});
 
 const printPage = () => window.print();
 </script>
@@ -35,7 +52,7 @@ const printPage = () => window.print();
 <template>
     <Head :title="`${titleAr} — ${entry.voucher_number}`" />
 
-    <PrintLayout>
+    <PrintLayout class="cash-voucher-print">
         <template #toolbar-start>
             <Link :href="route('journals.show', entry.id)" class="btn btn-erp-ghost btn-sm">
                 {{ t('journals.back_voucher') }}

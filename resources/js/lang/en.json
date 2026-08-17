@@ -158,6 +158,7 @@
     "label": "PIN code",
     "confirm": "Confirm",
     "cancel": "Cancel",
+    "hint": "Checked automatically when all digits are entered.",
     "wrong": "Incorrect PIN.",
     "message_void": "Enter the PIN to void voucher {voucher}.",
     "message_reverse": "Enter the PIN to reverse voucher {voucher}.",

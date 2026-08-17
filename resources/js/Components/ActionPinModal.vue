@@ -1,14 +1,30 @@
 <script setup>
-import { fbButton, fbGhostButton, fbInput, fbLabel } from '@/flowbite';
+import { nextTick, ref, watch } from 'vue';
+import VOtpInput from 'vue3-otp-input';
+import { fbGhostButton, fbLabel } from '@/flowbite';
 import { useActionPin } from '@/composables/useActionPin';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
-const { state, submitPin, cancelPin, setInputEl } = useActionPin();
+const { state, pinLength, submitPin, cancelPin, setOtpApi, onPinChange } = useActionPin();
+const otpInput = ref(null);
 
-const bindInput = (el) => {
-    setInputEl(el || null);
-};
+watch(otpInput, (el) => {
+    setOtpApi(el || null);
+});
+
+watch(
+    () => state.open,
+    (open) => {
+        if (!open) {
+            return;
+        }
+
+        nextTick(() => {
+            document.querySelector('.action-pin-otp-wrap input')?.focus?.();
+        });
+    }
+);
 </script>
 
 <template>
@@ -35,19 +51,31 @@ const bindInput = (el) => {
                 </p>
             </div>
 
-            <form class="p-4" @submit.prevent="submitPin">
-                <label :class="fbLabel" for="action-pin-input">{{ t('action_pin.label') }}</label>
-                <input
-                    id="action-pin-input"
-                    :ref="bindInput"
-                    v-model="state.pin"
-                    type="password"
-                    inputmode="numeric"
-                    autocomplete="one-time-code"
-                    :class="fbInput"
+            <form class="p-4" @submit.prevent>
+                <label :class="fbLabel" id="action-pin-label">{{ t('action_pin.label') }}</label>
+                <div
+                    class="action-pin-otp-wrap"
+                    :class="{ 'is-error': state.error, 'is-shaking': state.shaking }"
+                    role="group"
+                    aria-labelledby="action-pin-label"
                     :aria-invalid="state.error ? 'true' : 'false'"
-                    @keydown.escape.prevent="cancelPin"
-                />
+                >
+                    <VOtpInput
+                        ref="otpInput"
+                        input-classes="action-pin-digit"
+                        input-type="tel"
+                        inputmode="numeric"
+                        :num-inputs="pinLength"
+                        :should-auto-focus="true"
+                        :should-focus-order="true"
+                        v-model:value="state.pin"
+                        @on-change="onPinChange"
+                        @on-complete="submitPin"
+                    />
+                </div>
+                <p class="mt-2 mb-0 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('action_pin.hint') }}
+                </p>
                 <p
                     v-if="state.error"
                     class="mt-2 mb-0 text-sm text-red-700 dark:text-red-400"
@@ -59,9 +87,6 @@ const bindInput = (el) => {
                 <div class="mt-4 flex flex-wrap justify-end gap-2">
                     <button type="button" :class="[fbGhostButton, '!w-auto']" @click="cancelPin">
                         {{ t('action_pin.cancel') }}
-                    </button>
-                    <button type="submit" :class="[fbButton, '!w-auto min-w-28']">
-                        {{ t('action_pin.confirm') }}
                     </button>
                 </div>
             </form>
