@@ -8,6 +8,7 @@ enum SettingKey: string
     case CompanyEmail = 'company.email';
     case CompanyPhone = 'company.phone';
     case CompanyAddress = 'company.address';
+    case CompanyLogo = 'company.logo';
 
     case AppTimezone = 'app.timezone';
     case AppLocale = 'app.locale';
@@ -23,6 +24,7 @@ enum SettingKey: string
             self::CompanyEmail => 'Company email',
             self::CompanyPhone => 'Company phone',
             self::CompanyAddress => 'Company address',
+            self::CompanyLogo => 'Company logo',
             self::AppTimezone => 'Timezone',
             self::AppLocale => 'Locale',
             self::AppCurrency => 'Default currency',
@@ -43,6 +45,7 @@ enum SettingKey: string
             self::CompanyEmail => '',
             self::CompanyPhone => '',
             self::CompanyAddress => '',
+            self::CompanyLogo => '',
             self::AppTimezone => 'Asia/Baghdad',
             self::AppLocale => 'ar',
             self::AppCurrency => 'USD',

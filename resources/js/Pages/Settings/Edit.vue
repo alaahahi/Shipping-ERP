@@ -44,6 +44,8 @@ const form = useForm({
         email: props.settings.company.email,
         phone: props.settings.company.phone,
         address: props.settings.company.address,
+        logo: null,
+        remove_logo: false,
     },
     app: {
         timezone: props.settings.app.timezone,
@@ -55,6 +57,30 @@ const form = useForm({
         enabled: props.settings.whatsapp?.enabled === '1' || props.settings.whatsapp?.enabled === true,
     },
 });
+
+const logoPreview = computed(() => {
+    if (form.company.logo) {
+        return URL.createObjectURL(form.company.logo);
+    }
+
+    if (form.company.remove_logo) {
+        return null;
+    }
+
+    return props.settings.company.logo_url || null;
+});
+
+const onLogoChange = (event) => {
+    form.company.logo = event.target.files?.[0] ?? null;
+    form.company.remove_logo = false;
+};
+
+const removeLogo = () => {
+    form.company.logo = null;
+    form.company.remove_logo = true;
+};
+
+const submit = () => form.put(route('settings.update'), { forceFormData: true });
 
 const countryForm = useForm({
     name: '',
@@ -88,8 +114,6 @@ const userFilterForm = useForm({
 const goTab = (tab) => {
     router.get(route('settings.edit'), { tab }, { preserveState: false, preserveScroll: true });
 };
-
-const submit = () => form.put(route('settings.update'));
 
 const startEditCountry = (country) => {
     editingCountryId.value = country.id;
@@ -390,6 +414,37 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                     <div class="col-md-6">
                         <label class="form-erp-label">{{ t('settings.address') }}</label>
                         <input v-model="form.company.address" class="form-control form-erp-control" :disabled="!canManage" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-erp-label">{{ t('settings.logo') }}</label>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <img
+                                v-if="logoPreview"
+                                :src="logoPreview"
+                                alt=""
+                                class="rounded border"
+                                style="max-height: 72px; max-width: 160px; object-fit: contain; background: #fff"
+                            />
+                            <div class="flex-grow-1" style="min-width: 220px">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    class="form-control form-erp-control"
+                                    :disabled="!canManage"
+                                    @change="onLogoChange"
+                                />
+                                <InputError :message="form.errors['company.logo']" />
+                            </div>
+                            <button
+                                v-if="logoPreview && canManage"
+                                type="button"
+                                class="btn btn-erp-ghost btn-sm"
+                                @click="removeLogo"
+                            >
+                                {{ t('settings.remove_logo') }}
+                            </button>
+                        </div>
+                        <p class="small text-secondary mt-2 mb-0">{{ t('settings.logo_help') }}</p>
                     </div>
                 </div>
             </div>

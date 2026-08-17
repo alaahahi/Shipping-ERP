@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Enums\SettingKey;
 use App\Models\Setting;
 use App\Support\ApplicationTimezone;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class SettingService
 {
@@ -94,7 +96,7 @@ class SettingService
 
     /**
      * @return array{
-     *     company: array{name: string, email: string, phone: string, address: string},
+     *     company: array{name: string, email: string, phone: string, address: string, logo: string, logo_url: string|null},
      *     app: array{timezone: string, locale: string, currency: string},
      *     whatsapp: array{tenant_id: string, enabled: string}
      * }
@@ -107,6 +109,8 @@ class SettingService
                 'email' => $this->get(SettingKey::CompanyEmail),
                 'phone' => $this->get(SettingKey::CompanyPhone),
                 'address' => $this->get(SettingKey::CompanyAddress),
+                'logo' => $this->get(SettingKey::CompanyLogo),
+                'logo_url' => $this->logoUrl(),
             ],
             'app' => [
                 'timezone' => $this->get(SettingKey::AppTimezone),
@@ -118,6 +122,41 @@ class SettingService
                 'enabled' => $this->get(SettingKey::WhatsappEnabled),
             ],
         ];
+    }
+
+    public function logoUrl(): ?string
+    {
+        $path = trim($this->get(SettingKey::CompanyLogo));
+
+        if ($path === '' || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    public function storeLogo(UploadedFile $file): string
+    {
+        $this->deleteStoredLogo();
+        $path = $file->store('company', 'public');
+        $this->updateMany([SettingKey::CompanyLogo->value => $path]);
+
+        return $path;
+    }
+
+    public function clearLogo(): void
+    {
+        $this->deleteStoredLogo();
+        $this->updateMany([SettingKey::CompanyLogo->value => '']);
+    }
+
+    private function deleteStoredLogo(): void
+    {
+        $path = trim($this->get(SettingKey::CompanyLogo));
+
+        if ($path !== '' && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
     }
 
     public function forgetCache(): void

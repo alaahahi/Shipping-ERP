@@ -277,6 +277,8 @@ class AccountMovementTest extends TestCase
                 ->component('Journals/Print')
                 ->where('entry.voucher_number', $entry->voucher_number)
                 ->where('entry.description', 'Printable receipt')
+                ->where('voucher.type', 'receipt')
+                ->where('voucher.amount', '40.00')
             );
     }
 

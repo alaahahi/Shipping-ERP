@@ -139,6 +139,12 @@ class SettingController extends Controller
             'whatsapp.enabled' => ($validated['whatsapp']['enabled'] ?? false) ? '1' : '0',
         ]);
 
+        if (! empty($validated['company']['remove_logo'])) {
+            $this->settingService->clearLogo();
+        } elseif ($request->file('company.logo')) {
+            $this->settingService->storeLogo($request->file('company.logo'));
+        }
+
         return redirect()
             ->route('settings.edit', ['tab' => 'company'])
             ->with('success', 'Settings updated successfully.');

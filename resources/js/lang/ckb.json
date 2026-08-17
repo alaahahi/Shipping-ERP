@@ -161,6 +161,9 @@
     "company_email": "ئیمەیڵی کۆمپانیا",
     "phone": "تەلەفۆن",
     "address": "ناونیشان",
+    "logo": "لۆگۆی کۆمپانیا",
+    "logo_help": "لە چاپکردنی پسوڵەی وەرگرتن و پارەدان دەردەکەوێت.",
+    "remove_logo": "لابردنی لۆگۆ",
     "localization": "ناوخۆییکردن",
     "localization_help": "ڕێکخستنی کات و زمان و دراوی بنەڕەتی بۆ کۆمپانیا. هەر بەکارهێنەرێک دەتوانێت زمانەکەی لە شریتی سەرەوە بگۆڕێت.",
     "timezone": "ناوچەی کاتی",
@@ -358,7 +361,17 @@
     "select_account": "هەژمار هەڵبژێرە",
     "void_reason": "هۆکاری هەڵوەشاندنەوە (ئارەزوومەندانە):",
     "print_voucher": "چاپکردنی پسوڵە",
-    "printed_at": "چاپکرا لە"
+    "printed_at": "چاپکرا لە",
+    "cash_receipt_ar": "وەسڵی وەرگرتن",
+    "cash_receipt_en": "Cash Receipt Voucher",
+    "cash_payment_ar": "وەسڵی پارەدان",
+    "cash_payment_en": "Cash Payment Voucher",
+    "company_party": "کۆمپانیا / Company",
+    "received_from": "وەرگیرا لە",
+    "paid_to": "درا بە",
+    "amount_in_words": "بڕی پارە",
+    "receiver_signature": "ناو و واژووی وەرگر",
+    "payer_signature": "ناو و واژووی پارەدەر"
   },
   "language": {
     "label": "زمان",

@@ -1,20 +1,38 @@
 <script setup>
 import PrintLayout from '@/Layouts/PrintLayout.vue';
-import MoneyAmount from '@/Components/MoneyAmount.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-defineProps({
+const props = defineProps({
     entry: { type: Object, required: true },
+    voucher: { type: Object, required: true },
     printedAt: { type: String, default: '' },
 });
 
+const page = usePage();
 const { t } = useI18n();
+
+const companyName = computed(() => page.props.appSettings?.companyName || t('app.name'));
+const companyPhone = computed(() => page.props.appSettings?.companyPhone || '');
+const companyAddress = computed(() => page.props.appSettings?.companyAddress || '');
+const companyLogoUrl = computed(() => page.props.appSettings?.companyLogoUrl || null);
+
+const isPayment = computed(() => props.voucher.type === 'payment');
+const titleAr = computed(() => (isPayment.value ? t('journals.cash_payment_ar') : t('journals.cash_receipt_ar')));
+const titleEn = computed(() => (isPayment.value ? t('journals.cash_payment_en') : t('journals.cash_receipt_en')));
+const partyVerb = computed(() => (isPayment.value ? t('journals.paid_to') : t('journals.received_from')));
+const signatureLabel = computed(() =>
+    isPayment.value ? t('journals.payer_signature') : t('journals.receiver_signature')
+);
+
+const datetimeLabel = computed(() => props.printedAt || props.entry.entry_date || '');
+
 const printPage = () => window.print();
 </script>
 
 <template>
-    <Head :title="`${t('journals.print_voucher')} — ${entry.voucher_number}`" />
+    <Head :title="`${titleAr} — ${entry.voucher_number}`" />
 
     <PrintLayout>
         <template #toolbar-start>
@@ -28,67 +46,60 @@ const printPage = () => window.print();
             </button>
         </template>
 
-        <header class="erp-print-header">
-            <div class="erp-print-kicker">{{ t('journals.print_voucher') }}</div>
-            <h1 class="erp-print-title">{{ entry.voucher_number }}</h1>
-            <p class="erp-print-meta mb-0">
-                {{ t('common.date') }}: {{ entry.entry_date }}
-                <span v-if="printedAt"> · {{ t('journals.printed_at') }}: {{ printedAt }}</span>
-            </p>
-        </header>
+        <article class="cash-voucher" dir="rtl">
+            <header class="cash-voucher-header">
+                <div class="cash-voucher-brand">
+                    <div class="cash-voucher-company">{{ companyName }}</div>
+                </div>
+                <div class="cash-voucher-titles">
+                    <div class="cash-voucher-title-ar">{{ titleAr }}</div>
+                    <div class="cash-voucher-title-en">{{ titleEn }}</div>
+                </div>
+                <div class="cash-voucher-logo">
+                    <img v-if="companyLogoUrl" :src="companyLogoUrl" :alt="companyName" />
+                </div>
+            </header>
 
-        <section class="erp-print-summary">
-            <div class="erp-print-summary-box">
-                <div class="erp-print-summary-label">{{ t('common.description') }}</div>
-                <div class="erp-print-summary-value">{{ entry.description || '—' }}</div>
+            <div class="cash-voucher-meta">
+                <div>{{ t('journals.voucher') }}: {{ entry.voucher_number }}</div>
+                <div>{{ t('common.date') }}: {{ datetimeLabel }}</div>
             </div>
-            <div class="erp-print-summary-box">
-                <div class="erp-print-summary-label">{{ t('common.currency') }}</div>
-                <div class="erp-print-summary-value">{{ entry.currency }}</div>
-            </div>
-            <div v-if="entry.reference" class="erp-print-summary-box">
-                <div class="erp-print-summary-label">{{ t('common.reference') }}</div>
-                <div class="erp-print-summary-value">{{ entry.reference }}</div>
-            </div>
-        </section>
 
-        <table class="erp-print-table">
-            <thead>
-                <tr>
-                    <th>{{ t('journals.account') }}</th>
-                    <th>{{ t('journals.memo') }}</th>
-                    <th class="text-end">{{ t('journals.debit') }}</th>
-                    <th class="text-end">{{ t('journals.credit') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="line in entry.lines" :key="line.id">
-                    <td>{{ line.account ? `${line.account.code} — ${line.account.name}` : '—' }}</td>
-                    <td>{{ line.memo || '—' }}</td>
-                    <td class="text-end">
-                        <MoneyAmount :value="line.debit" tone="plain" />
-                    </td>
-                    <td class="text-end">
-                        <MoneyAmount :value="line.credit" tone="plain" />
-                    </td>
-                </tr>
-                <tr class="erp-print-total-row">
-                    <td colspan="2">{{ t('journals.totals') }}</td>
-                    <td class="text-end">
-                        <MoneyAmount :value="entry.total_debit" tone="plain" />
-                    </td>
-                    <td class="text-end">
-                        <MoneyAmount :value="entry.total_credit" tone="plain" />
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+            <section class="cash-voucher-body">
+                <p>
+                    <span class="cash-voucher-label">{{ t('journals.company_party') }}:</span>
+                    {{ voucher.party_name }}
+                </p>
+                <p>
+                    <span class="cash-voucher-label">{{ partyVerb }}:</span>
+                    {{ voucher.party_name }}
+                </p>
+                <p>
+                    <span class="cash-voucher-label">{{ t('journals.amount_in_words') }}:</span>
+                    {{ voucher.amount_in_words }}
+                </p>
+                <p>
+                    <span class="cash-voucher-label">{{ t('common.notes') }}:</span>
+                    {{ voucher.notes || '—' }}
+                </p>
 
-        <img
-            v-if="entry.attachment_url"
-            :src="entry.attachment_url"
-            :alt="t('accounts.view_image')"
-            class="mt-4 mx-auto max-h-80 w-auto max-w-full"
-        />
+                <div class="cash-voucher-bottom">
+                    <div class="cash-voucher-sign">{{ signatureLabel }}</div>
+                    <div class="cash-voucher-amount">
+                        <span class="cash-voucher-amount-label">{{ t('common.amount') }}:</span>
+                        <span class="cash-voucher-amount-value">
+                            {{ voucher.amount_display }}
+                            <span class="cash-voucher-currency">{{ voucher.currency_symbol }}</span>
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="cash-voucher-footer">
+                <div v-if="companyAddress">{{ t('settings.address') }}: {{ companyAddress }}</div>
+                <div v-else></div>
+                <div v-if="companyPhone">Mobile: {{ companyPhone }}</div>
+            </footer>
+        </article>
     </PrintLayout>
 </template>

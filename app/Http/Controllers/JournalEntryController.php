@@ -9,6 +9,7 @@ use App\Http\Requests\Journals\UpdateJournalEntryRequest;
 use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Services\JournalService;
+use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,7 @@ class JournalEntryController extends Controller
 
         return Inertia::render('Journals/Print', [
             'entry' => $this->transformEntry($journal),
+            'voucher' => $this->transformCashVoucher($journal),
             'printedAt' => ApplicationTimezone::formatNowLabel(),
         ]);
     }
@@ -245,6 +247,66 @@ class JournalEntryController extends Controller
                 'credit' => number_format((float) $line->credit, 2, '.', ''),
                 'memo' => $line->memo,
             ]),
+        ];
+    }
+
+    /**
+     * Cash receipt / payment voucher payload for print layout.
+     *
+     * @return array{
+     *     type: string,
+     *     party_name: string,
+     *     party_label: string,
+     *     amount: string,
+     *     amount_display: string,
+     *     amount_in_words: string,
+     *     currency: string,
+     *     currency_symbol: string,
+     *     notes: string
+     * }
+     */
+    private function transformCashVoucher(JournalEntry $entry): array
+    {
+        $entry->loadMissing('lines.account');
+
+        $memos = $entry->lines->pluck('memo')->filter()->map(fn ($m) => strtolower(trim((string) $m)));
+        $isPayment = $memos->contains(fn ($m) => str_contains($m, 'payment'));
+        $isReceipt = $memos->contains(fn ($m) => str_contains($m, 'receipt'));
+
+        if (! $isPayment && ! $isReceipt) {
+            $description = strtolower((string) $entry->description);
+            $isPayment = str_contains($description, 'payment') || str_contains($description, 'دفع');
+            $isReceipt = str_contains($description, 'receipt') || str_contains($description, 'قبض');
+        }
+
+        $type = $isPayment && ! $isReceipt ? 'payment' : 'receipt';
+
+        $debitLine = $entry->lines->first(fn ($line) => (float) $line->debit > 0);
+        $creditLine = $entry->lines->first(fn ($line) => (float) $line->credit > 0);
+
+        $partyLine = $type === 'payment' ? $debitLine : $creditLine;
+        $partyAccount = $partyLine?->account;
+        $partyName = $partyAccount
+            ? trim($partyAccount->name)
+            : (string) ($entry->description ?: '—');
+
+        $amount = (float) $entry->lines->sum('debit');
+        $currency = $entry->currency->value;
+
+        return [
+            'type' => $type,
+            'party_name' => $partyName,
+            'party_label' => $partyAccount
+                ? $partyAccount->code.' — '.$partyAccount->name
+                : $partyName,
+            'amount' => number_format($amount, 2, '.', ''),
+            'amount_display' => fmod($amount, 1.0) === 0.0
+                ? number_format($amount, 0, '.', ',')
+                : number_format($amount, 2, '.', ','),
+            'amount_in_words' => AmountInWords::arabic($amount, $currency),
+            'currency' => $currency,
+            'currency_symbol' => AmountInWords::currencySymbol($currency),
+            'notes' => (string) ($entry->description ?: ''),
         ];
     }
 }

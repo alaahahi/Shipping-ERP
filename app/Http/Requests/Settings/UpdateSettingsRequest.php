@@ -24,6 +24,8 @@ class UpdateSettingsRequest extends FormRequest
             'company.email' => ['nullable', 'email', 'max:255'],
             'company.phone' => ['nullable', 'string', 'max:50'],
             'company.address' => ['nullable', 'string', 'max:500'],
+            'company.logo' => ['nullable', 'image', 'max:4096'],
+            'company.remove_logo' => ['sometimes', 'boolean'],
             'app.timezone' => ['required', 'string', 'timezone'],
             'app.locale' => ['required', 'string', Rule::in(AppLocale::values())],
             'app.currency' => ['required', 'string', Rule::in(['USD', 'AED', 'IQD', 'EUR'])],

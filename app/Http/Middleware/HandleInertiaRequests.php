@@ -51,6 +51,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'appSettings' => [
                 'companyName' => $settings->get(SettingKey::CompanyName),
+                'companyPhone' => $settings->get(SettingKey::CompanyPhone),
+                'companyAddress' => $settings->get(SettingKey::CompanyAddress),
+                'companyLogoUrl' => $settings->logoUrl(),
                 'currency' => $settings->get(SettingKey::AppCurrency),
                 'locale' => ResolvedLocale::fromRequest($request),
                 'defaultLocale' => $settings->get(SettingKey::AppLocale),

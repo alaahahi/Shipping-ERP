@@ -161,6 +161,9 @@
     "company_email": "بريد الشركة",
     "phone": "الهاتف",
     "address": "العنوان",
+    "logo": "شعار الشركة",
+    "logo_help": "يظهر الشعار في طباعة وصل القبض والدفع.",
+    "remove_logo": "إزالة الشعار",
     "localization": "التوطين",
     "localization_help": "إعدادات الوقت واللغة والعملة الافتراضية للشركة. يمكن لكل مستخدم تغيير لغته من الشريط العلوي.",
     "timezone": "المنطقة الزمنية",
@@ -358,7 +361,17 @@
     "select_account": "اختر حساباً",
     "void_reason": "سبب الإلغاء (اختياري):",
     "print_voucher": "طباعة الوصل",
-    "printed_at": "طُبع في"
+    "printed_at": "طُبع في",
+    "cash_receipt_ar": "وصل قبض",
+    "cash_receipt_en": "Cash Receipt Voucher",
+    "cash_payment_ar": "وصل دفع",
+    "cash_payment_en": "Cash Payment Voucher",
+    "company_party": "شركة / Company",
+    "received_from": "استلمت من",
+    "paid_to": "دفعت إلى",
+    "amount_in_words": "مبلغ قدره",
+    "receiver_signature": "اسم وتوقيع المستلم",
+    "payer_signature": "اسم وتوقيع الدافع"
   },
   "ships": {
     "title": "السفن",

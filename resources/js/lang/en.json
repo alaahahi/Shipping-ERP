@@ -161,6 +161,9 @@
     "company_email": "Company email",
     "phone": "Phone",
     "address": "Address",
+    "logo": "Company logo",
+    "logo_help": "Shown on cash receipt and payment voucher prints.",
+    "remove_logo": "Remove logo",
     "localization": "Localization",
     "localization_help": "Company defaults for time, language, and currency. Each user can also change language from the top bar.",
     "timezone": "Timezone",
@@ -358,7 +361,17 @@
     "select_account": "Select account",
     "void_reason": "Void reason (optional):",
     "print_voucher": "Print voucher",
-    "printed_at": "Printed at"
+    "printed_at": "Printed at",
+    "cash_receipt_ar": "وصل قبض",
+    "cash_receipt_en": "Cash Receipt Voucher",
+    "cash_payment_ar": "وصل دفع",
+    "cash_payment_en": "Cash Payment Voucher",
+    "company_party": "Company",
+    "received_from": "Received from",
+    "paid_to": "Paid to",
+    "amount_in_words": "Amount in words",
+    "receiver_signature": "Receiver name & signature",
+    "payer_signature": "Payer name & signature"
   },
   "ships": {
     "title": "Ships",
