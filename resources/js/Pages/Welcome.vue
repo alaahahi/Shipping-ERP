@@ -1,6 +1,7 @@
 <script setup>
 import LocaleSync from '@/Components/LocaleSync.vue';
 import ThemeSync from '@/Components/ThemeSync.vue';
+import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import { applyDocumentLocale } from '@/i18n';
 import { useTheme } from '@/composables/useTheme';
 import { Head, Link, usePage } from '@inertiajs/vue3';
@@ -129,7 +130,7 @@ const localeLabel = (item) => t(`language.${item.value}`) || item.label;
         </main>
 
         <footer class="welcome-gate__foot">
-            {{ t('auth.visual_footer') }}
+            <IntelliJCredit tone="light" />
         </footer>
     </div>
 </template>

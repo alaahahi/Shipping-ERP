@@ -1,6 +1,7 @@
 <script setup>
 import LocaleSync from '@/Components/LocaleSync.vue';
 import ThemeSync from '@/Components/ThemeSync.vue';
+import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import { fbGhostButton } from '@/flowbite';
 import { applyDocumentLocale } from '@/i18n';
 import { useTheme } from '@/composables/useTheme';
@@ -57,7 +58,7 @@ const localeLabel = (item) => t(`language.${item.value}`) || item.label;
                 <p class="text-slate-200/85 text-base leading-relaxed">{{ t('auth.visual_text') }}</p>
             </div>
 
-            <p class="relative z-10 mt-8 text-sm text-slate-200/70">{{ t('auth.visual_footer') }}</p>
+            <IntelliJCredit tone="light" />
         </section>
 
         <section class="flex items-center justify-center px-4 py-10 sm:px-8">
@@ -111,6 +112,9 @@ const localeLabel = (item) => t(`language.${item.value}`) || item.label;
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{{ title || t('auth.sign_in') }}</h2>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ subtitle || t('auth.sign_in_subtitle') }}</p>
                     <slot />
+                </div>
+                <div class="mt-6">
+                    <IntelliJCredit />
                 </div>
             </div>
         </section>

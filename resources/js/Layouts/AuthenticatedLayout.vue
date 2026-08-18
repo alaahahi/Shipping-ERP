@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
@@ -193,6 +194,10 @@ const showingNavigationDropdown = ref(false);
             <main>
                 <slot />
             </main>
+
+            <footer class="border-t border-gray-200 bg-white px-4 py-3 print:hidden">
+                <IntelliJCredit />
+            </footer>
         </div>
     </div>
 </template>

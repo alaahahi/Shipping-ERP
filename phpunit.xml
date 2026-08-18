@@ -33,5 +33,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="MONITOR_ENABLED" value="true"/>
+        <env name="MONITOR_PROJECT_NAME" value="Shipping ERP"/>
     </php>
 </phpunit>

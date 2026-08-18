@@ -947,6 +947,63 @@ html body .form-check:not(.form-switch) .form-check-input[type='checkbox']:check
     align-items: stretch;
 }
 
+.erp-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--erp-border);
+    background: color-mix(in srgb, var(--erp-surface) 90%, transparent);
+    padding: 0.7rem 1.25rem;
+}
+
+.intellij-credit {
+    margin: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #64748b;
+}
+
+.intellij-credit__link {
+    font-weight: 600;
+    color: #475569;
+    text-underline-offset: 2px;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.intellij-credit__link:hover {
+    color: #0f766e;
+    text-decoration: underline;
+}
+
+.intellij-credit--light,
+.intellij-credit--light .intellij-credit__link {
+    color: rgba(226, 232, 240, 0.78);
+}
+
+.intellij-credit--light .intellij-credit__link:hover {
+    color: #5eead4;
+}
+
+html.dark .intellij-credit,
+[data-theme='dark'] .intellij-credit {
+    color: #94a3b8;
+}
+
+html.dark .intellij-credit__link,
+[data-theme='dark'] .intellij-credit__link {
+    color: #cbd5e1;
+}
+
+html.dark .intellij-credit__link:hover,
+[data-theme='dark'] .intellij-credit__link:hover {
+    color: #5eead4;
+}
+
+@media print {
+    .erp-footer {
+        display: none;
+    }
+}
+
 .erp-page {
     padding: 1.5rem;
     flex: 0 0 auto;
@@ -3898,6 +3955,17 @@ body:has(.erp-print-shell) {
     color: #475569;
 }
 
+.erp-print-credit {
+    margin-top: 0.85rem;
+    padding-top: 0.55rem;
+}
+
+.erp-print-credit .intellij-credit,
+.erp-print-credit .intellij-credit__link {
+    color: #64748b;
+    font-size: 0.7rem;
+}
+
 .cash-voucher-sheet {
     width: 100%;
     max-width: 210mm;
@@ -4293,121 +4361,6 @@ body:has(.erp-print-shell) {
     min-height: 2.65rem;
     padding-inline: 1.35rem;
     justify-content: center;
-}
-
-.erp-print-sheet:has(.wallet-voucher) {
-    max-width: 46rem;
-    padding-top: 1.5rem;
-}
-
-.wallet-voucher {
-    border: 2px solid #111;
-    padding: 1.1rem 1.25rem 1.35rem;
-    color: #111;
-    background: #fff;
-}
-
-.wallet-voucher-head {
-    text-align: center;
-    padding-bottom: 0.7rem;
-    border-bottom: 1px solid #111;
-}
-
-.wallet-voucher-office {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 700;
-}
-
-.wallet-voucher-title {
-    margin: 0.35rem 0 0;
-    font-size: 1.55rem;
-    font-weight: 800;
-    font-family: 'Noto Sans Arabic', Tahoma, sans-serif;
-}
-
-.wallet-voucher-title-ckb {
-    margin: 0.1rem 0 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-}
-
-.wallet-voucher-meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0.4rem 1rem;
-    margin: 0.7rem 0 0.85rem;
-    font-size: 0.92rem;
-}
-
-.wallet-voucher-fields {
-    margin: 0;
-}
-
-.wallet-voucher-row {
-    display: grid;
-    grid-template-columns: 8.5rem 1fr;
-    gap: 0.65rem;
-    align-items: end;
-    padding: 0.45rem 0;
-    border-bottom: 1px dotted #333;
-}
-
-.wallet-voucher-row dt {
-    margin: 0;
-    font-size: 0.82rem;
-    color: #333;
-}
-
-.wallet-voucher-row dd {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    min-height: 1.3rem;
-}
-
-.wallet-voucher-row-words dd {
-    font-weight: 500;
-    line-height: 1.7;
-}
-
-.wallet-voucher-amount {
-    font-size: 1.25rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-}
-
-.wallet-voucher-signs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-top: 1.75rem;
-    text-align: center;
-}
-
-.wallet-voucher-signs span {
-    display: block;
-    font-size: 0.88rem;
-    font-weight: 700;
-}
-
-.wallet-voucher-signs em {
-    display: block;
-    margin: 1.6rem 0.4rem 0;
-    border-bottom: 1px solid #111;
-    height: 1.4rem;
-}
-
-@media print {
-    .erp-print-sheet:has(.wallet-voucher) {
-        max-width: none;
-        padding: 0;
-    }
-
-    .wallet-voucher {
-        border-width: 2px;
-    }
 }
 
 .erp-profile-avatar {

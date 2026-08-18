@@ -24,5 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->reportable(function (\Throwable $e): void {
+            if (app()->bound(\App\Monitor\Services\ExceptionMonitor::class)) {
+                app(\App\Monitor\Services\ExceptionMonitor::class)->log($e);
+            }
+        });
     })->create();

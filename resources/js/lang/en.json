@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Shipping ERP",
-    "tagline": "Calm control for every voyage."
+    "tagline": "Calm control for every voyage.",
+    "powered_by": "Powered by"
   },
   "welcome": {
     "page_title": "Welcome",

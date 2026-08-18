@@ -1,6 +1,7 @@
 <script setup>
 import ActionPinModal from '@/Components/ActionPinModal.vue';
 import AppHeaderNav from '@/Components/AppHeaderNav.vue';
+import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import LocaleSync from '@/Components/LocaleSync.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -190,6 +191,10 @@ const localeLabel = (locale) => t(`language.${locale.value}`) || locale.label;
                 <slot />
             </div>
         </div>
+
+        <footer class="erp-footer">
+            <IntelliJCredit />
+        </footer>
 
         <ActionPinModal />
     </div>

@@ -2,6 +2,7 @@
 import AnimatedCharacters from '@/Components/Auth/AnimatedCharacters.vue';
 import InteractiveHoverButton from '@/Components/Auth/InteractiveHoverButton.vue';
 import InputError from '@/Components/InputError.vue';
+import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import LocaleSync from '@/Components/LocaleSync.vue';
 import ThemeSync from '@/Components/ThemeSync.vue';
 import { applyDocumentLocale } from '@/i18n';
@@ -76,7 +77,7 @@ const submit = () => {
                 </div>
             </div>
 
-            <p class="relative z-20 text-sm text-slate-500">{{ t('auth.visual_footer') }}</p>
+            <IntelliJCredit />
 
             <div class="absolute inset-0 bg-[linear-gradient(to_right,rgb(15_23_42/0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgb(15_23_42/0.05)_1px,transparent_1px)] bg-[size:20px_20px]" />
             <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(108,63,245,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.5),transparent_30%)]" />
@@ -201,6 +202,10 @@ const submit = () => {
                         :disabled="form.processing"
                     />
                 </form>
+
+                <div class="mt-8 lg:hidden">
+                    <IntelliJCredit />
+                </div>
             </div>
         </div>
     </div>
