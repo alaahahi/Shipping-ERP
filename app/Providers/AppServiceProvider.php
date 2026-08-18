@@ -6,6 +6,8 @@ use App\Enums\Permission;
 use App\Policies\RolePolicy;
 use App\Support\ApplicationTimezone;
 use App\Support\ViteBuildDirectory;
+use App\Models\ShipExpense;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
         $this->configureViteForSharedHosting();
 
         ApplicationTimezone::apply();
+
+        Relation::morphMap([
+            'ship_expense' => ShipExpense::class,
+        ]);
 
         Vite::prefetch(concurrency: 3);
 

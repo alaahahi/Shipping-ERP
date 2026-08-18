@@ -3985,7 +3985,9 @@ body:has(.erp-print-shell) {
     --cv-ink: #0f172a;
     --cv-brand: #0f766e;
     --cv-brand-soft: #5eead4;
-    --cv-line: #94a3b8;
+    --cv-brand-fill: #f0fdfa;
+    --cv-brand-line: #99f6e4;
+    --cv-line: #cbd5e1;
     --cv-serial: #b91c1c;
     position: relative;
     width: 100%;
@@ -3994,13 +3996,16 @@ body:has(.erp-print-shell) {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--cv-line);
+    border-radius: 14px;
     background: #fff;
     color: var(--cv-ink);
     font-family: 'Noto Sans Arabic', 'Source Sans 3', Tahoma, sans-serif;
     overflow: hidden;
     page-break-inside: avoid;
     break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
 .cv-accent-top {
@@ -4009,26 +4014,28 @@ body:has(.erp-print-shell) {
     right: 0;
     display: flex;
     flex-direction: column;
-    width: min(38%, 220px);
-    gap: 4px;
+    width: min(36%, 210px);
+    gap: 3px;
 }
 
 .cv-accent-top span:first-child {
-    height: 9px;
+    height: 8px;
     background: var(--cv-brand-soft);
+    border-end-start-radius: 8px;
 }
 
 .cv-accent-top span:last-child {
-    height: 9px;
+    height: 8px;
     background: var(--cv-brand);
+    border-end-start-radius: 8px;
 }
 
 .cv-header {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(150px, 0.9fr);
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(158px, 0.9fr);
+    gap: 0.9rem;
     align-items: start;
-    padding: 1.15rem 1rem 0.55rem;
+    padding: 1.35rem 1.2rem 0.7rem;
 }
 
 .cv-brand {
@@ -4053,6 +4060,7 @@ body:has(.erp-print-shell) {
     margin-bottom: 0.35rem;
     padding: 0.35rem 0.5rem;
     border: 1px dashed var(--cv-line);
+    border-radius: 10px;
     color: #64748b;
     font-size: 0.72rem;
     font-weight: 700;
@@ -4076,28 +4084,37 @@ body:has(.erp-print-shell) {
 
 .cv-titles {
     text-align: center;
-    padding: 0.15rem 0.4rem 0.45rem;
-    border-bottom: 3px double var(--cv-brand);
+    padding: 0.2rem 0.5rem 0.55rem;
+}
+
+.cv-titles::after {
+    content: '';
+    display: block;
+    width: 78%;
+    height: 4px;
+    margin: 0.5rem auto 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--cv-brand) 18%, var(--cv-brand) 82%, transparent);
 }
 
 .cv-title-ar {
-    font-size: 1.85rem;
+    font-size: 1.95rem;
     font-weight: 800;
     line-height: 1.2;
     color: var(--cv-brand);
 }
 
 .cv-title-en {
-    margin-top: 0.1rem;
-    font-size: 0.95rem;
+    margin-top: 0.12rem;
+    font-size: 0.98rem;
     font-weight: 800;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: var(--cv-brand);
 }
 
 .cv-serial {
-    margin-top: 0.35rem;
-    font-size: 1.35rem;
+    margin-top: 0.4rem;
+    font-size: 1.32rem;
     font-weight: 800;
     letter-spacing: 0.04em;
     color: var(--cv-serial);
@@ -4105,11 +4122,14 @@ body:has(.erp-print-shell) {
 
 .cv-amount-box {
     display: grid;
-    grid-template-columns: 1fr 52px;
-    min-height: 64px;
-    margin-top: 0.85rem;
-    border: 1.5px solid var(--cv-ink);
-    background: #fff;
+    grid-template-columns: minmax(0, 1fr) 58px;
+    min-height: 72px;
+    margin-top: 0.55rem;
+    overflow: hidden;
+    border: 1px solid var(--cv-brand-line);
+    border-radius: 12px;
+    background: var(--cv-brand-fill);
+    direction: ltr;
 }
 
 .cv-amount-cell {
@@ -4117,38 +4137,46 @@ body:has(.erp-print-shell) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.1rem;
-    padding: 0.35rem 0.4rem;
+    gap: 0.08rem;
+    padding: 0.45rem 0.5rem;
 }
 
 .cv-amount-major {
-    border-inline-end: 1.5px solid var(--cv-ink);
+    border-inline-end: 1px solid var(--cv-brand-line);
 }
 
 .cv-amount-num {
-    font-size: 1.15rem;
+    font-size: 1.48rem;
     font-weight: 800;
+    line-height: 1.1;
     color: var(--cv-ink);
     font-variant-numeric: tabular-nums;
 }
 
-.cv-amount-minor .cv-amount-num {
-    font-size: 1rem;
+.cv-amount-currency {
+    gap: 0.12rem;
+    background: var(--cv-brand);
+    color: #fff;
 }
 
-.cv-amount-cur {
+.cv-amount-cur-en {
     font-size: 0.72rem;
     font-weight: 800;
-    color: #334155;
-    display: flex;
-    gap: 0.3rem;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+}
+
+.cv-amount-cur-ar {
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 .cv-dates {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.45rem 1rem 0.2rem;
+    padding: 0.55rem 1.2rem 0.3rem;
     font-size: 0.92rem;
     font-weight: 700;
     color: var(--cv-ink);
@@ -4167,7 +4195,7 @@ body:has(.erp-print-shell) {
     flex-direction: column;
     justify-content: space-evenly;
     min-height: 0;
-    padding: 0.35rem 1rem 0.2rem;
+    padding: 0.45rem 1.2rem 0.3rem;
 }
 
 .cv-line {
@@ -4175,7 +4203,7 @@ body:has(.erp-print-shell) {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 0.55rem;
     align-items: end;
-    padding: 0.45rem 0 0.35rem;
+    padding: 0.55rem 0 0.4rem;
     border-bottom: 1px dotted var(--cv-line);
 }
 
@@ -4240,7 +4268,7 @@ body:has(.erp-print-shell) {
     display: flex;
     justify-content: space-between;
     gap: 2rem;
-    padding: 1.25rem 1.25rem 0.85rem;
+    padding: 1.4rem 1.4rem 0.95rem;
 }
 
 .cv-sign {
@@ -4263,8 +4291,9 @@ body:has(.erp-print-shell) {
 }
 
 .cv-accent-bottom {
-    height: 10px;
-    margin-top: auto;
+    height: 8px;
+    margin: auto 0.85rem 0.7rem;
+    border-radius: 999px;
     background: var(--cv-brand);
 }
 
@@ -4308,7 +4337,9 @@ body:has(.erp-print-shell) {
     }
 
     .cash-voucher {
-        border-color: #94a3b8;
+        border-color: #cbd5e1;
+        background: #fff !important;
+        color: #0f172a;
     }
 
     .cash-voucher-cut {
@@ -4327,7 +4358,9 @@ body:has(.erp-print-shell) {
     .cv-accent-top span,
     .cv-accent-bottom,
     .cv-amount-box,
+    .cv-amount-currency,
     .cv-titles,
+    .cv-titles::after,
     .cv-serial {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;

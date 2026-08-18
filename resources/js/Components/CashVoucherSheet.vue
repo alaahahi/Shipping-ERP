@@ -36,16 +36,15 @@ const currencyCode = computed(() => String(props.currency || '').toUpperCase());
 
 const currencyMeta = computed(() => {
     const map = {
-        USD: { en: 'USD', ar: 'دولار', fraction: 'C.' },
-        AED: { en: 'AED', ar: 'درهم', fraction: 'F.' },
-        IQD: { en: 'IQD', ar: 'دينار', fraction: 'F.' },
-        EUR: { en: 'EUR', ar: 'يورو', fraction: 'C.' },
+        USD: { en: 'USD', ar: 'دولار' },
+        AED: { en: 'AED', ar: 'درهم' },
+        IQD: { en: 'IQD', ar: 'دينار' },
+        EUR: { en: 'EUR', ar: 'يورو' },
     };
 
     return map[currencyCode.value] || {
         en: currencyCode.value || props.currencySymbol || '',
         ar: '',
-        fraction: 'C.',
     };
 });
 
@@ -56,13 +55,10 @@ const numericAmount = computed(() => {
     return Number.isFinite(parsed) ? parsed : 0;
 });
 
-const amountParts = computed(() => {
-    const [major, minor] = numericAmount.value.toFixed(2).split('.');
+const formattedAmount = computed(() => {
+    const [major] = numericAmount.value.toFixed(2).split('.');
 
-    return {
-        major: Number(major).toLocaleString('en-US'),
-        minor,
-    };
+    return Number(major).toLocaleString('en-US');
 });
 
 const parsedDate = computed(() => {
@@ -174,15 +170,11 @@ onBeforeUnmount(() => {
 
                     <div class="cv-amount-box">
                         <div class="cv-amount-cell cv-amount-major">
-                            <span class="cv-amount-num">{{ amountParts.major }}</span>
-                            <span class="cv-amount-cur">
-                                {{ currencyMeta.en }}
-                                <span v-if="currencyMeta.ar">{{ currencyMeta.ar }}</span>
-                            </span>
+                            <span class="cv-amount-num">{{ formattedAmount }}</span>
                         </div>
-                        <div class="cv-amount-cell cv-amount-minor">
-                            <span class="cv-amount-num">{{ amountParts.minor }}</span>
-                            <span class="cv-amount-cur">{{ currencyMeta.fraction }}</span>
+                        <div class="cv-amount-cell cv-amount-currency">
+                            <span class="cv-amount-cur-en">{{ currencyMeta.en }}</span>
+                            <span v-if="currencyMeta.ar" class="cv-amount-cur-ar">{{ currencyMeta.ar }}</span>
                         </div>
                     </div>
                 </header>

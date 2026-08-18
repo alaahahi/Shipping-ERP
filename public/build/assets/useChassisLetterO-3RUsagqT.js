@@ -1,1 +1,0 @@
-function r(e){return/O/.test(String(e||"").toUpperCase())}function t(e){return String(e||"").replace(/O/gi,"0")}function s(e){return t(String(e||"").toUpperCase().replace(/[^A-Z0-9]/g,""))}export{r as c,s};

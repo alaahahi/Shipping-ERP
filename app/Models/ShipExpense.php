@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Enums\Currency;
 use App\Enums\ShipExpenseType;
+use App\Models\Concerns\HasAttachments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ShipExpense extends Model
 {
-    use SoftDeletes;
+    use HasAttachments, SoftDeletes;
 
     protected $fillable = [
         'ship_id',
@@ -61,5 +62,14 @@ class ShipExpense extends Model
         return $this->journal_entry_id !== null
             && $this->journalEntry
             && ! $this->journalEntry->isVoid();
+    }
+
+    public function attachmentUrl(): ?string
+    {
+        if (! $this->id || ! $this->ship_id || ! $this->latestAttachment) {
+            return null;
+        }
+
+        return route('ships.expenses.attachment', [$this->ship_id, $this->id]);
     }
 }
