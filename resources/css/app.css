@@ -3814,6 +3814,11 @@ body:has(.erp-print-shell) {
 
 .erp-print-sheet:has(.cash-voucher-sheet) {
     max-width: 210mm;
+    min-height: calc(100vh - 4.75rem);
+    display: flex;
+    flex-direction: column;
+    padding-inline: 0.75rem;
+    padding-bottom: 1rem;
 }
 
 .erp-print-header {
@@ -3973,175 +3978,294 @@ body:has(.erp-print-shell) {
     display: flex;
     flex-direction: column;
     gap: 0;
+    min-height: calc(100vh - 5.5rem);
 }
 
 .cash-voucher {
+    --cv-ink: #0f172a;
+    --cv-brand: #0f766e;
+    --cv-brand-soft: #5eead4;
+    --cv-line: #94a3b8;
+    --cv-serial: #b91c1c;
+    position: relative;
     width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     box-sizing: border-box;
-    border: 1px solid #94a3b8;
-    border-radius: 10px;
-    background:
-        linear-gradient(180deg, #f8fafc 0%, #ffffff 42%, #ffffff 100%);
-    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: var(--cv-ink);
     font-family: 'Noto Sans Arabic', 'Source Sans 3', Tahoma, sans-serif;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
     overflow: hidden;
     page-break-inside: avoid;
     break-inside: avoid;
 }
 
-.cash-voucher-header {
+.cv-accent-top {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    width: min(38%, 220px);
+    gap: 4px;
+}
+
+.cv-accent-top span:first-child {
+    height: 9px;
+    background: var(--cv-brand-soft);
+}
+
+.cv-accent-top span:last-child {
+    height: 9px;
+    background: var(--cv-brand);
+}
+
+.cv-header {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 0.55rem;
-    align-items: center;
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid #cbd5e1;
-    background: linear-gradient(180deg, #e2e8f0 0%, #f1f5f9 100%);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(150px, 0.9fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 1.15rem 1rem 0.55rem;
 }
 
-.cash-voucher-brand {
+.cv-brand {
     text-align: start;
+    min-width: 0;
 }
 
-.cash-voucher-company {
-    font-size: 0.98rem;
-    font-weight: 700;
-    line-height: 1.3;
-    color: #0f172a;
-}
-
-.cash-voucher-titles {
-    text-align: center;
-    padding: 0.15rem 0.55rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff;
-}
-
-.cash-voucher-title-ar {
-    font-size: 1.15rem;
-    font-weight: 800;
-    line-height: 1.2;
-    color: #0f172a;
-}
-
-.cash-voucher-title-en {
-    margin-top: 0.1rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #475569;
-}
-
-.cash-voucher-logo {
-    display: flex;
-    justify-content: end;
-    align-items: center;
-    min-height: 48px;
-}
-
-.cash-voucher-logo-img {
-    max-height: 52px;
-    max-width: 120px;
+.cv-logo {
+    display: block;
+    max-height: 72px;
+    max-width: 150px;
     object-fit: contain;
-    padding: 0.2rem 0.35rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff;
+    margin-bottom: 0.35rem;
 }
 
-.cash-voucher-logo-placeholder {
-    max-width: 120px;
-    padding: 0.35rem 0.45rem;
-    border: 1px dashed #94a3b8;
-    border-radius: 8px;
-    background: #fff;
-    color: #64748b;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-align: center;
-    line-height: 1.25;
-}
-
-.cash-voucher-meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.4rem 0.75rem;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #334155;
-}
-
-.cash-voucher-body {
-    padding: 0.65rem 0.75rem 0.55rem;
-    min-height: 0;
-}
-
-.cash-voucher-body p {
-    margin: 0 0 0.45rem;
-    font-size: 0.88rem;
-    line-height: 1.45;
-    color: #1e293b;
-}
-
-.cash-voucher-label {
-    font-weight: 700;
-    color: #334155;
-}
-
-.cash-voucher-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 0.75rem;
-    margin-top: 0.85rem;
-}
-
-.cash-voucher-sign {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #475569;
-    padding-bottom: 0.2rem;
-    border-bottom: 1px solid #cbd5e1;
-    min-width: 42%;
-}
-
-.cash-voucher-amount {
+.cv-logo-fallback {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    min-width: 132px;
-    padding: 0.4rem 0.65rem;
-    border: 1px solid #94a3b8;
-    border-radius: 8px;
-    background: linear-gradient(180deg, #e2e8f0 0%, #f8fafc 100%);
+    justify-content: center;
+    min-height: 52px;
+    max-width: 150px;
+    margin-bottom: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px dashed var(--cv-line);
+    color: #64748b;
+    font-size: 0.72rem;
     font-weight: 700;
-    color: #0f172a;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    text-align: center;
 }
 
-.cash-voucher-amount-value {
+.cv-company {
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--cv-brand);
+    letter-spacing: 0.01em;
+}
+
+.cv-company-meta {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.cv-titles {
+    text-align: center;
+    padding: 0.15rem 0.4rem 0.45rem;
+    border-bottom: 3px double var(--cv-brand);
+}
+
+.cv-title-ar {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--cv-brand);
+}
+
+.cv-title-en {
+    margin-top: 0.1rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--cv-brand);
+}
+
+.cv-serial {
+    margin-top: 0.35rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--cv-serial);
+}
+
+.cv-amount-box {
+    display: grid;
+    grid-template-columns: 1fr 52px;
+    min-height: 64px;
+    margin-top: 0.85rem;
+    border: 1.5px solid var(--cv-ink);
+    background: #fff;
+}
+
+.cv-amount-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.35rem 0.4rem;
+}
+
+.cv-amount-major {
+    border-inline-end: 1.5px solid var(--cv-ink);
+}
+
+.cv-amount-num {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--cv-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.cv-amount-minor .cv-amount-num {
     font-size: 1rem;
 }
 
-.cash-voucher-currency {
-    margin-inline-start: 0.15rem;
-    color: #475569;
+.cv-amount-cur {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #334155;
+    display: flex;
+    gap: 0.3rem;
 }
 
-.cash-voucher-footer {
+.cv-dates {
     display: flex;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.4rem 0.75rem;
-    border-top: 1px solid #cbd5e1;
-    background: #f1f5f9;
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: #475569;
+    gap: 1rem;
+    padding: 0.45rem 1rem 0.2rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--cv-ink);
+}
+
+.cv-date span {
+    display: inline-block;
+    min-width: 1.4em;
+    text-align: center;
+    border-bottom: 1px solid var(--cv-line);
+}
+
+.cv-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    min-height: 0;
+    padding: 0.35rem 1rem 0.2rem;
+}
+
+.cv-line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    align-items: end;
+    padding: 0.45rem 0 0.35rem;
+    border-bottom: 1px dotted var(--cv-line);
+}
+
+.cv-en,
+.cv-ar {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--cv-brand);
+    white-space: nowrap;
+}
+
+.cv-ar {
+    direction: rtl;
+}
+
+.cv-value {
+    min-height: 1.25rem;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cv-ink);
+    border-bottom: 1px dotted #cbd5e1;
+}
+
+.cv-value-dots {
+    min-height: 1.15rem;
+}
+
+.cv-line-method {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+}
+
+.cv-method {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.45rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--cv-brand);
+}
+
+.cv-method-ar {
+    direction: rtl;
+    justify-content: flex-end;
+}
+
+.cv-method strong {
+    color: var(--cv-ink);
+    font-weight: 800;
+}
+
+.cv-dots {
+    flex: 1 1 4rem;
+    min-width: 3rem;
+    border-bottom: 1px dotted var(--cv-line);
+    transform: translateY(-0.2rem);
+}
+
+.cv-signs {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1.25rem 1.25rem 0.85rem;
+}
+
+.cv-sign {
+    width: 38%;
+}
+
+.cv-sign-line {
+    height: 2.4rem;
+    border-bottom: 1px dotted var(--cv-line);
+}
+
+.cv-sign-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--cv-brand);
+}
+
+.cv-accent-bottom {
+    height: 10px;
+    margin-top: auto;
+    background: var(--cv-brand);
 }
 
 .cash-voucher-cut {
@@ -4149,8 +4273,9 @@ body:has(.erp-print-shell) {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0.55rem 0.25rem;
-    height: 1.1rem;
+    flex: 0 0 10mm;
+    margin: 0.35rem 0.15rem;
+    height: 10mm;
     border-top: 1.5px dashed #94a3b8;
 }
 
@@ -4171,34 +4296,25 @@ body:has(.erp-print-shell) {
         padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
+        height: 100% !important;
+        min-height: 100% !important;
+    }
+
+    .cash-voucher-sheet {
+        min-height: 281mm;
+        height: 281mm;
+        max-height: 281mm;
+        max-width: none;
     }
 
     .cash-voucher {
-        box-shadow: none;
-        border-color: #64748b;
-        border-radius: 6px;
-    }
-
-    .cash-voucher-header {
-        padding: 0.4rem 0.6rem;
-    }
-
-    .cash-voucher-body {
-        padding: 0.45rem 0.6rem 0.4rem;
-    }
-
-    .cash-voucher-body p {
-        margin-bottom: 0.32rem;
-        font-size: 0.82rem;
-    }
-
-    .cash-voucher-bottom {
-        margin-top: 0.5rem;
+        border-color: #94a3b8;
     }
 
     .cash-voucher-cut {
-        margin: 0.3rem 0;
-        height: 0.9rem;
+        margin: 0.2rem 0;
+        flex-basis: 8mm;
+        height: 8mm;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -4208,10 +4324,11 @@ body:has(.erp-print-shell) {
     }
 
     .cash-voucher,
-    .cash-voucher-header,
-    .cash-voucher-meta,
-    .cash-voucher-amount,
-    .cash-voucher-footer {
+    .cv-accent-top span,
+    .cv-accent-bottom,
+    .cv-amount-box,
+    .cv-titles,
+    .cv-serial {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -4292,18 +4409,23 @@ body:has(.erp-print-shell) {
 
     html.cash-voucher-print,
     html.cash-voucher-print body,
+    html.cash-voucher-print .erp-body,
     .erp-print-shell:has(.cash-voucher-sheet),
     .erp-print-sheet:has(.cash-voucher-sheet) {
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
+        height: 100% !important;
+        min-height: 100% !important;
     }
 
     .cash-voucher-sheet {
         width: 100%;
         max-width: 100%;
-        break-inside: avoid;
-        page-break-inside: avoid;
+        height: 281mm !important;
+        min-height: 281mm !important;
+        max-height: 281mm;
+        overflow: hidden;
     }
 }
 
