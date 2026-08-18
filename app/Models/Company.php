@@ -88,6 +88,11 @@ class Company extends Model
         return $this->hasMany(CompanyWalletEntry::class);
     }
 
+    public function landDriverPayments(): HasMany
+    {
+        return $this->hasMany(LandDriverPayment::class);
+    }
+
     public function journalLines(): HasMany
     {
         return $this->hasMany(JournalLine::class);

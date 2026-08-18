@@ -33,6 +33,14 @@ class UpdateSettingsRequest extends FormRequest
             'app.currency' => ['required', 'string', Rule::in(['USD', 'AED', 'IQD', 'EUR'])],
             'whatsapp.tenant_id' => ['required', 'string', 'max:120'],
             'whatsapp.enabled' => ['boolean'],
+            'land_trips.cash_account_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('accounts', 'id')->where(fn ($query) => $query
+                    ->where('is_active', true)
+                    ->where('type', 'asset')
+                    ->where('currency', 'USD')),
+            ],
         ];
     }
 
@@ -51,6 +59,20 @@ class UpdateSettingsRequest extends FormRequest
             'app.currency' => 'currency',
             'whatsapp.tenant_id' => 'WhatsApp tenant ID',
             'whatsapp.enabled' => 'WhatsApp enabled',
+            'land_trips.cash_account_id' => 'land trips cash account',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $id = $this->input('land_trips.cash_account_id');
+
+        if ($id === '' || $id === null) {
+            $this->merge([
+                'land_trips' => array_merge((array) $this->input('land_trips', []), [
+                    'cash_account_id' => null,
+                ]),
+            ]);
+        }
     }
 }

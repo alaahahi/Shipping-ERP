@@ -10,8 +10,10 @@ use App\Models\LandTrip;
 use App\Services\CompanyWalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CompanyWalletController extends Controller
 {
@@ -23,7 +25,12 @@ class CompanyWalletController extends Controller
     {
         Gate::authorize('create', LandTrip::class);
 
-        $this->walletService->create($company, $request->validated(), $request->user());
+        $this->walletService->create(
+            $company,
+            $request->safe()->except('attachment'),
+            $request->user(),
+            $request->file('attachment')
+        );
 
         return back()->with('success', 'Wallet entry saved.');
     }
@@ -44,5 +51,28 @@ class CompanyWalletController extends Controller
         $payload = $this->walletService->printPayload($company, $entry);
 
         return Inertia::render('LandTrips/WalletPrint', $payload);
+    }
+
+    public function showAttachment(Company $company, CompanyWalletEntry $entry): StreamedResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        if ((int) $entry->company_id !== (int) $company->id) {
+            abort(404);
+        }
+
+        if (! $entry->attachment_path || ! Storage::disk('public')->exists($entry->attachment_path)) {
+            abort(404);
+        }
+
+        $downloadName = $entry->attachment_original_name ?: basename($entry->attachment_path);
+
+        return Storage::disk('public')->response(
+            $entry->attachment_path,
+            $downloadName,
+            [
+                'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $downloadName).'"',
+            ]
+        );
     }
 }

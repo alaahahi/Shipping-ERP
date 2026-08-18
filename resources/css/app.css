@@ -2673,6 +2673,15 @@ html.dark .land-chassis-o-banner,
     color: #134e4a;
 }
 
+.land-duplicates-match {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+}
+
 .land-duplicates-count {
     font-size: 0.75rem;
     font-weight: 700;
@@ -2961,6 +2970,12 @@ html.dark .land-duplicates-count,
 [data-theme='dark'] .land-duplicates-count {
     background: rgba(15, 118, 110, 0.45);
     color: #99f6e4;
+}
+
+html.dark .land-duplicates-match,
+[data-theme='dark'] .land-duplicates-match {
+    background: rgba(146, 64, 14, 0.4);
+    color: #fde68a;
 }
 
 html.dark .land-duplicates-car-btn,
@@ -4255,6 +4270,10 @@ body:has(.erp-print-shell) {
     align-items: end;
 }
 
+.land-wallet-form-attachment {
+    grid-column: 1 / -1;
+}
+
 @media (min-width: 768px) {
     .land-wallet-form {
         grid-template-columns: minmax(8rem, 1fr) 7rem minmax(10rem, 1.4fr) minmax(16rem, 1.2fr);
@@ -4265,6 +4284,7 @@ body:has(.erp-print-shell) {
     display: flex;
     gap: 0.65rem;
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .land-wallet-btn {

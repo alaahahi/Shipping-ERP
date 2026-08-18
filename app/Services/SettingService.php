@@ -98,7 +98,8 @@ class SettingService
      * @return array{
      *     company: array{name: string, email: string, phone: string, address: string, logo: string, logo_url: string|null},
      *     app: array{timezone: string, locale: string, currency: string},
-     *     whatsapp: array{tenant_id: string, enabled: string}
+     *     whatsapp: array{tenant_id: string, enabled: string},
+     *     land_trips: array{cash_account_id: string}
      * }
      */
     public function formValues(): array
@@ -120,6 +121,9 @@ class SettingService
             'whatsapp' => [
                 'tenant_id' => $this->get(SettingKey::WhatsappTenantId),
                 'enabled' => $this->get(SettingKey::WhatsappEnabled),
+            ],
+            'land_trips' => [
+                'cash_account_id' => $this->get(SettingKey::LandTripsCashAccountId),
             ],
         ];
     }

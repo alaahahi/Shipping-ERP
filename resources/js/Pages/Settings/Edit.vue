@@ -24,6 +24,7 @@ const props = defineProps({
     roles: { type: Array, default: () => [] },
     logs: { type: Object, default: null },
     logLevel: { type: String, default: '' },
+    cashAccountOptions: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -55,6 +56,11 @@ const form = useForm({
     whatsapp: {
         tenant_id: props.settings.whatsapp?.tenant_id || 'kaml-kamal',
         enabled: props.settings.whatsapp?.enabled === '1' || props.settings.whatsapp?.enabled === true,
+    },
+    land_trips: {
+        cash_account_id: props.settings.land_trips?.cash_account_id
+            ? Number(props.settings.land_trips.cash_account_id)
+            : '',
     },
 });
 
@@ -501,6 +507,28 @@ onMounted(() => { if (props.tab === 'system') loadDbInsights(); });
                         <select v-model="form.app.currency" class="form-select form-erp-control" :disabled="!canManage" required>
                             <option v-for="currency in options.currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="erp-card p-4">
+                <h2 class="h5 erp-display mb-1">{{ t('settings.land_trips_cash_account') }}</h2>
+                <p class="text-secondary small mb-4">{{ t('settings.land_trips_cash_account_help') }}</p>
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-erp-label" for="land-trips-cash-account">{{ t('settings.land_trips_cash_account') }}</label>
+                        <select
+                            id="land-trips-cash-account"
+                            v-model="form.land_trips.cash_account_id"
+                            class="form-select form-erp-control"
+                            :disabled="!canManage"
+                        >
+                            <option value="">{{ t('settings.land_trips_cash_account_placeholder') }}</option>
+                            <option v-for="account in cashAccountOptions" :key="account.id" :value="account.id">
+                                {{ account.label }}
+                            </option>
+                        </select>
+                        <InputError :message="form.errors['land_trips.cash_account_id']" />
                     </div>
                 </div>
             </div>

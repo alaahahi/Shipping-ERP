@@ -1065,11 +1065,12 @@ const duplicateCarCount = computed(() => (
                     <div v-else class="land-duplicates-list">
                         <article
                             v-for="group in duplicateGroups"
-                            :key="group.chassis_no"
+                            :key="`${group.match}-${group.chassis_no}`"
                             class="land-duplicates-group"
                         >
                             <div class="land-duplicates-group-head">
-                                <code class="land-duplicates-chassis">{{ group.chassis_no }}</code>
+                                <code class="land-duplicates-chassis">{{ group.match === 'last6' ? `…${group.chassis_no}` : group.chassis_no }}</code>
+                                <span v-if="group.match === 'last6'" class="land-duplicates-match">{{ t('land_trips.duplicates_last6') }}</span>
                                 <span class="land-duplicates-count">{{ t('land_trips.duplicates_count', { count: group.count }) }}</span>
                             </div>
                             <ul class="land-duplicates-cars">

@@ -15,6 +15,7 @@ use App\Http\Controllers\IranCarPrintController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LandTripCarStatusController;
 use App\Http\Controllers\LandTripController;
+use App\Http\Controllers\LandDriverPaymentController;
 use App\Http\Controllers\LandTripImportController;
 use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
@@ -156,6 +157,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.wallet.destroy');
     Route::get('/land-trips/companies/{company}/wallet/{entry}/print', [CompanyWalletController::class, 'print'])
         ->name('land-trips.companies.wallet.print');
+    Route::get('/land-trips/companies/{company}/wallet/{entry}/attachment', [CompanyWalletController::class, 'showAttachment'])
+        ->name('land-trips.companies.wallet.attachment');
+    Route::post('/land-trips/companies/{company}/driver-payments', [LandDriverPaymentController::class, 'store'])
+        ->name('land-trips.companies.driver-payments.store');
+    Route::delete('/land-trips/companies/{company}/driver-payments/{payment}', [LandDriverPaymentController::class, 'destroy'])
+        ->name('land-trips.companies.driver-payments.destroy');
+    Route::get('/land-trips/companies/{company}/driver-payments/{payment}/attachment', [LandDriverPaymentController::class, 'showAttachment'])
+        ->name('land-trips.companies.driver-payments.attachment');
     Route::resource('land-trips', LandTripController::class);
     Route::get('/land-trips/{land_trip}/import', [LandTripImportController::class, 'create'])->name('land-trips.import');
     Route::post('/land-trips/{land_trip}/import/preview', [LandTripImportController::class, 'preview'])->name('land-trips.import.preview');

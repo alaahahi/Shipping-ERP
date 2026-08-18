@@ -1754,9 +1754,9 @@ class LandTripService
     }
 
     /**
-     * Duplicate chassis groups within a company (normalized chassis key).
+     * Duplicate chassis groups within a company: full VIN, or last 6 digits.
      *
-     * @return list<array{chassis_no: string, count: int, cars: list<array<string, mixed>>}>
+     * @return list<array{chassis_no: string, match: string, count: int, cars: list<array<string, mixed>>}>
      */
     public function companyChassisDuplicates(Company $company): array
     {
@@ -1770,21 +1770,28 @@ class LandTripService
 
         $buckets = [];
         foreach ($cars as $car) {
-            $key = $this->normalizeChassis($car->chassis_no);
-            if ($key === null) {
+            $normalized = $this->normalizeChassis($car->chassis_no);
+            if ($normalized === null) {
                 continue;
             }
-            $buckets[$key][] = $car;
+
+            $suffix = $this->lastSixChassisDigits($normalized);
+            $key = $suffix !== null ? 'last6:'.$suffix : 'exact:'.$normalized;
+            $buckets[$key]['match'] = $suffix !== null ? 'last6' : 'exact';
+            $buckets[$key]['label'] = $suffix ?? $normalized;
+            $buckets[$key]['cars'][] = $car;
         }
 
         $groups = [];
-        foreach ($buckets as $chassis => $items) {
+        foreach ($buckets as $bucket) {
+            $items = $bucket['cars'];
             if (count($items) < 2) {
                 continue;
             }
 
             $groups[] = [
-                'chassis_no' => $chassis,
+                'chassis_no' => $bucket['label'],
+                'match' => $bucket['match'],
                 'count' => count($items),
                 'cars' => collect($items)
                     ->map(fn (LandTripCar $car): array => [
@@ -1803,6 +1810,20 @@ class LandTripService
         usort($groups, static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: strcmp($a['chassis_no'], $b['chassis_no']));
 
         return $groups;
+    }
+
+    private function lastSixChassisDigits(string $normalized): ?string
+    {
+        $tail = substr($normalized, -6);
+        if (preg_match('/^\d{6}$/', $tail) === 1) {
+            return $tail;
+        }
+
+        if (preg_match('/(\d{6,})$/', $normalized, $matches) === 1) {
+            return substr($matches[1], -6);
+        }
+
+        return null;
     }
 
     private function nullableString(mixed $value): ?string

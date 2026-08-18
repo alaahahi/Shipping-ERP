@@ -17,6 +17,8 @@ enum SettingKey: string
     case WhatsappTenantId = 'whatsapp.tenant_id';
     case WhatsappEnabled = 'whatsapp.enabled';
 
+    case LandTripsCashAccountId = 'land_trips.cash_account_id';
+
     public function label(): string
     {
         return match ($this) {
@@ -30,6 +32,7 @@ enum SettingKey: string
             self::AppCurrency => 'Default currency',
             self::WhatsappTenantId => 'WhatsApp tenant ID',
             self::WhatsappEnabled => 'WhatsApp notifications enabled',
+            self::LandTripsCashAccountId => 'Land trips cash account',
         };
     }
 
@@ -51,6 +54,7 @@ enum SettingKey: string
             self::AppCurrency => 'USD',
             self::WhatsappTenantId => 'kaml-kamal',
             self::WhatsappEnabled => '1',
+            self::LandTripsCashAccountId => '',
         };
     }
 }

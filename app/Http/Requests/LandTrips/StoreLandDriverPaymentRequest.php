@@ -2,13 +2,12 @@
 
 namespace App\Http\Requests\LandTrips;
 
-use App\Enums\CompanyWalletEntryType;
-use App\Enums\Currency;
+use App\Enums\LandDriverPaymentType;
 use App\Enums\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreCompanyWalletEntryRequest extends FormRequest
+class StoreLandDriverPaymentRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -21,10 +20,12 @@ class StoreCompanyWalletEntryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', Rule::enum(CompanyWalletEntryType::class)],
+            'driver_name' => ['required', 'string', 'max:180'],
+            'cmr_number' => ['nullable', 'string', 'max:80'],
+            'cars_count' => ['required', 'integer', 'min:1'],
+            'type' => ['required', 'string', Rule::enum(LandDriverPaymentType::class)],
+            'payment_date' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
-            'currency' => ['required', 'string', Rule::enum(Currency::class)],
-            'notes' => ['nullable', 'string', 'max:255'],
             'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'],
         ];
     }

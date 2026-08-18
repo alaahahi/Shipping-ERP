@@ -11,6 +11,7 @@ use App\Models\LandTripCarStatus;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CountryService;
+use App\Services\LandTripCashAccountService;
 use App\Services\LandTripCarStatusService;
 use App\Services\SettingService;
 use App\Services\SystemAdminService;
@@ -33,6 +34,7 @@ class SettingController extends Controller
         private readonly SettingService $settingService,
         private readonly CountryService $countryService,
         private readonly LandTripCarStatusService $landTripCarStatusService,
+        private readonly LandTripCashAccountService $landTripCashAccountService,
         private readonly UserService $userService,
         private readonly SystemAdminService $systemAdminService
     ) {}
@@ -69,6 +71,7 @@ class SettingController extends Controller
             'canManage' => $user?->can(Permission::SettingsManage->value) ?? false,
             'canManageUsers' => $user?->can(Permission::UsersManage->value) ?? false,
             'canViewUsers' => $user?->can(Permission::UsersView->value) ?? false,
+            'cashAccountOptions' => $this->landTripCashAccountService->options(),
             'countries' => $this->countryService->transformMany($this->countryService->all()),
             'landCarStatuses' => $this->landTripCarStatusService->transformMany(
                 LandTripCarStatus::query()->with('country')->orderBy('sort_order')->orderBy('id')->get()
@@ -137,6 +140,7 @@ class SettingController extends Controller
             'app.currency' => $validated['app']['currency'],
             'whatsapp.tenant_id' => $validated['whatsapp']['tenant_id'] ?? '',
             'whatsapp.enabled' => ($validated['whatsapp']['enabled'] ?? false) ? '1' : '0',
+            'land_trips.cash_account_id' => (string) ($validated['land_trips']['cash_account_id'] ?? ''),
         ]);
 
         if (! empty($validated['company']['remove_logo']) || ! empty($validated['remove_logo'])) {

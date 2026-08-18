@@ -2,34 +2,40 @@
 
 namespace App\Models;
 
-use App\Enums\CompanyWalletEntryType;
 use App\Enums\Currency;
+use App\Enums\LandDriverPaymentType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class CompanyWalletEntry extends Model
+class LandDriverPayment extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'company_id',
-        'voucher_number',
+        'driver_name',
+        'cmr_number',
+        'cars_count',
         'type',
+        'payment_date',
         'amount',
         'currency',
-        'notes',
-        'attachment_path',
-        'attachment_original_name',
+        'cash_account_id',
         'journal_entry_id',
         'created_by',
+        'attachment_path',
+        'attachment_original_name',
     ];
 
     protected function casts(): array
     {
         return [
-            'type' => CompanyWalletEntryType::class,
+            'type' => LandDriverPaymentType::class,
             'currency' => Currency::class,
             'amount' => 'decimal:2',
+            'payment_date' => 'date',
+            'cars_count' => 'integer',
         ];
     }
 
@@ -38,14 +44,19 @@ class CompanyWalletEntry extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function creator(): BelongsTo
+    public function cashAccount(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Account::class, 'cash_account_id');
     }
 
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function attachmentUrl(): ?string
@@ -56,6 +67,6 @@ class CompanyWalletEntry extends Model
 
         $base = rtrim((string) request()->getBasePath(), '/');
 
-        return ($base === '' ? '' : $base).'/land-trips/companies/'.$this->company_id.'/wallet/'.$this->id.'/attachment';
+        return ($base === '' ? '' : $base).'/land-trips/companies/'.$this->company_id.'/driver-payments/'.$this->id.'/attachment';
     }
 }

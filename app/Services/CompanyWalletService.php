@@ -6,29 +6,41 @@ use App\Enums\CompanyWalletEntryType;
 use App\Enums\Currency;
 use App\Models\Company;
 use App\Models\CompanyWalletEntry;
+use App\Models\JournalEntry;
 use App\Models\LandTripCar;
 use App\Models\User;
 use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CompanyWalletService
 {
+    public function __construct(
+        private readonly JournalService $journalService,
+        private readonly CompanyReceivableAccountService $companyReceivableAccounts,
+        private readonly LandTripCashAccountService $cashAccounts,
+        private readonly LandDriverPaymentService $driverPayments
+    ) {}
+
     /**
      * @return array{
      *     balances: list<array{currency: string, balance: string}>,
      *     summary: array{currency: string, cars_count: int, cars_total: string, paid: string, remaining: string},
      *     entries: list<array<string, mixed>>,
-     *     currencies: list<string>
+     *     currencies: list<string>,
+     *     cash_account: array{id: int, code: string, name: string, label: string}|null,
+     *     driver_names: list<string>,
+     *     driver_payments: list<array<string, mixed>>
      * }
      */
     public function payload(Company $company): array
     {
         $entries = CompanyWalletEntry::query()
             ->where('company_id', $company->id)
-            ->with('creator:id,name')
+            ->with(['creator:id,name', 'journalEntry:id,voucher_number'])
             ->latest('id')
             ->limit(100)
             ->get();
@@ -38,6 +50,9 @@ class CompanyWalletService
             'summary' => $this->freightSummary($company),
             'entries' => $entries->map(fn (CompanyWalletEntry $entry) => $this->transform($entry))->values()->all(),
             'currencies' => Currency::values(),
+            'cash_account' => $this->cashAccounts->payload(),
+            'driver_names' => $this->driverPayments->driverNames(),
+            'driver_payments' => $this->driverPayments->payload($company),
         ];
     }
 
@@ -122,7 +137,7 @@ class CompanyWalletService
     /**
      * @param  array{type: string, amount: float|string, currency: string, notes?: string|null}  $data
      */
-    public function create(Company $company, array $data, User $actor): CompanyWalletEntry
+    public function create(Company $company, array $data, User $actor, ?UploadedFile $attachment = null): CompanyWalletEntry
     {
         $type = CompanyWalletEntryType::from($data['type']);
         $currency = Currency::from($data['currency']);
@@ -134,7 +149,26 @@ class CompanyWalletService
             ]);
         }
 
-        return DB::transaction(function () use ($company, $actor, $type, $currency, $amount, $data): CompanyWalletEntry {
+        if ($currency !== Currency::USD) {
+            throw ValidationException::withMessages([
+                'currency' => 'Wallet deposits and withdrawals post in USD only (company receivable and cash account).',
+            ]);
+        }
+
+        $cashAccount = $this->cashAccounts->resolve();
+        $receivable = $this->companyReceivableAccounts->resolveFor($company);
+
+        return DB::transaction(function () use (
+            $company,
+            $actor,
+            $type,
+            $currency,
+            $amount,
+            $data,
+            $cashAccount,
+            $receivable,
+            $attachment
+        ): CompanyWalletEntry {
             if ($type === CompanyWalletEntryType::Withdraw) {
                 $available = $this->balanceFor($company, $currency);
                 if ($amount > $available) {
@@ -144,15 +178,59 @@ class CompanyWalletService
                 }
             }
 
+            $notes = $this->nullableString($data['notes'] ?? null);
             $entry = CompanyWalletEntry::query()->create([
                 'company_id' => $company->id,
                 'voucher_number' => $this->nextVoucherNumber($company),
                 'type' => $type,
                 'amount' => $amount,
                 'currency' => $currency,
-                'notes' => $this->nullableString($data['notes'] ?? null),
+                'notes' => $notes,
                 'created_by' => $actor->id,
             ]);
+
+            $isDeposit = $type === CompanyWalletEntryType::Deposit;
+            $label = $isDeposit ? 'Wallet deposit' : 'Wallet withdrawal';
+            $description = sprintf(
+                '%s — %s · %s %s',
+                $label,
+                $company->name,
+                number_format($amount, 2, '.', ''),
+                $currency->value
+            );
+            if ($notes) {
+                $description .= ' · '.$notes;
+            }
+
+            $cashLine = [
+                'account_id' => $cashAccount->id,
+                'debit' => $isDeposit ? $amount : 0,
+                'credit' => $isDeposit ? 0 : $amount,
+                'memo' => sprintf('%s · %s', $cashAccount->code, $cashAccount->name),
+            ];
+            $arLine = [
+                'account_id' => $receivable->id,
+                'company_id' => $company->id,
+                'debit' => $isDeposit ? 0 : $amount,
+                'credit' => $isDeposit ? $amount : 0,
+                'memo' => sprintf('%s — %s', $label, $company->name),
+            ];
+
+            $draft = $this->journalService->createDraft([
+                'entry_date' => now()->toDateString(),
+                'currency' => $currency->value,
+                'reference' => $entry->voucher_number,
+                'description' => $description,
+                'lines' => $isDeposit ? [$cashLine, $arLine] : [$arLine, $cashLine],
+            ], $actor);
+
+            $posted = $this->journalService->post($draft, $actor);
+
+            $entry->update([
+                'journal_entry_id' => $posted->id,
+            ]);
+
+            $this->attachFile($entry, $posted, $attachment);
 
             Log::info('Company wallet entry recorded.', [
                 'company_id' => $company->id,
@@ -160,11 +238,11 @@ class CompanyWalletService
                 'type' => $type->value,
                 'amount' => $amount,
                 'currency' => $currency->value,
+                'journal_entry_id' => $posted->id,
                 'user_id' => $actor->id,
-                'accounting' => false,
             ]);
 
-            return $entry->load('creator:id,name');
+            return $entry->load(['creator:id,name', 'journalEntry:id,voucher_number']);
         });
     }
 
@@ -195,6 +273,13 @@ class CompanyWalletService
                 ]);
             }
 
+            if ($locked->journal_entry_id) {
+                $journal = JournalEntry::query()->find($locked->journal_entry_id);
+                if ($journal && $journal->isPosted()) {
+                    $this->journalService->void($journal, $actor, 'Wallet entry deleted');
+                }
+            }
+
             $locked->delete();
 
             Log::info('Company wallet entry deleted.', [
@@ -204,8 +289,8 @@ class CompanyWalletService
                 'type' => $locked->type->value,
                 'amount' => (string) $locked->amount,
                 'currency' => $currency->value,
+                'journal_entry_id' => $locked->journal_entry_id,
                 'user_id' => $actor->id,
-                'accounting' => false,
             ]);
         });
     }
@@ -228,6 +313,10 @@ class CompanyWalletService
             'notes' => $entry->notes,
             'created_at' => ApplicationTimezone::formatDateTime($entry->created_at),
             'created_by_name' => $entry->creator?->name,
+            'journal_voucher' => $entry->journalEntry?->voucher_number,
+            'has_attachment' => filled($entry->attachment_path),
+            'attachment_url' => $entry->attachmentUrl(),
+            'attachment_name' => $entry->attachment_original_name,
             'amount_words_ar' => $words['arabic'],
             'amount_words_ckb' => $words['kurdish'],
         ];
@@ -242,7 +331,7 @@ class CompanyWalletService
             abort(404);
         }
 
-        $entry->loadMissing('creator:id,name');
+        $entry->loadMissing(['creator:id,name', 'journalEntry:id,voucher_number']);
 
         return [
             'company' => [
@@ -271,6 +360,24 @@ class CompanyWalletService
         }
 
         return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function attachFile(CompanyWalletEntry $entry, JournalEntry $journal, ?UploadedFile $file): void
+    {
+        if (! $file) {
+            return;
+        }
+
+        $path = $file->store('land-payments/wallet/'.$entry->id, 'public');
+        $name = mb_substr($file->getClientOriginalName(), 0, 180);
+
+        $entry->update([
+            'attachment_path' => $path,
+            'attachment_original_name' => $name,
+        ]);
+        $journal->update([
+            'attachment_path' => $path,
+        ]);
     }
 
     private function nullableString(mixed $value): ?string
