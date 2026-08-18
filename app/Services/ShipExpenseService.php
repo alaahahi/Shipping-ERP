@@ -6,11 +6,19 @@ use App\Enums\Currency;
 use App\Models\Owner;
 use App\Models\Ship;
 use App\Models\ShipExpense;
+use App\Support\AmountInWords;
+use App\Support\ApplicationTimezone;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ShipExpenseService
 {
+    public function __construct(
+        private readonly AttachmentService $attachmentService
+    ) {}
+
     /**
      * @param  array{
      *     expense_type: string,
@@ -24,21 +32,31 @@ class ShipExpenseService
      *     paid_by_owner_id?: int|null
      * }  $data
      */
-    public function create(Ship $ship, array $data): ShipExpense
+    public function create(Ship $ship, array $data, ?UploadedFile $attachment = null): ShipExpense
     {
         $paidByOwnerId = $this->normalizePaidByOwnerId($ship, $data['paid_by_owner_id'] ?? null);
 
-        return DB::transaction(fn (): ShipExpense => $ship->expenses()->create([
-            'expense_type' => $data['expense_type'],
-            'amount' => $data['amount'],
-            'currency' => $data['currency'] ?? Currency::USD->value,
-            'expense_date' => $data['expense_date'],
-            'vendor' => $data['vendor'] ?? null,
-            'reference' => $data['reference'] ?? null,
-            'notes' => $data['notes'] ?? null,
-            'created_by' => $data['created_by'] ?? null,
-            'paid_by_owner_id' => $paidByOwnerId,
-        ]));
+        return DB::transaction(function () use ($ship, $data, $paidByOwnerId, $attachment): ShipExpense {
+            $expense = $ship->expenses()->create([
+                'expense_type' => $data['expense_type'],
+                'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? Currency::USD->value,
+                'expense_date' => $data['expense_date'],
+                'vendor' => $data['vendor'] ?? null,
+                'reference' => $data['reference'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'created_by' => $data['created_by'] ?? null,
+                'paid_by_owner_id' => $paidByOwnerId,
+            ]);
+
+            $this->attachmentService->storeOptional(
+                $expense,
+                $attachment,
+                isset($data['created_by']) ? (int) $data['created_by'] : null
+            );
+
+            return $expense->load(['paidByOwner', 'latestAttachment']);
+        });
     }
 
     /**
@@ -76,13 +94,13 @@ class ShipExpenseService
      *     paid_by_owner_id?: int|null
      * }  $data
      */
-    public function update(ShipExpense $expense, array $data): ShipExpense
+    public function update(ShipExpense $expense, array $data, ?UploadedFile $attachment = null): ShipExpense
     {
         $expense->loadMissing(['journalEntry', 'ship']);
         $this->assertNotPosted($expense);
         $paidByOwnerId = $this->normalizePaidByOwnerId($expense->ship, $data['paid_by_owner_id'] ?? null);
 
-        return DB::transaction(function () use ($expense, $data, $paidByOwnerId): ShipExpense {
+        return DB::transaction(function () use ($expense, $data, $paidByOwnerId, $attachment): ShipExpense {
             $expense->update([
                 'expense_type' => $data['expense_type'],
                 'amount' => $data['amount'],
@@ -94,15 +112,35 @@ class ShipExpenseService
                 'paid_by_owner_id' => $paidByOwnerId,
             ]);
 
-            return $expense->fresh(['paidByOwner']);
+            $this->attachmentService->storeOptional(
+                $expense,
+                $attachment,
+                $expense->created_by
+            );
+
+            return $expense->fresh(['paidByOwner', 'latestAttachment']);
         });
     }
 
-    public function delete(ShipExpense $expense): void
+    public function delete(ShipExpense $expense, ?int $actorId = null): void
     {
-        $expense->loadMissing('journalEntry');
+        $expense->loadMissing(['journalEntry', 'attachments']);
         $this->assertNotPosted($expense);
-        $expense->delete();
+
+        DB::transaction(function () use ($expense, $actorId): void {
+            $this->attachmentService->deleteFor($expense, $actorId);
+            $expense->delete();
+
+            Log::info('Ship expense deleted.', [
+                'expense_id' => $expense->id,
+                'ship_id' => $expense->ship_id,
+                'amount' => (string) $expense->amount,
+                'currency' => $expense->currency instanceof Currency
+                    ? $expense->currency->value
+                    : (string) $expense->currency,
+                'user_id' => $actorId,
+            ]);
+        });
     }
 
     /**
@@ -110,8 +148,9 @@ class ShipExpenseService
      */
     public function transform(ShipExpense $expense): array
     {
-        $expense->loadMissing(['journalEntry', 'paidByOwner:id,name']);
+        $expense->loadMissing(['journalEntry', 'paidByOwner:id,name', 'latestAttachment']);
         $posted = $expense->isPostedToAccounting();
+        $attachment = $expense->latestAttachment;
 
         return [
             'id' => $expense->id,
@@ -132,6 +171,56 @@ class ShipExpenseService
             'journal_entry_id' => $expense->journalEntry?->id,
             'journal_voucher' => $expense->journalEntry?->voucher_number,
             'journal_status' => $expense->journalEntry?->status?->value,
+            'has_attachment' => $attachment !== null,
+            'attachment_url' => $attachment ? $expense->attachmentUrl() : null,
+            'attachment_name' => $attachment?->original_name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function printPayload(Ship $ship, ShipExpense $expense): array
+    {
+        if ((int) $expense->ship_id !== (int) $ship->id) {
+            abort(404);
+        }
+
+        $expense->loadMissing(['paidByOwner:id,name', 'journalEntry:id,voucher_number', 'creator:id,name']);
+        $currency = $expense->currency instanceof Currency
+            ? $expense->currency->value
+            : (string) $expense->currency;
+        $amount = (float) $expense->amount;
+        $voucherNumber = $expense->journalEntry?->voucher_number
+            ?: 'SE-'.$ship->id.'-'.str_pad((string) $expense->id, 4, '0', STR_PAD_LEFT);
+        $notes = trim(implode(' · ', array_filter([
+            $expense->expense_type->label(),
+            $expense->notes,
+            $expense->reference,
+            $expense->paidByOwner?->name,
+            $expense->creator?->name,
+        ], fn ($value) => filled($value))));
+
+        return [
+            'ship' => [
+                'id' => $ship->id,
+                'name' => $ship->name,
+            ],
+            'expense' => [
+                'id' => $expense->id,
+                'voucher_number' => $voucherNumber,
+                'party_name' => $expense->vendor ?: $ship->name,
+                'amount' => number_format($amount, 2, '.', ''),
+                'amount_display' => fmod($amount, 1.0) === 0.0
+                    ? number_format($amount, 0, '.', ',')
+                    : number_format($amount, 2, '.', ','),
+                'amount_in_words' => AmountInWords::arabic($amount, $currency),
+                'currency' => $currency,
+                'currency_symbol' => AmountInWords::currencySymbol($currency),
+                'notes' => $notes,
+                'expense_date' => $expense->expense_date?->format('Y-m-d') ?: '',
+            ],
+            'printed_at' => ApplicationTimezone::formatNow(),
         ];
     }
 
