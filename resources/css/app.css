@@ -3983,11 +3983,10 @@ body:has(.erp-print-shell) {
 
 .cash-voucher {
     --cv-ink: #0f172a;
+    --cv-muted: #64748b;
     --cv-brand: #0f766e;
-    --cv-brand-soft: #5eead4;
-    --cv-brand-fill: #f0fdfa;
-    --cv-brand-line: #99f6e4;
     --cv-line: #cbd5e1;
+    --cv-soft: #e2e8f0;
     --cv-serial: #b91c1c;
     --cv-radius: 12px;
     position: relative;
@@ -4011,35 +4010,19 @@ body:has(.erp-print-shell) {
     print-color-adjust: exact;
 }
 
-.cv-accent-top {
-    position: absolute;
-    top: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    width: min(38%, 220px);
-    gap: 3px;
-    pointer-events: none;
-}
-
-.cv-accent-top span:first-child {
-    height: 9px;
-    background: var(--cv-brand-soft);
-    border-end-start-radius: 10px;
-}
-
-.cv-accent-top span:last-child {
-    height: 9px;
+.cv-bar {
+    height: 7px;
     background: var(--cv-brand);
-    border-end-start-radius: 10px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
 .cv-header {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(188px, 0.95fr);
-    gap: 1rem;
-    align-items: start;
-    padding: 1.55rem 1.45rem 0.85rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(168px, 0.85fr);
+    gap: 0.85rem 1rem;
+    align-items: center;
+    padding: 1.05rem 1.35rem 0.7rem;
 }
 
 .cv-brand {
@@ -4047,23 +4030,12 @@ body:has(.erp-print-shell) {
     min-width: 0;
 }
 
-.cv-logo-box {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    max-width: 160px;
-    margin-bottom: 0.45rem;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--cv-line);
-    border-radius: 12px;
-    background: #fff;
-}
-
 .cv-logo {
     display: block;
-    max-height: 68px;
-    max-width: 142px;
+    max-height: 52px;
+    max-width: 132px;
     object-fit: contain;
+    margin-bottom: 0.3rem;
     border-radius: 8px;
 }
 
@@ -4071,67 +4043,56 @@ body:has(.erp-print-shell) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 48px;
-    max-width: 142px;
-    color: #64748b;
-    font-size: 0.72rem;
+    min-height: 40px;
+    max-width: 132px;
+    margin-bottom: 0.3rem;
+    padding: 0.25rem 0.4rem;
+    border: 1px solid var(--cv-soft);
+    border-radius: 8px;
+    color: var(--cv-muted);
+    font-size: 0.7rem;
     font-weight: 700;
     text-align: center;
 }
 
 .cv-company {
-    font-size: 0.8rem;
-    font-weight: 800;
-    line-height: 1.35;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.3;
     color: var(--cv-brand);
-    letter-spacing: 0.01em;
 }
 
 .cv-company-meta {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: #64748b;
-    line-height: 1.35;
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: var(--cv-muted);
+    line-height: 1.3;
 }
 
 .cv-titles {
     text-align: center;
-    padding: 0.7rem 0.85rem 0.8rem;
-    border: 1px solid var(--cv-line);
-    border-radius: 12px;
-    background: var(--cv-brand-fill);
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-}
-
-.cv-titles::after {
-    content: '';
-    display: block;
-    width: 72%;
-    height: 4px;
-    margin: 0.55rem auto 0;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, var(--cv-brand) 18%, var(--cv-brand) 82%, transparent);
+    min-width: 0;
 }
 
 .cv-title-ar {
-    font-size: 1.9rem;
+    font-size: 1.7rem;
     font-weight: 800;
-    line-height: 1.2;
+    line-height: 1.15;
     color: var(--cv-brand);
 }
 
 .cv-title-en {
     margin-top: 0.12rem;
-    font-size: 0.95rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     color: var(--cv-brand);
+    opacity: 0.85;
 }
 
 .cv-serial {
-    margin-top: 0.4rem;
-    font-size: 1.28rem;
+    margin-top: 0.28rem;
+    font-size: 1.12rem;
     font-weight: 800;
     letter-spacing: 0.04em;
     color: var(--cv-serial);
@@ -4140,12 +4101,11 @@ body:has(.erp-print-shell) {
 .cv-amount-box {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    min-height: 76px;
-    margin-top: 0.2rem;
+    min-height: 64px;
     overflow: hidden;
-    border: 1px solid var(--cv-brand-line);
-    border-radius: 12px;
-    background: var(--cv-brand-fill);
+    border: 1px solid var(--cv-line);
+    border-radius: 10px;
+    background: #fff;
     direction: ltr;
     unicode-bidi: isolate;
     -webkit-print-color-adjust: exact;
@@ -4169,32 +4129,30 @@ body:has(.erp-print-shell) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.1rem;
-    padding: 0.55rem 0.7rem;
+    gap: 0.12rem;
+    padding: 0.45rem 0.65rem;
 }
 
 .cv-amount-major {
-    border-right: 1px solid var(--cv-brand-line);
-    border-radius: 11px 0 0 11px;
+    border-right: 1px solid var(--cv-line);
+    border-radius: 9px 0 0 9px;
 }
 
 .cv-amount-num {
-    font-size: 1.52rem;
+    font-size: 1.42rem;
     font-weight: 800;
     line-height: 1.1;
     color: var(--cv-ink);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
     unicode-bidi: isolate;
 }
 
 .cv-amount-currency {
-    min-width: 4.6rem;
-    gap: 0.18rem;
-    padding-inline: 0.7rem;
+    min-width: 4.4rem;
+    padding-inline: 0.65rem;
     background: var(--cv-brand);
     color: #fff;
-    border-radius: 0 11px 11px 0;
+    border-radius: 0 9px 9px 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -4205,19 +4163,18 @@ body:has(.erp-print-shell) {
     max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: clip;
     line-height: 1.15;
 }
 
 .cv-amount-cur-en {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 800;
     letter-spacing: 0.06em;
 }
 
 .cv-amount-cur-ar {
-    font-size: 0.78rem;
-    font-weight: 700;
+    font-size: 0.74rem;
+    font-weight: 650;
 }
 
 .cv-dates {
@@ -4225,18 +4182,28 @@ body:has(.erp-print-shell) {
     flex-direction: row;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 1.45rem 0.4rem;
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--cv-ink);
+    margin: 0 1.35rem;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--cv-soft);
+    border-bottom: 1px solid var(--cv-soft);
+    font-size: 0.84rem;
+    font-weight: 650;
+    color: #334155;
     direction: ltr;
 }
 
-.cv-date span {
+.cv-date span:not(.cv-time) {
     display: inline-block;
-    min-width: 1.4em;
+    min-width: 1.25em;
     text-align: center;
-    border-bottom: 1px solid var(--cv-line);
+}
+
+.cv-time {
+    margin-inline-start: 0.45rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    color: var(--cv-ink);
+    letter-spacing: 0.02em;
 }
 
 .cv-body {
@@ -4245,78 +4212,50 @@ body:has(.erp-print-shell) {
     flex-direction: column;
     justify-content: space-evenly;
     min-height: 0;
-    padding: 0.55rem 1.45rem 0.45rem;
+    padding: 0.35rem 1.35rem 0.2rem;
 }
 
 .cv-line {
     display: grid;
     grid-template-columns: auto 1fr auto;
-    grid-auto-flow: row;
     direction: ltr;
-    gap: 0.65rem;
+    gap: 0.7rem;
     align-items: end;
-    padding: 0.65rem 0 0.5rem;
-    border-bottom: 1px dotted var(--cv-line);
+    padding: 0.55rem 0 0.2rem;
 }
 
 .cv-en,
 .cv-ar {
-    font-size: 0.86rem;
-    font-weight: 700;
+    font-size: 0.82rem;
+    font-weight: 650;
     color: var(--cv-brand);
     white-space: nowrap;
     direction: ltr;
     unicode-bidi: isolate;
 }
 
-.cv-value {
-    min-height: 1.25rem;
-    text-align: center;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--cv-ink);
-    border-bottom: 1px dotted #cbd5e1;
-}
-
-.cv-value-dots {
-    min-height: 1.15rem;
-}
-
-.cv-line-method {
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-}
-
-.cv-method {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem 0.45rem;
-    font-size: 0.86rem;
-    font-weight: 700;
-    color: var(--cv-brand);
-}
-
-.cv-method-en {
-    direction: ltr;
-    justify-content: flex-start;
-}
-
-.cv-method-ar {
+.cv-ar[dir='rtl'] {
     direction: rtl;
-    justify-content: flex-end;
 }
 
-.cv-method strong {
+.cv-en strong,
+.cv-ar strong {
     color: var(--cv-ink);
     font-weight: 800;
 }
 
-.cv-dots {
-    flex: 1 1 4rem;
-    min-width: 3rem;
-    border-bottom: 1px dotted var(--cv-line);
-    transform: translateY(-0.2rem);
+.cv-value {
+    min-height: 1.2rem;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--cv-ink);
+    border-bottom: 1px solid var(--cv-soft);
+}
+
+.cv-line-method .cv-value {
+    min-height: 0.95rem;
 }
 
 .cv-signs {
@@ -4324,17 +4263,17 @@ body:has(.erp-print-shell) {
     flex-direction: row;
     justify-content: space-between;
     gap: 2rem;
-    padding: 1.55rem 1.55rem 1.15rem;
+    padding: 0.95rem 1.5rem 0.85rem;
     direction: ltr;
 }
 
 .cv-sign {
-    width: 38%;
+    width: 36%;
 }
 
 .cv-sign-line {
-    height: 2.4rem;
-    border-bottom: 1px dotted var(--cv-line);
+    height: 2.1rem;
+    border-bottom: 1px solid var(--cv-soft);
 }
 
 .cv-sign-labels {
@@ -4342,20 +4281,11 @@ body:has(.erp-print-shell) {
     flex-direction: row;
     justify-content: space-between;
     gap: 0.5rem;
-    padding-top: 0.4rem;
-    font-size: 0.82rem;
-    font-weight: 800;
+    padding-top: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 700;
     color: var(--cv-brand);
     direction: ltr;
-}
-
-.cv-accent-bottom {
-    height: 10px;
-    margin: 0;
-    border-radius: 0;
-    background: var(--cv-brand);
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
 }
 
 .cash-voucher-cut {
@@ -4420,14 +4350,10 @@ body:has(.erp-print-shell) {
     }
 
     .cash-voucher,
-    .cv-accent-top span,
-    .cv-accent-bottom,
+    .cv-bar,
     .cv-amount-box,
     .cv-amount-major,
     .cv-amount-currency,
-    .cv-titles,
-    .cv-titles::after,
-    .cv-logo-box,
     .cv-serial {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;

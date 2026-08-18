@@ -79,26 +79,54 @@ const formattedAmount = computed(() => {
     });
 });
 
-const parsedDate = computed(() => {
+const dateTimeBits = computed(() => {
     const value = String(props.date || '').trim();
     if (!value) {
-        return null;
+        return { date: null, hours: null, minutes: null };
     }
 
-    const timestamp = Date.parse(value);
+    const timeMatch = value.match(/(?:[T\s])(\d{1,2}):(\d{2})(?::\d{2})?/);
+    const hours = timeMatch ? Number(timeMatch[1]) : null;
+    const minutes = timeMatch ? Number(timeMatch[2]) : null;
+
+    const timestamp = Date.parse(value.replace(/^(\d{1,2})-(\d{1,2})-(\d{4})/, '$3-$2-$1'));
     if (!Number.isNaN(timestamp)) {
-        return new Date(timestamp);
+        return { date: new Date(timestamp), hours, minutes };
     }
 
     const match = value.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
     if (!match) {
-        return null;
+        return { date: null, hours, minutes };
     }
 
-    return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+    return {
+        date: new Date(
+            Number(match[3]),
+            Number(match[2]) - 1,
+            Number(match[1]),
+            hours ?? 0,
+            minutes ?? 0
+        ),
+        hours,
+        minutes,
+    };
 });
 
+const parsedDate = computed(() => dateTimeBits.value.date);
+
 const pad = (value) => String(value ?? '').padStart(2, '0');
+
+const formattedTime = computed(() => {
+    const { hours, minutes } = dateTimeBits.value;
+    if (hours == null || minutes == null) {
+        return '';
+    }
+    if (hours === 0 && minutes === 0) {
+        return '';
+    }
+
+    return `${pad(hours)}:${pad(minutes)}`;
+});
 
 const gregorianParts = computed(() => {
     const date = parsedDate.value;
@@ -165,25 +193,20 @@ onBeforeUnmount(() => {
                 :class="isPayment ? 'is-payment' : 'is-receipt'"
                 dir="ltr"
             >
-                <div class="cv-accent-top" aria-hidden="true">
-                    <span />
-                    <span />
-                </div>
+                <div class="cv-bar cv-bar-top" aria-hidden="true"></div>
 
                 <header class="cv-header">
                     <div class="cv-brand">
-                        <div class="cv-logo-box">
-                            <img
-                                v-if="companyLogoUrl"
-                                :src="companyLogoUrl"
-                                :alt="companyName"
-                                class="cv-logo"
-                            />
-                            <div v-else class="cv-logo-fallback">{{ companyName }}</div>
-                        </div>
+                        <img
+                            v-if="companyLogoUrl"
+                            :src="companyLogoUrl"
+                            :alt="companyName"
+                            class="cv-logo"
+                        />
+                        <div v-else class="cv-logo-fallback">{{ companyName }}</div>
                         <div class="cv-company">{{ companyName }}</div>
                         <div v-if="companyAddress" class="cv-company-meta">{{ companyAddress }}</div>
-                        <div v-if="companyPhone" class="cv-company-meta">Mobile: {{ companyPhone }}</div>
+                        <div v-if="companyPhone" class="cv-company-meta">{{ companyPhone }}</div>
                     </div>
 
                     <div class="cv-titles">
@@ -207,7 +230,7 @@ onBeforeUnmount(() => {
                 </header>
 
                 <div class="cv-dates" dir="ltr">
-                    <div class="cv-date cv-date-en">
+                    <div class="cv-date">
                         الموافق
                         <span>{{ gregorianParts.day }}</span>
                         /
@@ -216,7 +239,7 @@ onBeforeUnmount(() => {
                         <span>{{ gregorianParts.year }}</span>
                         م
                     </div>
-                    <div class="cv-date cv-date-ar">
+                    <div class="cv-date">
                         التاريخ
                         <span>{{ hijriParts.day }}</span>
                         /
@@ -224,6 +247,7 @@ onBeforeUnmount(() => {
                         /
                         <span>{{ hijriParts.year }}</span>
                         هـ
+                        <span v-if="formattedTime" class="cv-time">{{ formattedTime }}</span>
                     </div>
                 </div>
 
@@ -239,18 +263,9 @@ onBeforeUnmount(() => {
                         <span class="cv-ar">: <bdi>مبلغ وقدره</bdi></span>
                     </div>
                     <div class="cv-line cv-line-method" dir="ltr">
-                        <div class="cv-method cv-method-en">
-                            <span>Cash / Cheque No.</span>
-                            <strong>Cash</strong>
-                            <span>Bank</span>
-                            <span class="cv-dots"></span>
-                        </div>
-                        <div class="cv-method cv-method-ar" dir="rtl">
-                            <span>نقداً / شيك رقم</span>
-                            <strong>نقداً</strong>
-                            <span>على بنك</span>
-                            <span class="cv-dots"></span>
-                        </div>
+                        <span class="cv-en">Cash / Cheque No. <strong>Cash</strong> Bank</span>
+                        <span class="cv-value"></span>
+                        <span class="cv-ar" dir="rtl">نقداً / شيك رقم <strong>نقداً</strong> على بنك</span>
                     </div>
                     <div class="cv-line" dir="ltr">
                         <span class="cv-en">Being :</span>
@@ -276,7 +291,7 @@ onBeforeUnmount(() => {
                     </div>
                 </footer>
 
-                <div class="cv-accent-bottom" aria-hidden="true"></div>
+                <div class="cv-bar cv-bar-bottom" aria-hidden="true"></div>
             </article>
 
             <div v-if="index === 0" class="cash-voucher-cut" aria-hidden="true">
