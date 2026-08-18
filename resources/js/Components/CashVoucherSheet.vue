@@ -29,10 +29,16 @@ const titleAr = computed(() => (isPayment.value ? 'سند صرف' : 'سند قب
 const titleEn = computed(() => (isPayment.value ? 'PAYMENT VOUCHER' : 'RECEIPT VOUCHER'));
 const partyEn = computed(() => (isPayment.value ? 'Paid To Mrs :' : 'Received From Mrs :'));
 const partyAr = computed(() =>
-    isPayment.value ? 'صرفنا إلى السيد / السادة :' : 'استلمنا من السيد / السادة :'
+    isPayment.value ? 'صرفنا إلى السيد / السادة' : 'استلمنا من السيد / السادة'
 );
 
-const currencyCode = computed(() => String(props.currency || '').toUpperCase());
+const currencyCode = computed(() =>
+    String(props.currency || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '')
+        .slice(0, 3)
+);
 
 const currencyMeta = computed(() => {
     const map = {
@@ -42,23 +48,35 @@ const currencyMeta = computed(() => {
         EUR: { en: 'EUR', ar: 'يورو' },
     };
 
-    return map[currencyCode.value] || {
-        en: currencyCode.value || props.currencySymbol || '',
+    if (map[currencyCode.value]) {
+        return map[currencyCode.value];
+    }
+
+    const code = currencyCode.value;
+
+    return {
+        en: /^[A-Z]{3}$/.test(code) ? code : '',
         ar: '',
     };
 });
 
 const numericAmount = computed(() => {
-    const raw = props.amount ?? props.amountDisplay;
-    const parsed = Number(String(raw ?? '').replace(/,/g, ''));
+    const raw = String(props.amount ?? props.amountDisplay ?? '')
+        .replace(/[^\d.,\-]/g, '')
+        .replace(/,/g, '');
+    const parsed = Number(raw);
 
     return Number.isFinite(parsed) ? parsed : 0;
 });
 
 const formattedAmount = computed(() => {
-    const [major] = numericAmount.value.toFixed(2).split('.');
+    const whole = Math.trunc(Math.abs(numericAmount.value));
 
-    return Number(major).toLocaleString('en-US');
+    return whole.toLocaleString('en-US', {
+        maximumFractionDigits: 0,
+        minimumFractionDigits: 0,
+        useGrouping: true,
+    });
 });
 
 const parsedDate = computed(() => {
@@ -142,7 +160,11 @@ onBeforeUnmount(() => {
 <template>
     <div class="cash-voucher-sheet">
         <template v-for="(copy, index) in copies" :key="copy">
-            <article class="cash-voucher" :class="isPayment ? 'is-payment' : 'is-receipt'">
+            <article
+                class="cash-voucher"
+                :class="isPayment ? 'is-payment' : 'is-receipt'"
+                dir="ltr"
+            >
                 <div class="cv-accent-top" aria-hidden="true">
                     <span />
                     <span />
@@ -150,13 +172,15 @@ onBeforeUnmount(() => {
 
                 <header class="cv-header">
                     <div class="cv-brand">
-                        <img
-                            v-if="companyLogoUrl"
-                            :src="companyLogoUrl"
-                            :alt="companyName"
-                            class="cv-logo"
-                        />
-                        <div v-else class="cv-logo-fallback">{{ companyName }}</div>
+                        <div class="cv-logo-box">
+                            <img
+                                v-if="companyLogoUrl"
+                                :src="companyLogoUrl"
+                                :alt="companyName"
+                                class="cv-logo"
+                            />
+                            <div v-else class="cv-logo-fallback">{{ companyName }}</div>
+                        </div>
                         <div class="cv-company">{{ companyName }}</div>
                         <div v-if="companyAddress" class="cv-company-meta">{{ companyAddress }}</div>
                         <div v-if="companyPhone" class="cv-company-meta">Mobile: {{ companyPhone }}</div>
@@ -168,18 +192,21 @@ onBeforeUnmount(() => {
                         <div class="cv-serial">{{ voucherNumber }}</div>
                     </div>
 
-                    <div class="cv-amount-box">
+                    <div class="cv-amount-box" dir="ltr">
                         <div class="cv-amount-cell cv-amount-major">
                             <span class="cv-amount-num">{{ formattedAmount }}</span>
                         </div>
-                        <div class="cv-amount-cell cv-amount-currency">
-                            <span class="cv-amount-cur-en">{{ currencyMeta.en }}</span>
+                        <div
+                            v-if="currencyMeta.en || currencyMeta.ar"
+                            class="cv-amount-cell cv-amount-currency"
+                        >
+                            <span v-if="currencyMeta.en" class="cv-amount-cur-en">{{ currencyMeta.en }}</span>
                             <span v-if="currencyMeta.ar" class="cv-amount-cur-ar">{{ currencyMeta.ar }}</span>
                         </div>
                     </div>
                 </header>
 
-                <div class="cv-dates">
+                <div class="cv-dates" dir="ltr">
                     <div class="cv-date cv-date-en">
                         الموافق
                         <span>{{ gregorianParts.day }}</span>
@@ -201,48 +228,48 @@ onBeforeUnmount(() => {
                 </div>
 
                 <section class="cv-body">
-                    <div class="cv-line">
+                    <div class="cv-line" dir="ltr">
                         <span class="cv-en">{{ partyEn }}</span>
                         <span class="cv-value">{{ partyName }}</span>
-                        <span class="cv-ar">{{ partyAr }}</span>
+                        <span class="cv-ar">: <bdi>{{ partyAr }}</bdi></span>
                     </div>
-                    <div class="cv-line">
+                    <div class="cv-line" dir="ltr">
                         <span class="cv-en">Amount :</span>
                         <span class="cv-value">{{ amountInWords }}</span>
-                        <span class="cv-ar">: مبلغ وقدره</span>
+                        <span class="cv-ar">: <bdi>مبلغ وقدره</bdi></span>
                     </div>
-                    <div class="cv-line cv-line-method">
+                    <div class="cv-line cv-line-method" dir="ltr">
                         <div class="cv-method cv-method-en">
                             <span>Cash / Cheque No.</span>
                             <strong>Cash</strong>
                             <span>Bank</span>
                             <span class="cv-dots"></span>
                         </div>
-                        <div class="cv-method cv-method-ar">
+                        <div class="cv-method cv-method-ar" dir="rtl">
                             <span>نقداً / شيك رقم</span>
                             <strong>نقداً</strong>
                             <span>على بنك</span>
                             <span class="cv-dots"></span>
                         </div>
                     </div>
-                    <div class="cv-line">
+                    <div class="cv-line" dir="ltr">
                         <span class="cv-en">Being :</span>
                         <span class="cv-value">{{ notes || '' }}</span>
-                        <span class="cv-ar">: وذلك مقابل</span>
+                        <span class="cv-ar">: <bdi>وذلك مقابل</bdi></span>
                     </div>
                 </section>
 
-                <footer class="cv-signs">
+                <footer class="cv-signs" dir="ltr">
                     <div class="cv-sign">
                         <div class="cv-sign-line"></div>
-                        <div class="cv-sign-labels">
+                        <div class="cv-sign-labels" dir="ltr">
                             <span>Receiver</span>
                             <span>المستلم</span>
                         </div>
                     </div>
                     <div class="cv-sign">
                         <div class="cv-sign-line"></div>
-                        <div class="cv-sign-labels">
+                        <div class="cv-sign-labels" dir="ltr">
                             <span>Accountant</span>
                             <span>المحاسب</span>
                         </div>

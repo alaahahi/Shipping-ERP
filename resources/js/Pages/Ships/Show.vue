@@ -7,7 +7,6 @@ import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { formatMoney } from '@/utils/formatMoney';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -30,11 +29,24 @@ const props = defineProps({
 const page = usePage();
 const { t } = useI18n();
 const success = computed(() => page.props.flash?.success);
-const urlTab = new URL(page.url, window.location.origin).searchParams.get('tab');
+const allowedTabs = ['overview', 'owners', 'expenses', 'partners'];
+const normalizeTab = (tab) => {
+    if (tab === 'contributions') return 'partners';
+    return allowedTabs.includes(tab) ? tab : null;
+};
+const urlTab = normalizeTab(new URL(page.url, window.location.origin).searchParams.get('tab'));
 const activeTab = ref(
     urlTab
     || (props.ownerships.length === 0 ? 'owners' : 'overview')
 );
+const isLedgerTab = computed(() => activeTab.value === 'expenses' || activeTab.value === 'partners');
+const setTab = (tab) => {
+    const next = normalizeTab(tab) || 'overview';
+    activeTab.value = next;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', next);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
 const editingOwnershipId = ref(null);
 const editingExpenseId = ref(null);
 const postingExpenseId = ref(null);
@@ -52,25 +64,6 @@ const defaultPayerId = () =>
     props.ownerships.find((row) => !row.is_managing)?.owner_id
     ?? props.ownerships[0]?.owner_id
     ?? null;
-
-const emptyExpenseRow = () => ({
-    expense_type: props.expenseTypes[0]?.value ?? 'other',
-    amount: null,
-    currency: ledgerCurrency.value,
-    expense_date: today(),
-    vendor: '',
-    reference: '',
-    paid_by_owner_id: defaultSpenderId(),
-});
-
-const emptyPaymentRow = () => ({
-    owner_id: defaultPayerId(),
-    contribution_date: today(),
-    amount: null,
-    currency: ledgerCurrency.value,
-    description: '',
-    reference: '',
-});
 
 const ownershipForm = useForm({
     owner_id: props.ownerOptions[0]?.id ?? null,
@@ -92,6 +85,7 @@ const expenseForm = useForm({
     reference: '',
     notes: '',
     paid_by_owner_id: defaultSpenderId(),
+    attachment: null,
 });
 
 const postForm = useForm({
@@ -111,33 +105,6 @@ const contributionForm = useForm({
 const contributionPostForm = useForm({
     payment_account_id: null,
 });
-
-const expenseListForm = useForm({
-    rows: [emptyExpenseRow(), emptyExpenseRow(), emptyExpenseRow()],
-});
-
-const paymentListForm = useForm({
-    rows: [emptyPaymentRow(), emptyPaymentRow()],
-});
-
-const expenseImportForm = useForm({
-    file: null,
-    currency: 'USD',
-    paid_by_owner_id: defaultSpenderId(),
-});
-
-const paymentImportForm = useForm({
-    file: null,
-    owner_id: defaultPayerId(),
-    currency: 'USD',
-});
-
-const expensePreviewing = ref(false);
-const paymentPreviewing = ref(false);
-const expensePreviewNote = ref('');
-const paymentPreviewNote = ref('');
-const expenseListPanel = ref(null);
-const paymentListPanel = ref(null);
 
 const partnerSummary = computed(() => props.partnerSummaries[ledgerCurrency.value] || null);
 const filteredExpenses = computed(() => props.expenses.filter((row) => row.currency === ledgerCurrency.value));
@@ -169,6 +136,9 @@ const settlementHint = computed(() => {
     }
     return t('ship_expenses.hint_spender_more', { spender: summary.spender_name || '—', other: summary.other_name || '—' });
 });
+const editingExpense = computed(() =>
+    props.expenses.find((row) => row.id === editingExpenseId.value) ?? null
+);
 const expensesByMonth = computed(() => {
     const groups = [];
     const index = {};
@@ -194,7 +164,7 @@ const resetOwnershipForm = () => {
 };
 
 const startEditOwnership = (row) => {
-    activeTab.value = 'owners';
+    setTab('owners');
     editingOwnershipId.value = row.id;
     createNewOwner.value = false;
     ownershipForm.share_percent = Number(row.share_percent);
@@ -245,10 +215,11 @@ const resetExpenseForm = () => {
     expenseForm.currency = 'USD';
     expenseForm.expense_date = new Date().toISOString().slice(0, 10);
     expenseForm.paid_by_owner_id = defaultSpenderId();
+    expenseForm.attachment = null;
 };
 
 const startEditExpense = (expense) => {
-    activeTab.value = 'expenses';
+    setTab('expenses');
     editingExpenseId.value = expense.id;
     expenseForm.expense_type = expense.expense_type;
     expenseForm.amount = Number(expense.amount);
@@ -258,18 +229,21 @@ const startEditExpense = (expense) => {
     expenseForm.reference = expense.reference ?? '';
     expenseForm.notes = expense.notes ?? '';
     expenseForm.paid_by_owner_id = expense.paid_by_owner_id ?? defaultSpenderId();
+    expenseForm.attachment = null;
 };
 
 const submitExpense = () => {
     if (editingExpenseId.value) {
         expenseForm.put(route('ships.expenses.update', [props.ship.id, editingExpenseId.value]), {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => resetExpenseForm(),
         });
         return;
     }
     expenseForm.post(route('ships.expenses.store', props.ship.id), {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => resetExpenseForm(),
     });
 };
@@ -313,7 +287,7 @@ const resetContributionForm = () => {
 };
 
 const startEditContribution = (row) => {
-    activeTab.value = 'expenses';
+    setTab('partners');
     editingContributionId.value = row.id;
     contributionForm.owner_id = row.owner_id;
     contributionForm.contribution_date = row.contribution_date;
@@ -364,119 +338,6 @@ const submitPostContribution = (row) => {
     });
 };
 
-const addExpenseListRow = () => expenseListForm.rows.push(emptyExpenseRow());
-const addPaymentListRow = () => paymentListForm.rows.push(emptyPaymentRow());
-
-const submitExpenseList = () => {
-    expenseListForm
-        .transform((data) => ({ rows: data.rows.filter((row) => Number(row.amount) > 0) }))
-        .post(route('ships.expenses.bulk', props.ship.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                expenseListForm.reset();
-                expenseListForm.rows = [emptyExpenseRow(), emptyExpenseRow(), emptyExpenseRow()];
-                expensePreviewNote.value = '';
-            },
-        });
-};
-
-const submitPaymentList = () => {
-    paymentListForm
-        .transform((data) => ({ rows: data.rows.filter((row) => Number(row.amount) > 0) }))
-        .post(route('ships.contributions.bulk', props.ship.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                paymentListForm.reset();
-                paymentListForm.rows = [emptyPaymentRow(), emptyPaymentRow()];
-                paymentPreviewNote.value = '';
-            },
-        });
-};
-
-const onExpenseFile = (event) => {
-    expenseImportForm.file = event.target.files?.[0] ?? null;
-    expensePreviewNote.value = '';
-};
-
-const onPaymentFile = (event) => {
-    paymentImportForm.file = event.target.files?.[0] ?? null;
-    paymentPreviewNote.value = '';
-};
-
-const applyAxiosErrors = (form, error) => {
-    const errors = error.response?.data?.errors || {};
-    form.clearErrors();
-    Object.entries(errors).forEach(([key, messages]) => {
-        form.setError(key, Array.isArray(messages) ? messages[0] : String(messages));
-    });
-    if (Object.keys(errors).length === 0) {
-        form.setError('file', error.response?.data?.message || t('ship_expenses.import_failed'));
-    }
-};
-
-const submitExpenseImport = async () => {
-    if (!expenseImportForm.file) return;
-    expensePreviewing.value = true;
-    expensePreviewNote.value = '';
-    expenseImportForm.clearErrors();
-    try {
-        const body = new FormData();
-        body.append('file', expenseImportForm.file);
-        body.append('currency', expenseImportForm.currency || 'USD');
-        if (expenseImportForm.paid_by_owner_id) {
-            body.append('paid_by_owner_id', String(expenseImportForm.paid_by_owner_id));
-        }
-        const { data } = await axios.post(route('ships.expenses.import', props.ship.id), body);
-        const rows = (data.rows || []).map((row) => ({
-            ...emptyExpenseRow(),
-            ...row,
-            amount: Number(row.amount) || null,
-            paid_by_owner_id: row.paid_by_owner_id ?? defaultSpenderId(),
-        }));
-        expenseListForm.rows = rows.length ? rows : [emptyExpenseRow()];
-        expenseListForm.clearErrors();
-        expensePreviewNote.value = t('ship_expenses.import_filled', {
-            count: rows.length,
-            skipped: Number(data.skipped || 0),
-        });
-        expenseListPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-        applyAxiosErrors(expenseImportForm, error);
-    } finally {
-        expensePreviewing.value = false;
-    }
-};
-
-const submitPaymentImport = async () => {
-    if (!paymentImportForm.file) return;
-    paymentPreviewing.value = true;
-    paymentPreviewNote.value = '';
-    paymentImportForm.clearErrors();
-    try {
-        const body = new FormData();
-        body.append('file', paymentImportForm.file);
-        body.append('owner_id', String(paymentImportForm.owner_id || ''));
-        body.append('currency', paymentImportForm.currency || 'USD');
-        const { data } = await axios.post(route('ships.contributions.import', props.ship.id), body);
-        const rows = (data.rows || []).map((row) => ({
-            ...emptyPaymentRow(),
-            ...row,
-            amount: Number(row.amount) || null,
-            owner_id: row.owner_id ?? paymentImportForm.owner_id ?? defaultPayerId(),
-        }));
-        paymentListForm.rows = rows.length ? rows : [emptyPaymentRow()];
-        paymentListForm.clearErrors();
-        paymentPreviewNote.value = t('ship_partners.import_filled', {
-            count: rows.length,
-            skipped: Number(data.skipped || 0),
-        });
-        paymentListPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-        applyAxiosErrors(paymentImportForm, error);
-    } finally {
-        paymentPreviewing.value = false;
-    }
-};
 </script>
 
 <template>
@@ -500,7 +361,7 @@ const submitPaymentImport = async () => {
                     v-if="canManage"
                     type="button"
                     class="btn btn-erp"
-                    @click="activeTab = 'owners'"
+                    @click="setTab('owners')"
                 >
                     {{ t('ship_owners.manage') }}
                 </button>
@@ -515,7 +376,7 @@ const submitPaymentImport = async () => {
 
         <div class="alert alert-light border mb-3 d-md-none">
             <div class="fw-semibold">{{ t('ship_owners.where') }}</div>
-            <button type="button" class="btn btn-sm btn-erp mt-2" @click="activeTab = 'owners'">
+            <button type="button" class="btn btn-sm btn-erp mt-2" @click="setTab('owners')">
                 {{ t('ship_owners.manage') }}
             </button>
         </div>
@@ -528,7 +389,7 @@ const submitPaymentImport = async () => {
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <button type="button" class="erp-stat is-clickable w-100 text-start border-0" @click="activeTab = 'owners'">
+                <button type="button" class="erp-stat is-clickable w-100 text-start border-0" @click="setTab('owners')">
                     <div class="erp-stat-label">{{ t('ship_owners.title') }}</div>
                     <p class="erp-stat-value">{{ ownershipSummary.owners_count || 0 }}</p>
                     <div class="erp-stat-hint">{{ t('ship_owners.click_manage') }} · {{ formatMoney(ownershipSummary.total_share || 0) }}%</div>
@@ -554,7 +415,7 @@ const submitPaymentImport = async () => {
                     type="button"
                     class="btn btn-sm"
                     :class="activeTab === 'overview' ? 'btn-erp' : 'btn-erp-ghost'"
-                    @click="activeTab = 'overview'"
+                    @click="setTab('overview')"
                 >
                     {{ t('ships.overview') }}
                 </button>
@@ -562,7 +423,7 @@ const submitPaymentImport = async () => {
                     type="button"
                     class="btn btn-sm"
                     :class="activeTab === 'owners' ? 'btn-erp' : 'btn-erp-ghost'"
-                    @click="activeTab = 'owners'"
+                    @click="setTab('owners')"
                 >
                     {{ t('ship_owners.title') }} ({{ ownerships.length }})
                 </button>
@@ -570,9 +431,17 @@ const submitPaymentImport = async () => {
                     type="button"
                     class="btn btn-sm"
                     :class="activeTab === 'expenses' ? 'btn-erp' : 'btn-erp-ghost'"
-                    @click="activeTab = 'expenses'"
+                    @click="setTab('expenses')"
                 >
-                    {{ t('ship_expenses.title') }} ({{ expenses.length + contributions.length }})
+                    {{ t('ship_expenses.title') }} ({{ expenses.length }})
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm"
+                    :class="activeTab === 'partners' ? 'btn-erp' : 'btn-erp-ghost'"
+                    @click="setTab('partners')"
+                >
+                    {{ t('ship_partners.title') }} ({{ contributions.length }})
                 </button>
             </div>
 
@@ -581,11 +450,14 @@ const submitPaymentImport = async () => {
                     <div class="fw-semibold mb-1">{{ t('ships.cost_model_title') }}</div>
                     <p class="small text-secondary mb-3">{{ t('ships.cost_model_help') }}</p>
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-erp" @click="activeTab = 'owners'">
+                        <button type="button" class="btn btn-erp" @click="setTab('owners')">
                             {{ t('ship_owners.manage') }}
                         </button>
-                        <button type="button" class="btn btn-erp-ghost" @click="activeTab = 'expenses'">
+                        <button type="button" class="btn btn-erp-ghost" @click="setTab('expenses')">
                             {{ t('ship_expenses.title') }}
+                        </button>
+                        <button type="button" class="btn btn-erp-ghost" @click="setTab('partners')">
+                            {{ t('ship_partners.title') }}
                         </button>
                     </div>
                 </div>
@@ -742,17 +614,22 @@ const submitPaymentImport = async () => {
                 </form>
             </div>
 
-            <div v-else-if="activeTab === 'expenses'" class="p-4">
+            <div v-else-if="isLedgerTab" class="p-4">
                 <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
                     <div>
-                        <h3 class="erp-panel-title mb-1">{{ t('ship_expenses.title') }}</h3>
-                        <p class="small text-secondary mb-0">{{ t('ship_expenses.help') }}</p>
+                        <h3 class="erp-panel-title mb-1">
+                            {{ activeTab === 'expenses' ? t('ship_expenses.title') : t('ship_partners.title') }}
+                        </h3>
+                        <p class="small text-secondary mb-0">
+                            {{ activeTab === 'expenses' ? t('ship_expenses.help') : t('ship_partners.help') }}
+                        </p>
                     </div>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <select v-model="ledgerCurrency" class="form-select form-select-sm form-erp-control" style="width: auto">
                             <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                         </select>
                         <a
+                            v-if="activeTab === 'expenses'"
                             class="btn btn-erp-ghost btn-sm"
                             :href="route('ships.expenses.print', { ship: ship.id, currency: ledgerCurrency })"
                             target="_blank"
@@ -760,13 +637,15 @@ const submitPaymentImport = async () => {
                         >
                             {{ t('ship_expenses.print') }}
                         </a>
-                        <StatusBadge
-                            v-for="total in expenseTotals"
-                            :key="total.currency"
-                            tone="info"
-                            :label="`${formatMoney(total.total)} ${total.currency}`"
-                            :dot="false"
-                        />
+                        <template v-if="activeTab === 'expenses'">
+                            <StatusBadge
+                                v-for="total in expenseTotals"
+                                :key="total.currency"
+                                tone="info"
+                                :label="`${formatMoney(total.total)} ${total.currency}`"
+                                :dot="false"
+                            />
+                        </template>
                     </div>
                 </div>
 
@@ -814,7 +693,7 @@ const submitPaymentImport = async () => {
                     </div>
                 </div>
 
-                <div v-if="partnerSummary?.partners?.length" class="table-responsive mb-4">
+                <div v-if="activeTab === 'partners' && partnerSummary?.partners?.length" class="table-responsive mb-4">
                     <table class="table erp-table align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -848,9 +727,7 @@ const submitPaymentImport = async () => {
                     </table>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-lg-7">
-                        <h4 class="h6 mb-2">{{ t('ship_expenses.title') }}</h4>
+                <div v-if="activeTab === 'expenses'" class="mb-4">
                         <div v-if="filteredExpenses.length === 0">
                             <EmptyState icon="E" :title="t('ship_expenses.none')">
                                 {{ t('ship_expenses.none_help') }}
@@ -910,6 +787,23 @@ const submitPaymentImport = async () => {
                                         </td>
                                         <td class="text-end">
                                             <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                                                <a
+                                                    class="btn btn-sm btn-erp-ghost"
+                                                    :href="route('ships.expenses.voucher', [ship.id, expense.id])"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    {{ t('journals.print_voucher') }}
+                                                </a>
+                                                <a
+                                                    v-if="expense.attachment_url"
+                                                    class="btn btn-sm btn-erp-ghost"
+                                                    :href="expense.attachment_url"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    {{ t('common.view_attachment') }}
+                                                </a>
                                                 <template v-if="canPostAccounting && expense.can_post">
                                                     <button
                                                         v-if="postingExpenseId !== expense.id"
@@ -968,10 +862,9 @@ const submitPaymentImport = async () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <h4 class="h6 mb-2">{{ t('ship_partners.title') }}</h4>
-                        <p class="small text-secondary">{{ t('ship_partners.help') }}</p>
+                </div>
+
+                <div v-if="activeTab === 'partners'" class="mb-4">
                         <div v-if="filteredContributions.length === 0" class="mb-3">
                             <EmptyState icon="P" :title="t('ship_partners.none')">
                                 {{ t('ship_partners.none_help') }}
@@ -1065,12 +958,9 @@ const submitPaymentImport = async () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
                 </div>
 
-                <div v-if="canManage" class="row g-3">
-                    <div class="col-lg-7">
-                        <form class="erp-form-panel mb-3" @submit.prevent="submitExpense">
+                <form v-if="canManage && activeTab === 'expenses'" class="erp-form-panel" @submit.prevent="submitExpense">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h4 class="h6 mb-0">{{ editingExpenseId ? t('ship_expenses.edit') : t('ship_expenses.add') }}</h4>
                                 <button v-if="editingExpenseId" type="button" class="btn btn-sm btn-erp-ghost" @click="resetExpenseForm">
@@ -1116,6 +1006,27 @@ const submitPaymentImport = async () => {
                                     </select>
                                     <InputError :message="expenseForm.errors.paid_by_owner_id" />
                                 </div>
+                                <div class="col-md-8">
+                                    <label class="form-erp-label" for="ship-expense-attachment">{{ t('common.attach_file') }}</label>
+                                    <input
+                                        id="ship-expense-attachment"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                                        class="form-control form-erp-control"
+                                        @change="expenseForm.attachment = $event.target.files?.[0] ?? null"
+                                    />
+                                    <p class="small text-secondary mb-0 mt-1">{{ t('common.attach_file_help') }}</p>
+                                    <InputError :message="expenseForm.errors.attachment" />
+                                    <a
+                                        v-if="editingExpense?.attachment_url"
+                                        class="small d-inline-block mt-1"
+                                        :href="editingExpense.attachment_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {{ t('common.view_attachment') }}
+                                    </a>
+                                </div>
                             </div>
                             <p class="small text-secondary mb-0 mt-3">{{ t('ship_expenses.paid_by_help') }}</p>
                             <p class="small text-secondary mb-0 mt-1">{{ t('ship_expenses.accounting_note') }}</p>
@@ -1126,73 +1037,7 @@ const submitPaymentImport = async () => {
                             </div>
                         </form>
 
-                        <form ref="expenseListPanel" class="erp-form-panel mb-3" @submit.prevent="submitExpenseList">
-                            <h4 class="h6 mb-2">{{ t('ship_expenses.list_add') }}</h4>
-                            <p v-if="expensePreviewNote" class="small text-success mb-2">{{ expensePreviewNote }}</p>
-                            <div v-for="(row, index) in expenseListForm.rows" :key="index" class="row g-2 mb-2">
-                                <div class="col-md-2">
-                                    <input v-model="row.expense_date" type="date" class="form-control form-erp-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <input v-model="row.vendor" class="form-control form-erp-control" :placeholder="t('ship_expenses.reason')" />
-                                </div>
-                                <div class="col-md-2">
-                                    <input v-model.number="row.amount" type="number" min="0" step="0.01" class="form-control form-erp-control" :placeholder="t('common.amount')" />
-                                </div>
-                                <div class="col-md-2">
-                                    <select v-model="row.expense_type" class="form-select form-erp-control">
-                                        <option v-for="type in expenseTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <select v-model="row.paid_by_owner_id" class="form-select form-erp-control">
-                                        <option :value="null">{{ t('ship_expenses.paid_by_default') }}</option>
-                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">
-                                            {{ owner.owner_name }}
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-                            <InputError :message="expenseListForm.errors.rows" />
-                            <div class="erp-form-actions">
-                                <button type="button" class="btn btn-erp-ghost" @click="addExpenseListRow">{{ t('ship_expenses.add_row') }}</button>
-                                <button type="submit" class="btn btn-erp" :disabled="expenseListForm.processing">
-                                    {{ expenseListForm.processing ? t('common.saving') : t('ship_expenses.save_list') }}
-                                </button>
-                            </div>
-                        </form>
-
-                        <form class="erp-form-panel" @submit.prevent="submitExpenseImport">
-                            <h4 class="h6 mb-1">{{ t('ship_expenses.import_excel') }}</h4>
-                            <p class="small text-secondary mb-2">{{ t('ship_expenses.import_help') }}</p>
-                            <div class="row g-2">
-                                <div class="col-md-5">
-                                    <input type="file" class="form-control form-erp-control" accept=".xlsx,.xls,.csv" @change="onExpenseFile" />
-                                    <InputError :message="expenseImportForm.errors.file" />
-                                </div>
-                                <div class="col-md-3">
-                                    <select v-model="expenseImportForm.currency" class="form-select form-erp-control">
-                                        <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <select v-model="expenseImportForm.paid_by_owner_id" class="form-select form-erp-control">
-                                        <option :value="null">{{ t('ship_expenses.paid_by_default') }}</option>
-                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">
-                                            {{ owner.owner_name }}
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="erp-form-actions">
-                                <button type="submit" class="btn btn-erp" :disabled="expensePreviewing || !expenseImportForm.file">
-                                    {{ expensePreviewing ? t('ship_expenses.import_reading') : t('ship_expenses.import_excel') }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="col-lg-5">
-                        <form class="erp-form-panel mb-3" @submit.prevent="submitContribution">
+                <form v-if="canManage && activeTab === 'partners'" class="erp-form-panel" @submit.prevent="submitContribution">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h4 class="h6 mb-0">{{ editingContributionId ? t('ship_partners.edit') : t('ship_partners.add') }}</h4>
                                 <button v-if="editingContributionId" type="button" class="btn btn-sm btn-erp-ghost" @click="resetContributionForm">
@@ -1200,27 +1045,27 @@ const submitPaymentImport = async () => {
                                 </button>
                             </div>
                             <div class="row g-2">
-                                <div class="col-12">
+                                <div class="col-12 col-md-4">
                                     <label class="form-erp-label">{{ t('ship_partners.partner') }}</label>
                                     <select v-model="contributionForm.owner_id" class="form-select form-erp-control" required>
                                         <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">{{ owner.owner_name }}</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label class="form-erp-label">{{ t('common.date') }}</label>
                                     <input v-model="contributionForm.contribution_date" type="date" class="form-control form-erp-control" required />
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label class="form-erp-label">{{ t('common.amount') }}</label>
                                     <input v-model.number="contributionForm.amount" type="number" min="0.01" step="0.01" class="form-control form-erp-control" required />
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label class="form-erp-label">{{ t('common.currency') }}</label>
                                     <select v-model="contributionForm.currency" class="form-select form-erp-control" required>
                                         <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-8">
                                     <label class="form-erp-label">{{ t('ship_expenses.reason') }}</label>
                                     <input v-model="contributionForm.description" class="form-control form-erp-control" />
                                 </div>
@@ -1232,57 +1077,6 @@ const submitPaymentImport = async () => {
                                 </button>
                             </div>
                         </form>
-
-                        <form ref="paymentListPanel" class="erp-form-panel mb-3" @submit.prevent="submitPaymentList">
-                            <h4 class="h6 mb-2">{{ t('ship_partners.list_add') }}</h4>
-                            <p v-if="paymentPreviewNote" class="small text-success mb-2">{{ paymentPreviewNote }}</p>
-                            <div v-for="(row, index) in paymentListForm.rows" :key="index" class="row g-2 mb-2">
-                                <div class="col-md-4">
-                                    <input v-model="row.contribution_date" type="date" class="form-control form-erp-control" />
-                                </div>
-                                <div class="col-md-5">
-                                    <input v-model="row.description" class="form-control form-erp-control" :placeholder="t('ship_expenses.reason')" />
-                                </div>
-                                <div class="col-md-3">
-                                    <input v-model.number="row.amount" type="number" min="0" step="0.01" class="form-control form-erp-control" :placeholder="t('common.amount')" />
-                                </div>
-                            </div>
-                            <InputError :message="paymentListForm.errors.rows" />
-                            <div class="erp-form-actions">
-                                <button type="button" class="btn btn-erp-ghost" @click="addPaymentListRow">{{ t('ship_expenses.add_row') }}</button>
-                                <button type="submit" class="btn btn-erp" :disabled="paymentListForm.processing">
-                                    {{ paymentListForm.processing ? t('common.saving') : t('ship_expenses.save_list') }}
-                                </button>
-                            </div>
-                        </form>
-
-                        <form class="erp-form-panel" @submit.prevent="submitPaymentImport">
-                            <h4 class="h6 mb-1">{{ t('ship_partners.import_excel') }}</h4>
-                            <p class="small text-secondary mb-2">{{ t('ship_partners.import_help') }}</p>
-                            <div class="row g-2">
-                                <div class="col-12">
-                                    <select v-model="paymentImportForm.owner_id" class="form-select form-erp-control">
-                                        <option v-for="owner in ownerships" :key="owner.owner_id" :value="owner.owner_id">{{ owner.owner_name }}</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-8">
-                                    <input type="file" class="form-control form-erp-control" accept=".xlsx,.xls,.csv" @change="onPaymentFile" />
-                                    <InputError :message="paymentImportForm.errors.file" />
-                                </div>
-                                <div class="col-md-4">
-                                    <select v-model="paymentImportForm.currency" class="form-select form-erp-control">
-                                        <option v-for="currency in currencies" :key="currency.value" :value="currency.value">{{ currency.label }}</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="erp-form-actions">
-                                <button type="submit" class="btn btn-erp" :disabled="paymentPreviewing || !paymentImportForm.file">
-                                    {{ paymentPreviewing ? t('ship_expenses.import_reading') : t('ship_partners.import_excel') }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
             </div>
         </div>
     </AppLayout>

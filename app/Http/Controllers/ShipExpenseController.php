@@ -9,25 +9,35 @@ use App\Http\Requests\ShipExpenses\StoreShipExpenseRequest;
 use App\Http\Requests\ShipExpenses\UpdateShipExpenseRequest;
 use App\Models\Ship;
 use App\Models\ShipExpense;
+use App\Services\AttachmentService;
 use App\Services\ShipExpenseLedgerImportService;
 use App\Services\ShipExpensePostingService;
 use App\Services\ShipExpenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ShipExpenseController extends Controller
 {
     public function __construct(
         private readonly ShipExpenseService $shipExpenseService,
         private readonly ShipExpensePostingService $shipExpensePostingService,
-        private readonly ShipExpenseLedgerImportService $ledgerImportService
+        private readonly ShipExpenseLedgerImportService $ledgerImportService,
+        private readonly AttachmentService $attachmentService
     ) {}
 
     public function store(StoreShipExpenseRequest $request, Ship $ship): RedirectResponse
     {
         Gate::authorize('create', [ShipExpense::class, $ship]);
-        $this->shipExpenseService->create($ship, [...$request->validated(), 'created_by' => $request->user()?->id]);
+        $this->shipExpenseService->create(
+            $ship,
+            [...$request->safe()->except('attachment'), 'created_by' => $request->user()?->id],
+            $request->file('attachment')
+        );
 
         return $this->backToExpenses($ship, 'Ship expense added.');
     }
@@ -57,18 +67,38 @@ class ShipExpenseController extends Controller
     {
         $this->assertBelongsToShip($ship, $expense);
         Gate::authorize('update', $expense);
-        $this->shipExpenseService->update($expense, $request->validated());
+        $this->shipExpenseService->update(
+            $expense,
+            $request->safe()->except('attachment'),
+            $request->file('attachment')
+        );
 
         return $this->backToExpenses($ship, 'Ship expense updated.');
     }
 
-    public function destroy(Ship $ship, ShipExpense $expense): RedirectResponse
+    public function destroy(Request $request, Ship $ship, ShipExpense $expense): RedirectResponse
     {
         $this->assertBelongsToShip($ship, $expense);
         Gate::authorize('delete', $expense);
-        $this->shipExpenseService->delete($expense);
+        $this->shipExpenseService->delete($expense, $request->user()?->id);
 
         return $this->backToExpenses($ship, 'Ship expense removed.');
+    }
+
+    public function voucher(Ship $ship, ShipExpense $expense): Response
+    {
+        $this->assertBelongsToShip($ship, $expense);
+        Gate::authorize('view', $ship);
+
+        return Inertia::render('Ships/ExpenseVoucherPrint', $this->shipExpenseService->printPayload($ship, $expense));
+    }
+
+    public function attachment(Ship $ship, ShipExpense $expense): StreamedResponse
+    {
+        $this->assertBelongsToShip($ship, $expense);
+        Gate::authorize('view', $ship);
+
+        return $this->attachmentService->inlineLatest($expense);
     }
 
     public function post(PostShipExpenseRequest $request, Ship $ship, ShipExpense $expense): RedirectResponse

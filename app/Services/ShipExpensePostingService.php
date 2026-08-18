@@ -109,7 +109,12 @@ class ShipExpensePostingService
             $posted = $this->journalService->post($draft, $actor);
             $expense->update(['journal_entry_id' => $posted->id]);
 
-            return $expense->fresh(['journalEntry', 'ship']);
+            $expense->loadMissing('latestAttachment');
+            if ($expense->latestAttachment?->path) {
+                $posted->update(['attachment_path' => $expense->latestAttachment->path]);
+            }
+
+            return $expense->fresh(['journalEntry', 'ship', 'latestAttachment']);
         });
 
         $this->notificationDispatchService->notifyByPermissions(

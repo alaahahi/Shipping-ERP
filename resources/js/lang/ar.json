@@ -152,7 +152,11 @@
     "optional": "اختياري",
     "print": "طباعة",
     "loading_more": "جاري تحميل المزيد…",
-    "scroll_for_more": "مرّر لتحميل المزيد"
+    "scroll_for_more": "مرّر لتحميل المزيد",
+    "attachment": "المرفق",
+    "attach_file": "إرفاق ملف",
+    "attach_file_help": "صورة أو PDF، حتى 10 ميغابايت.",
+    "view_attachment": "عرض المرفق"
   },
   "action_pin": {
     "title": "تأكيد برمز PIN",

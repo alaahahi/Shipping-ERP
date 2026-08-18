@@ -152,7 +152,11 @@
     "scroll_for_more": "بۆ بارکردنی زیاتر بگەڕێ",
     "inactive": "ناچالاک",
     "notes": "تێبینی",
-    "open": "کردنەوە"
+    "open": "کردنەوە",
+    "attachment": "هاوپێچ",
+    "attach_file": "هاوپێچی فایل",
+    "attach_file_help": "وێنە یان PDF، تا ١٠ مێگابایت.",
+    "view_attachment": "بینینی هاوپێچ"
   },
   "action_pin": {
     "title": "پشتڕاستکردنەوە بە PIN",

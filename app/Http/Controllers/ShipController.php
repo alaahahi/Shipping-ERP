@@ -87,6 +87,7 @@ class ShipController extends Controller
             'ownerships.owner',
             'expenses.journalEntry:id,voucher_number,status',
             'expenses.paidByOwner:id,name',
+            'expenses.latestAttachment',
             'partnerContributions.owner:id,name',
             'partnerContributions.journalEntry:id,voucher_number,status',
         ]);

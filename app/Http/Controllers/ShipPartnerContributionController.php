@@ -89,7 +89,7 @@ class ShipPartnerContributionController extends Controller
     private function back(Ship $ship, string $message): RedirectResponse
     {
         return redirect()
-            ->route('ships.show', ['ship' => $ship, 'tab' => 'expenses'])
+            ->route('ships.show', ['ship' => $ship, 'tab' => 'partners'])
             ->with('success', $message);
     }
 

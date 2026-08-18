@@ -220,7 +220,7 @@ class ShipExpenseService
                 'notes' => $notes,
                 'expense_date' => $expense->expense_date?->format('Y-m-d') ?: '',
             ],
-            'printed_at' => ApplicationTimezone::formatNow(),
+            'printedAt' => ApplicationTimezone::formatNow(),
         ];
     }
 

@@ -214,6 +214,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('ships.ownerships.destroy');
     Route::get('/ships/{ship}/expenses/print', ShipExpensePrintController::class)
         ->name('ships.expenses.print');
+    Route::get('/ships/{ship}/expenses/{expense}/voucher', [ShipExpenseController::class, 'voucher'])
+        ->name('ships.expenses.voucher');
+    Route::get('/ships/{ship}/expenses/{expense}/attachment', [ShipExpenseController::class, 'attachment'])
+        ->name('ships.expenses.attachment');
     Route::post('/ships/{ship}/expenses', [ShipExpenseController::class, 'store'])
         ->name('ships.expenses.store');
     Route::post('/ships/{ship}/expenses/bulk', [ShipExpenseController::class, 'bulkStore'])

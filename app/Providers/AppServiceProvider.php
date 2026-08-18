@@ -3,10 +3,10 @@
 namespace App\Providers;
 
 use App\Enums\Permission;
+use App\Models\ShipExpense;
 use App\Policies\RolePolicy;
 use App\Support\ApplicationTimezone;
 use App\Support\ViteBuildDirectory;
-use App\Models\ShipExpense;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;

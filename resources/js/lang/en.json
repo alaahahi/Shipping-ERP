@@ -152,7 +152,11 @@
     "optional": "optional",
     "print": "Print",
     "loading_more": "Loading more…",
-    "scroll_for_more": "Scroll to load more"
+    "scroll_for_more": "Scroll to load more",
+    "attachment": "Attachment",
+    "attach_file": "Attach file",
+    "attach_file_help": "Image or PDF, up to 10 MB.",
+    "view_attachment": "View attachment"
   },
   "action_pin": {
     "title": "PIN confirmation",
