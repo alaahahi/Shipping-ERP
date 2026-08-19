@@ -19,6 +19,7 @@ use App\Http\Controllers\LandDriverPaymentController;
 use App\Http\Controllers\LandTripImportController;
 use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
+use App\Http\Controllers\LandTripPriceLogController;
 use App\Http\Controllers\LandTripTransferLogController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
@@ -130,12 +131,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars.sync');
     Route::post('/land-trips/companies/{company}/cars/location', [LandTripController::class, 'bulkUpdateCompanyCarStatus'])
         ->name('land-trips.companies.cars.location');
+    Route::patch('/land-trips/companies/{company}/cars/price', [LandTripController::class, 'bulkUpdateCompanyCarPrice'])
+        ->name('land-trips.companies.cars.bulk-price');
     Route::delete('/land-trips/companies/{company}/cars', [LandTripController::class, 'destroyCompanyCars'])
         ->name('land-trips.companies.cars.destroy');
     Route::post('/land-trips/companies/{company}/cars/transfer', [LandTripController::class, 'transferCompanyCars'])
         ->name('land-trips.companies.cars.transfer');
     Route::get('/land-trips/companies/{company}/transfer-logs', [LandTripTransferLogController::class, 'index'])
         ->name('land-trips.companies.transfer-logs');
+    Route::get('/land-trips/companies/{company}/price-logs', [LandTripPriceLogController::class, 'index'])
+        ->name('land-trips.companies.price-logs');
     Route::patch('/land-trips/companies/{company}/cars/{car}/price', [LandTripController::class, 'updateCompanyCarPrice'])
         ->name('land-trips.companies.cars.price');
     Route::patch('/land-trips/companies/{company}/cars/{car}', [LandTripController::class, 'updateCompanyCarDetails'])

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\LandTripStatus;
 use App\Enums\Permission;
 use App\Http\Requests\LandTrips\BulkDeleteCompanyLandCarsRequest;
+use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarPriceRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
 use App\Http\Requests\LandTrips\DestroyCompanyCmrFileRequest;
 use App\Http\Requests\LandTrips\RenameCompanyCmrGroupRequest;
@@ -28,6 +29,7 @@ use App\Services\CompanyWalletService;
 use App\Services\CountryService;
 use App\Services\LandTripCarImportLogService;
 use App\Services\LandTripCarLocationChangeService;
+use App\Services\LandTripCarPriceChangeService;
 use App\Services\LandTripExcelImportService;
 use App\Services\LandTripPostingService;
 use App\Services\LandTripService;
@@ -50,6 +52,7 @@ class LandTripController extends Controller
         private readonly CompanyService $companyService,
         private readonly LandTripCarLocationChangeService $locationChangeService,
         private readonly LandTripCarImportLogService $importLogService,
+        private readonly LandTripCarPriceChangeService $priceChangeService,
         private readonly CompanyWalletService $walletService
     ) {}
 
@@ -133,6 +136,7 @@ class LandTripController extends Controller
             'canManage' => $user?->can(Permission::LandTripsManage->value) ?? false,
             'locationLog' => $this->locationChangeService->meta($company),
             'importLog' => $this->importLogService->meta($company),
+            'priceLog' => ['has_entries' => $this->priceChangeService->hasEntriesForCompany($company)],
             'wallet' => $this->walletService->payload($company),
             'chassisLetterOCount' => $this->landTripService->countChassisLetterO($company),
         ]);
@@ -225,6 +229,20 @@ class LandTripController extends Controller
         );
 
         return back();
+    }
+
+    public function bulkUpdateCompanyCarPrice(BulkUpdateCompanyLandCarPriceRequest $request, Company $company): RedirectResponse
+    {
+        Gate::authorize('create', LandTrip::class);
+
+        $updated = $this->landTripService->bulkUpdateCompanyCarPrices(
+            $company,
+            $request->validated('car_ids'),
+            (float) $request->validated('price'),
+            $request->user()
+        );
+
+        return back()->with('success', "Updated {$updated} cars.");
     }
 
     public function updateCompanyCarDetails(UpdateCompanyLandCarDetailsRequest $request, Company $company, LandTripCar $car): RedirectResponse

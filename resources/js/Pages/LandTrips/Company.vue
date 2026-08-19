@@ -7,6 +7,7 @@ import LandTripCarsModal from '@/Components/LandTripCarsModal.vue';
 import CompanyCountryMap from '@/Components/LandTrips/CompanyCountryMap.vue';
 import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
+import LandTripCarBulkPriceModal from '@/Components/LandTrips/LandTripCarBulkPriceModal.vue';
 import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vue';
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import LandTripModelGroups from '@/Components/LandTrips/LandTripModelGroups.vue';
@@ -32,6 +33,7 @@ const props = defineProps({
     highlightCarId: { type: [Number, String], default: null },
     locationLog: { type: Object, default: () => ({ can_undo: false }) },
     importLog: { type: Object, default: () => ({ can_undo: false }) },
+    priceLog: { type: Object, default: () => ({ has_entries: false }) },
     wallet: { type: Object, default: () => ({ balances: [], summary: null, entries: [], currencies: ['USD'] }) },
     chassisLetterOCount: { type: Number, default: 0 },
 });
@@ -49,6 +51,7 @@ const duplicatesLoading = ref(false);
 const duplicatesError = ref('');
 const selectedIds = ref([]);
 const showTransfer = ref(false);
+const showBulkPrice = ref(false);
 const hubTab = ref('cars');
 const carsViewMode = ref('list');
 const cmrGroupsRef = ref(null);
@@ -632,6 +635,25 @@ const onCarsTransferred = () => {
     toastMessage.value = t('land_trips.cars_transferred');
 };
 
+const openBulkPrice = () => {
+    if (!selectedCount.value) {
+        return;
+    }
+    showBulkPrice.value = true;
+};
+
+const onBulkPriceSaved = ({ price, carIds }) => {
+    const selected = new Set((carIds ?? []).map((id) => Number(id)));
+    const nextPrice = Number.isFinite(Number(price)) ? Number(price) : 0;
+    loadedCars.value = loadedCars.value.map((car) => (
+        selected.has(Number(car.id))
+            ? { ...car, price: nextPrice.toFixed(2) }
+            : car
+    ));
+    selectedIds.value = [];
+    toastMessage.value = t('land_trips.bulk_price_updated');
+};
+
 const undoLastLocation = () => {
     replaceLoadedCars.value = true;
     router.post(route('land-trips.companies.location-logs.undo', props.company.id), {}, {
@@ -838,6 +860,14 @@ const duplicateCarCount = computed(() => (
                         >
                             {{ t('land_trips.transfer_log') }}
                         </a>
+                        <a
+                            :href="route('land-trips.companies.price-logs', company.id)"
+                            class="btn btn-erp-ghost"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('land_trips.price_log') }}
+                        </a>
                         <button
                             v-if="canManage"
                             type="button"
@@ -1040,6 +1070,15 @@ const duplicateCarCount = computed(() => (
                                 @click="moveSelected"
                             >
                                 {{ t('land_trips.apply_selected') }}
+                                <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-erp-ghost"
+                                :disabled="moveForm.processing || deletingSelected || !selectedCount"
+                                @click="openBulkPrice"
+                            >
+                                {{ t('land_trips.bulk_price_action') }}
                                 <span class="land-hub-bulk-n">({{ selectedCount }})</span>
                             </button>
                             <button
@@ -1400,6 +1439,14 @@ const duplicateCarCount = computed(() => (
             :car-ids="selectedIds"
             @close="showTransfer = false"
             @transferred="onCarsTransferred"
+        />
+
+        <LandTripCarBulkPriceModal
+            :show="showBulkPrice"
+            :company-id="company.id"
+            :car-ids="selectedIds"
+            @close="showBulkPrice = false"
+            @saved="onBulkPriceSaved"
         />
     </AppLayout>
 </template>

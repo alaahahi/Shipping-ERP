@@ -30,7 +30,8 @@ class LandTripService
     public function __construct(
         private readonly LandTripCarStatusService $carStatusService,
         private readonly LandTripCarLocationChangeService $locationChangeService,
-        private readonly LandTripCarTransferService $carTransferService
+        private readonly LandTripCarTransferService $carTransferService,
+        private readonly LandTripCarPriceChangeService $priceChangeService
     ) {}
 
     /**
@@ -999,11 +1000,69 @@ class LandTripService
         Log::info('Land trip car price updated.', [
             'company_id' => $company->id,
             'car_id' => $car->id,
+            'old_price' => round((float) $car->getOriginal('price'), 2),
             'price' => $amount,
             'user_id' => $actor->id,
         ]);
 
         return $car->fresh();
+    }
+
+    /**
+     * @param  list<int>  $carIds
+     */
+    public function bulkUpdateCompanyCarPrices(Company $company, array $carIds, float $price, User $actor): int
+    {
+        $ids = array_values(array_unique(array_map('intval', $carIds)));
+        if ($ids === []) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Select at least one car.',
+            ]);
+        }
+
+        $cars = LandTripCar::query()
+            ->with(['landTrip:id,company_id'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($cars->count() !== count($ids)) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'One or more selected cars were not found.',
+            ]);
+        }
+
+        $foreign = $cars->first(
+            fn (LandTripCar $car): bool => (int) $car->landTrip?->company_id !== (int) $company->id
+        );
+        if ($foreign) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Selected cars must belong to this company.',
+            ]);
+        }
+
+        $locked = $cars->first(
+            fn (LandTripCar $car): bool => $car->landTrip === null || ! $car->landTrip->isEditable()
+        );
+        if ($locked) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Cannot update prices on a posted or closed manifest.',
+            ]);
+        }
+
+        $amount = round(max(0, $price), 2);
+
+        return DB::transaction(function () use ($company, $cars, $actor, $amount): int {
+            $change = $this->priceChangeService->record($company, $actor, $cars, $amount);
+            if ($change === null) {
+                return 0;
+            }
+
+            $updated = LandTripCar::query()
+                ->whereIn('id', $change->items()->pluck('land_trip_car_id'))
+                ->update(['price' => $amount]);
+
+            return $updated;
+        });
     }
 
     /**
