@@ -22,7 +22,8 @@ class CompanyWalletService
         private readonly JournalService $journalService,
         private readonly CompanyReceivableAccountService $companyReceivableAccounts,
         private readonly LandTripCashAccountService $cashAccounts,
-        private readonly LandDriverPaymentService $driverPayments
+        private readonly LandDriverPaymentService $driverPayments,
+        private readonly LandPaymentChassisService $chassisService
     ) {}
 
     /**
@@ -45,14 +46,23 @@ class CompanyWalletService
             ->limit(100)
             ->get();
 
+        $driverPayments = $this->driverPayments->models($company);
+        $chassisMap = $this->chassisService->mapForPayables($entries->concat($driverPayments));
+
         return [
             'balances' => $this->balances($company),
             'summary' => $this->freightSummary($company),
-            'entries' => $entries->map(fn (CompanyWalletEntry $entry) => $this->transform($entry))->values()->all(),
+            'entries' => $entries->map(fn (CompanyWalletEntry $entry) => $this->transform(
+                $entry,
+                $chassisMap[$entry->getMorphClass().':'.$entry->id] ?? []
+            ))->values()->all(),
             'currencies' => Currency::values(),
             'cash_account' => $this->cashAccounts->payload(),
             'driver_names' => $this->driverPayments->driverNames(),
-            'driver_payments' => $this->driverPayments->payload($company),
+            'driver_payments' => $driverPayments->map(fn ($payment) => $this->driverPayments->transform(
+                $payment,
+                $chassisMap[$payment->getMorphClass().':'.$payment->id] ?? []
+            ))->values()->all(),
         ];
     }
 
@@ -280,6 +290,7 @@ class CompanyWalletService
                 }
             }
 
+            $locked->assignedChassis()->delete();
             $locked->delete();
 
             Log::info('Company wallet entry deleted.', [
@@ -296,9 +307,10 @@ class CompanyWalletService
     }
 
     /**
+     * @param  list<array{id: int, land_trip_car_id: int|null, chassis_no: string}>  $chassis
      * @return array<string, mixed>
      */
-    public function transform(CompanyWalletEntry $entry): array
+    public function transform(CompanyWalletEntry $entry, array $chassis = []): array
     {
         $amount = (string) $entry->amount;
         $currency = $entry->currency instanceof Currency ? $entry->currency->value : (string) $entry->currency;
@@ -319,6 +331,7 @@ class CompanyWalletService
             'attachment_name' => $entry->attachment_original_name,
             'amount_words_ar' => $words['arabic'],
             'amount_words_ckb' => $words['kurdish'],
+            'chassis' => $chassis,
         ];
     }
 
@@ -338,7 +351,7 @@ class CompanyWalletService
                 'id' => $company->id,
                 'name' => $company->name,
             ],
-            'entry' => $this->transform($entry),
+            'entry' => $this->transform($entry, $this->chassisService->forPayable($entry)),
             'printed_at' => ApplicationTimezone::formatNow(),
         ];
     }

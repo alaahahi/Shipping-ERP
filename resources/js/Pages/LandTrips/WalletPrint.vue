@@ -55,6 +55,7 @@ const printPage = () => window.print();
             :currency-symbol="currencySymbol"
             :amount-in-words="entry.amount_words_ar"
             :notes="notes"
+            :chassis-nos="entry.chassis || []"
         />
     </PrintLayout>
 </template>

@@ -11,6 +11,7 @@ import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vu
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import LandTripModelGroups from '@/Components/LandTrips/LandTripModelGroups.vue';
 import LandTripSearchBar from '@/Components/LandTrips/LandTripSearchBar.vue';
+import LandTripCarTransferModal from '@/Components/LandTrips/LandTripCarTransferModal.vue';
 import ChassisLetterOWarning from '@/Components/LandTrips/ChassisLetterOWarning.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Toast from '@/Components/Toast.vue';
@@ -47,6 +48,7 @@ const duplicateGroups = ref([]);
 const duplicatesLoading = ref(false);
 const duplicatesError = ref('');
 const selectedIds = ref([]);
+const showTransfer = ref(false);
 const hubTab = ref('cars');
 const carsViewMode = ref('list');
 const cmrGroupsRef = ref(null);
@@ -143,7 +145,7 @@ watch(success, (message) => {
     if (!message) {
         return;
     }
-    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message)) || /excel import undone/i.test(String(message))) {
+    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message)) || /excel import undone/i.test(String(message)) || /transferred \d+ cars/i.test(String(message))) {
         return;
     }
     toastMessage.value = message;
@@ -615,6 +617,21 @@ const deleteSelected = () => {
 
 const moveSelected = () => applyLocation(selectedIds.value);
 
+const openTransfer = () => {
+    if (!selectedCount.value) {
+        return;
+    }
+    showTransfer.value = true;
+};
+
+const onCarsTransferred = () => {
+    const moved = new Set(selectedIds.value.map((id) => Number(id)));
+    loadedCars.value = loadedCars.value.filter((car) => !moved.has(Number(car.id)));
+    selectedIds.value = [];
+    replaceLoadedCars.value = true;
+    toastMessage.value = t('land_trips.cars_transferred');
+};
+
 const undoLastLocation = () => {
     replaceLoadedCars.value = true;
     router.post(route('land-trips.companies.location-logs.undo', props.company.id), {}, {
@@ -812,6 +829,14 @@ const duplicateCarCount = computed(() => (
                             rel="noopener noreferrer"
                         >
                             {{ t('land_trips.location_log') }}
+                        </a>
+                        <a
+                            :href="route('land-trips.companies.transfer-logs', company.id)"
+                            class="btn btn-erp-ghost"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('land_trips.transfer_log') }}
                         </a>
                         <button
                             v-if="canManage"
@@ -1015,6 +1040,15 @@ const duplicateCarCount = computed(() => (
                                 @click="moveSelected"
                             >
                                 {{ t('land_trips.apply_selected') }}
+                                <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-erp-ghost"
+                                :disabled="moveForm.processing || deletingSelected || !selectedCount"
+                                @click="openTransfer"
+                            >
+                                {{ t('land_trips.move_to_company') }}
                                 <span class="land-hub-bulk-n">({{ selectedCount }})</span>
                             </button>
                             <button
@@ -1358,6 +1392,14 @@ const duplicateCarCount = computed(() => (
             :show="!!viewingCar"
             :car="viewingCar"
             @close="viewingCar = null"
+        />
+
+        <LandTripCarTransferModal
+            :show="showTransfer"
+            :company="company"
+            :car-ids="selectedIds"
+            @close="showTransfer = false"
+            @transferred="onCarsTransferred"
         />
     </AppLayout>
 </template>

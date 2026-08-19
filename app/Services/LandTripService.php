@@ -29,7 +29,8 @@ class LandTripService
 
     public function __construct(
         private readonly LandTripCarStatusService $carStatusService,
-        private readonly LandTripCarLocationChangeService $locationChangeService
+        private readonly LandTripCarLocationChangeService $locationChangeService,
+        private readonly LandTripCarTransferService $carTransferService
     ) {}
 
     /**
@@ -903,6 +904,85 @@ class LandTripService
         });
     }
 
+    /**
+     * @param  list<int>  $carIds
+     */
+    public function transferCompanyCars(
+        Company $fromCompany,
+        Company $toCompany,
+        array $carIds,
+        User $actor,
+        ?string $notes = null
+    ): int {
+        if ((int) $fromCompany->id === (int) $toCompany->id) {
+            throw ValidationException::withMessages([
+                'to_company_id' => 'Choose a different company.',
+            ]);
+        }
+
+        if (! $toCompany->is_active) {
+            throw ValidationException::withMessages([
+                'to_company_id' => 'The destination company is not active.',
+            ]);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $carIds)));
+        if ($ids === []) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Select at least one car.',
+            ]);
+        }
+
+        $requested = LandTripCar::query()
+            ->with(['landTrip:id,company_id,status,journal_entry_id'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($requested->count() !== count($ids)) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'One or more selected cars were not found.',
+            ]);
+        }
+
+        $foreign = $requested->first(
+            fn (LandTripCar $car): bool => (int) $car->landTrip?->company_id !== (int) $fromCompany->id
+        );
+        if ($foreign) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Selected cars must belong to this company.',
+            ]);
+        }
+
+        $locked = $requested->first(
+            fn (LandTripCar $car): bool => $car->landTrip === null || ! $car->landTrip->isEditable()
+        );
+        if ($locked) {
+            throw ValidationException::withMessages([
+                'car_ids' => 'Cannot transfer cars on a posted or closed manifest.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($fromCompany, $toCompany, $requested, $actor, $notes): int {
+            $targetTrip = $this->workingTripForCompany($toCompany, $actor);
+            $this->assertEditable($targetTrip);
+
+            $this->carTransferService->record(
+                $fromCompany,
+                $toCompany,
+                $actor,
+                $requested,
+                $targetTrip,
+                $notes
+            );
+
+            LandTripCar::query()
+                ->whereIn('id', $requested->pluck('id'))
+                ->update(['land_trip_id' => $targetTrip->id]);
+
+            return $requested->count();
+        });
+    }
+
     public function updateCompanyCarPrice(Company $company, LandTripCar $car, float $price, User $actor): LandTripCar
     {
         $car->loadMissing('landTrip');
@@ -1023,6 +1103,13 @@ class LandTripService
                 $targetTrip = $this->workingTripForCompany($targetCompany, $actor);
                 $this->assertEditable($targetTrip);
                 $targetTripId = (int) $targetTrip->id;
+                $this->carTransferService->record(
+                    $company,
+                    $targetCompany,
+                    $actor,
+                    collect([$car]),
+                    $targetTrip
+                );
             }
 
             $seenChassis = [];

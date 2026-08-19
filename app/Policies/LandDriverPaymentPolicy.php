@@ -23,6 +23,11 @@ class LandDriverPaymentPolicy
         return $user->can(Permission::LandTripsManage->value);
     }
 
+    public function update(User $user, LandDriverPayment $payment): bool
+    {
+        return $user->can(Permission::LandTripsManage->value);
+    }
+
     public function delete(User $user, LandDriverPayment $payment): bool
     {
         return $user->can(Permission::LandTripsManage->value);

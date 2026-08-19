@@ -19,6 +19,7 @@ use App\Http\Controllers\LandDriverPaymentController;
 use App\Http\Controllers\LandTripImportController;
 use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
+use App\Http\Controllers\LandTripTransferLogController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -131,6 +132,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.cars.location');
     Route::delete('/land-trips/companies/{company}/cars', [LandTripController::class, 'destroyCompanyCars'])
         ->name('land-trips.companies.cars.destroy');
+    Route::post('/land-trips/companies/{company}/cars/transfer', [LandTripController::class, 'transferCompanyCars'])
+        ->name('land-trips.companies.cars.transfer');
+    Route::get('/land-trips/companies/{company}/transfer-logs', [LandTripTransferLogController::class, 'index'])
+        ->name('land-trips.companies.transfer-logs');
     Route::patch('/land-trips/companies/{company}/cars/{car}/price', [LandTripController::class, 'updateCompanyCarPrice'])
         ->name('land-trips.companies.cars.price');
     Route::patch('/land-trips/companies/{company}/cars/{car}', [LandTripController::class, 'updateCompanyCarDetails'])
@@ -155,6 +160,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.wallet.store');
     Route::delete('/land-trips/companies/{company}/wallet/{entry}', [CompanyWalletController::class, 'destroy'])
         ->name('land-trips.companies.wallet.destroy');
+    Route::post('/land-trips/companies/{company}/wallet/{entry}/chassis', [CompanyWalletController::class, 'assignChassis'])
+        ->name('land-trips.companies.wallet.chassis');
     Route::get('/land-trips/companies/{company}/wallet/{entry}/print', [CompanyWalletController::class, 'print'])
         ->name('land-trips.companies.wallet.print');
     Route::get('/land-trips/companies/{company}/wallet/{entry}/attachment', [CompanyWalletController::class, 'showAttachment'])
@@ -163,6 +170,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.driver-payments.store');
     Route::delete('/land-trips/companies/{company}/driver-payments/{payment}', [LandDriverPaymentController::class, 'destroy'])
         ->name('land-trips.companies.driver-payments.destroy');
+    Route::post('/land-trips/companies/{company}/driver-payments/{payment}/chassis', [LandDriverPaymentController::class, 'assignChassis'])
+        ->name('land-trips.companies.driver-payments.chassis');
     Route::get('/land-trips/companies/{company}/driver-payments/{payment}/attachment', [LandDriverPaymentController::class, 'showAttachment'])
         ->name('land-trips.companies.driver-payments.attachment');
     Route::resource('land-trips', LandTripController::class);

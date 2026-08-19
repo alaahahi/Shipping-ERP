@@ -34,6 +34,8 @@ class AppServiceProvider extends ServiceProvider
 
         Relation::morphMap([
             'ship_expense' => ShipExpense::class,
+            'company_wallet_entry' => \App\Models\CompanyWalletEntry::class,
+            'land_driver_payment' => \App\Models\LandDriverPayment::class,
         ]);
 
         Vite::prefetch(concurrency: 3);

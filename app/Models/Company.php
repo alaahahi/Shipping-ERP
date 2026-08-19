@@ -78,6 +78,16 @@ class Company extends Model
         return $this->hasMany(LandTripCarLocationChange::class);
     }
 
+    public function landTripCarCompanyTransfersFrom(): HasMany
+    {
+        return $this->hasMany(LandTripCarCompanyTransfer::class, 'from_company_id');
+    }
+
+    public function landTripCarCompanyTransfersTo(): HasMany
+    {
+        return $this->hasMany(LandTripCarCompanyTransfer::class, 'to_company_id');
+    }
+
     public function landTripCarImports(): HasMany
     {
         return $this->hasMany(LandTripCarImport::class);

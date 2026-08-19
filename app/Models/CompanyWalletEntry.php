@@ -6,6 +6,7 @@ use App\Enums\CompanyWalletEntryType;
 use App\Enums\Currency;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CompanyWalletEntry extends Model
@@ -46,6 +47,11 @@ class CompanyWalletEntry extends Model
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    public function assignedChassis(): MorphMany
+    {
+        return $this->morphMany(LandPaymentChassis::class, 'payable');
     }
 
     public function attachmentUrl(): ?string

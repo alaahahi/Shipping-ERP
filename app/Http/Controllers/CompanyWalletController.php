@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LandTrips\AssignPaymentChassisRequest;
 use App\Http\Requests\LandTrips\DestroyCompanyWalletEntryRequest;
 use App\Http\Requests\LandTrips\StoreCompanyWalletEntryRequest;
 use App\Models\Company;
 use App\Models\CompanyWalletEntry;
 use App\Models\LandTrip;
 use App\Services\CompanyWalletService;
+use App\Services\LandPaymentChassisService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class CompanyWalletController extends Controller
 {
     public function __construct(
-        private readonly CompanyWalletService $walletService
+        private readonly CompanyWalletService $walletService,
+        private readonly LandPaymentChassisService $chassisService
     ) {}
 
     public function store(StoreCompanyWalletEntryRequest $request, Company $company): RedirectResponse
@@ -42,6 +45,31 @@ class CompanyWalletController extends Controller
         $this->walletService->delete($company, $entry, $request->user());
 
         return back()->with('success', 'Wallet entry deleted.');
+    }
+
+    public function assignChassis(
+        AssignPaymentChassisRequest $request,
+        Company $company,
+        CompanyWalletEntry $entry
+    ): RedirectResponse {
+        Gate::authorize('update', $entry);
+
+        $result = $this->chassisService->assign(
+            $company,
+            $entry,
+            $request->user(),
+            $request->validated('car_ids') ?? [],
+            $this->chassisService->normalizeLines((string) $request->input('chassis_text', ''))
+        );
+
+        $count = count($result['assigned']);
+        $skipped = count($result['skipped']);
+        $message = "Assigned {$count} chassis.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} lines skipped.";
+        }
+
+        return back()->with('success', $message);
     }
 
     public function print(Company $company, CompanyWalletEntry $entry): Response

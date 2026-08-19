@@ -13,7 +13,7 @@ const props = defineProps({
     currency: { type: String, default: '' },
     currencySymbol: { type: String, default: '' },
     amountInWords: { type: String, default: '—' },
-    notes: { type: String, default: '' },
+    chassisNos: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -166,6 +166,11 @@ const hijriParts = computed(() => {
 });
 
 const copies = [1, 2];
+const chassisList = computed(() =>
+    (props.chassisNos ?? [])
+        .map((item) => (typeof item === 'string' ? item : item?.chassis_no))
+        .filter((value) => String(value ?? '').trim() !== '')
+);
 const printPageClass = 'cash-voucher-print';
 
 onMounted(() => {
@@ -271,6 +276,13 @@ onBeforeUnmount(() => {
                         <span class="cv-en">Being :</span>
                         <span class="cv-value">{{ notes || '' }}</span>
                         <span class="cv-ar">: <bdi>وذلك مقابل</bdi></span>
+                    </div>
+                    <div v-if="chassisList.length" class="cv-chassis" dir="ltr">
+                        <span class="cv-chassis-label">Chassis</span>
+                        <div class="cv-chassis-pills">
+                            <span v-for="vin in chassisList" :key="vin" class="cv-chassis-pill">{{ vin }}</span>
+                        </div>
+                        <span class="cv-chassis-label is-ar">الشاصي</span>
                     </div>
                 </section>
 

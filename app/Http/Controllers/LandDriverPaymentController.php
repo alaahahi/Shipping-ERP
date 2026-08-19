@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LandTrips\AssignPaymentChassisRequest;
 use App\Http\Requests\LandTrips\DestroyLandDriverPaymentRequest;
 use App\Http\Requests\LandTrips\StoreLandDriverPaymentRequest;
 use App\Models\Company;
 use App\Models\LandDriverPayment;
 use App\Services\LandDriverPaymentService;
+use App\Services\LandPaymentChassisService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +17,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class LandDriverPaymentController extends Controller
 {
     public function __construct(
-        private readonly LandDriverPaymentService $driverPaymentService
+        private readonly LandDriverPaymentService $driverPaymentService,
+        private readonly LandPaymentChassisService $chassisService
     ) {}
 
     public function store(StoreLandDriverPaymentRequest $request, Company $company): RedirectResponse
@@ -42,6 +45,31 @@ class LandDriverPaymentController extends Controller
         $this->driverPaymentService->delete($company, $payment, $request->user());
 
         return back()->with('success', 'Driver payment deleted.');
+    }
+
+    public function assignChassis(
+        AssignPaymentChassisRequest $request,
+        Company $company,
+        LandDriverPayment $payment
+    ): RedirectResponse {
+        Gate::authorize('update', $payment);
+
+        $result = $this->chassisService->assign(
+            $company,
+            $payment,
+            $request->user(),
+            $request->validated('car_ids') ?? [],
+            $this->chassisService->normalizeLines((string) $request->input('chassis_text', ''))
+        );
+
+        $count = count($result['assigned']);
+        $skipped = count($result['skipped']);
+        $message = "Assigned {$count} chassis.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} lines skipped.";
+        }
+
+        return back()->with('success', $message);
     }
 
     public function showAttachment(Company $company, LandDriverPayment $payment): StreamedResponse

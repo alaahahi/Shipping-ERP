@@ -6,6 +6,7 @@ use App\Enums\Currency;
 use App\Enums\LandDriverPaymentType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LandDriverPayment extends Model
@@ -57,6 +58,11 @@ class LandDriverPayment extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function assignedChassis(): MorphMany
+    {
+        return $this->morphMany(LandPaymentChassis::class, 'payable');
     }
 
     public function attachmentUrl(): ?string

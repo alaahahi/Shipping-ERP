@@ -24,9 +24,9 @@ class LandDriverPaymentService
     ) {}
 
     /**
-     * @return list<array<string, mixed>>
+     * @return \Illuminate\Support\Collection<int, LandDriverPayment>
      */
-    public function payload(Company $company): array
+    public function models(Company $company)
     {
         return LandDriverPayment::query()
             ->where('company_id', $company->id)
@@ -34,7 +34,15 @@ class LandDriverPaymentService
             ->latest('payment_date')
             ->latest('id')
             ->limit(100)
-            ->get()
+            ->get();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function payload(Company $company): array
+    {
+        return $this->models($company)
             ->map(fn (LandDriverPayment $payment) => $this->transform($payment))
             ->values()
             ->all();
@@ -202,6 +210,7 @@ class LandDriverPaymentService
 
             $this->voidLinkedJournal($locked->journal_entry_id, $actor, 'Driver payment deleted');
 
+            $this->forgetChassis($locked);
             $locked->delete();
 
             Log::info('Land driver payment deleted.', [
@@ -216,9 +225,10 @@ class LandDriverPaymentService
     }
 
     /**
+     * @param  list<array{id: int, land_trip_car_id: int|null, chassis_no: string}>  $chassis
      * @return array<string, mixed>
      */
-    public function transform(LandDriverPayment $payment): array
+    public function transform(LandDriverPayment $payment, array $chassis = []): array
     {
         $type = $payment->type instanceof LandDriverPaymentType
             ? $payment->type->value
@@ -244,7 +254,13 @@ class LandDriverPaymentService
             'attachment_name' => $payment->attachment_original_name,
             'created_at' => ApplicationTimezone::formatDateTime($payment->created_at),
             'created_by_name' => $payment->creator?->name,
+            'chassis' => $chassis,
         ];
+    }
+
+    private function forgetChassis(LandDriverPayment $payment): void
+    {
+        $payment->assignedChassis()->delete();
     }
 
     private function voidLinkedJournal(?int $journalEntryId, User $actor, string $reason): void

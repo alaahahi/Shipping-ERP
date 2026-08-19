@@ -2,6 +2,8 @@
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import LandDriverPaymentModal from '@/Components/LandTrips/LandDriverPaymentModal.vue';
+import PaymentChassisAssignModal from '@/Components/LandTrips/PaymentChassisAssignModal.vue';
+import PaymentChassisBadges from '@/Components/LandTrips/PaymentChassisBadges.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { useActionPin } from '@/composables/useActionPin';
 import { router, useForm, usePage } from '@inertiajs/vue3';
@@ -20,6 +22,7 @@ const page = usePage();
 const deletingId = ref(null);
 const deletingPaymentId = ref(null);
 const showDriverModal = ref(false);
+const chassisTarget = ref(null);
 const deleteError = computed(() => page.props.errors?.entry || page.props.errors?.cash_account_id);
 const cashAccount = computed(() => props.wallet.cash_account || null);
 const driverPayments = computed(() => props.wallet.driver_payments || []);
@@ -52,6 +55,38 @@ const submit = async (type) => {
             fileKey.value += 1;
         },
     });
+};
+
+const chassisSubmitRoute = computed(() => {
+    if (!chassisTarget.value) {
+        return '';
+    }
+    if (chassisTarget.value.kind === 'driver') {
+        return route('land-trips.companies.driver-payments.chassis', [props.company.id, chassisTarget.value.id]);
+    }
+
+    return route('land-trips.companies.wallet.chassis', [props.company.id, chassisTarget.value.id]);
+});
+
+const chassisAssigned = computed(() => chassisTarget.value?.chassis ?? []);
+const chassisTitle = computed(() => {
+    if (!chassisTarget.value) {
+        return '';
+    }
+    if (chassisTarget.value.kind === 'driver') {
+        return `${t('land_trips.assign_chassis')} · ${chassisTarget.value.label}`;
+    }
+
+    return `${t('land_trips.assign_chassis')} · ${chassisTarget.value.label}`;
+});
+
+const openChassis = (kind, row) => {
+    chassisTarget.value = {
+        kind,
+        id: row.id,
+        label: kind === 'driver' ? row.driver_name : row.voucher_number,
+        chassis: row.chassis ?? [],
+    };
 };
 
 const typeLabel = (type) => (type === 'withdraw' ? t('land_trips.wallet_withdraw') : t('land_trips.wallet_deposit'));
@@ -207,7 +242,14 @@ const destroyPayment = (payment) => {
                     </thead>
                     <tbody>
                         <tr v-for="entry in wallet.entries" :key="entry.id">
-                            <td class="ps-3 font-monospace">{{ entry.voucher_number }}</td>
+                            <td class="ps-3">
+                                <div class="font-monospace">{{ entry.voucher_number }}</div>
+                                <PaymentChassisBadges
+                                    class="mt-2"
+                                    :items="entry.chassis"
+                                    compact
+                                />
+                            </td>
                             <td class="small text-secondary text-nowrap">{{ entry.created_at }}</td>
                             <td>{{ typeLabel(entry.type) }}</td>
                             <td>
@@ -234,7 +276,16 @@ const destroyPayment = (payment) => {
                             <td class="font-monospace small">{{ entry.journal_voucher || '—' }}</td>
                             <td>{{ entry.created_by_name || '—' }}</td>
                             <td class="text-end pe-3">
-                                <div class="d-inline-flex gap-2">
+                                <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                    <button
+                                        v-if="canManage"
+                                        type="button"
+                                        class="btn btn-sm btn-erp-ghost"
+                                        :aria-expanded="chassisTarget?.kind === 'wallet' && chassisTarget?.id === entry.id"
+                                        @click="openChassis('wallet', entry)"
+                                    >
+                                        {{ t('land_trips.assign_chassis') }}
+                                    </button>
                                     <a
                                         class="btn btn-sm btn-erp-ghost"
                                         :href="route('land-trips.companies.wallet.print', [company.id, entry.id])"
@@ -292,7 +343,10 @@ const destroyPayment = (payment) => {
                     </thead>
                     <tbody>
                         <tr v-for="payment in driverPayments" :key="payment.id">
-                            <td class="ps-3">{{ payment.driver_name }}</td>
+                            <td class="ps-3">
+                                <div>{{ payment.driver_name }}</div>
+                                <PaymentChassisBadges class="mt-2" :items="payment.chassis" compact />
+                            </td>
                             <td>{{ payment.cmr_number || '—' }}</td>
                             <td>{{ payment.cars_count }}</td>
                             <td>{{ driverTypeLabel(payment.type) }}</td>
@@ -316,7 +370,16 @@ const destroyPayment = (payment) => {
                             </td>
                             <td>{{ payment.created_by_name || '—' }}</td>
                             <td v-if="canManage" class="text-end pe-3">
-                                <button
+                                <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-erp-ghost"
+                                        :aria-expanded="chassisTarget?.kind === 'driver' && chassisTarget?.id === payment.id"
+                                        @click="openChassis('driver', payment)"
+                                    >
+                                        {{ t('land_trips.assign_chassis') }}
+                                    </button>
+                                    <button
                                     type="button"
                                     class="btn btn-sm btn-outline-danger"
                                     :disabled="deletingPaymentId === payment.id"
@@ -324,12 +387,22 @@ const destroyPayment = (payment) => {
                                 >
                                     {{ t('common.delete') }}
                                 </button>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <PaymentChassisAssignModal
+            :show="!!chassisTarget"
+            :company-id="company.id"
+            :submit-route="chassisSubmitRoute"
+            :title="chassisTitle"
+            :assigned="chassisAssigned"
+            @close="chassisTarget = null"
+        />
 
         <LandDriverPaymentModal
             :show="showDriverModal"
