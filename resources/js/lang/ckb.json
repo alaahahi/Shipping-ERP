@@ -444,6 +444,7 @@
     "move_to": "گواستنەوە بۆ شوێن",
     "choose_location": "شوێن هەڵبژێرە…",
     "apply_selected": "هەڵبژێردراوەکان",
+    "clear_selection": "پاککردنەوەی دیاریکردن",
     "delete_selected_confirm": "سڕینەوەی {count} ئۆتۆمبێلی هەڵبژێردراو؟",
     "cars_deleted": "ئۆتۆمبێلە هەڵبژێردراوەکان سڕانەوە.",
     "apply_filtered": "فلتەری ئێستا",

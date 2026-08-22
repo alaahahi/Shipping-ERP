@@ -304,7 +304,6 @@ const restoreCarsFromProps = () => {
     currentPage.value = props.cars.current_page ?? 1;
     lastPage.value = props.cars.last_page ?? 1;
     replaceLoadedCars.value = false;
-    selectedIds.value = [];
 };
 
 const stripSearchFromAddressBar = () => {
@@ -332,7 +331,6 @@ const runCarSearch = async () => {
     const requestId = ++searchRequest;
     filtering.value = true;
     replaceLoadedCars.value = true;
-    selectedIds.value = [];
 
     try {
         const { data } = await axios.get(route('land-trips.companies.cars', props.company.id), {
@@ -515,7 +513,18 @@ const carStationLabel = (car) => {
 };
 
 const toggleSelectAll = () => {
-    selectedIds.value = allPageSelected.value ? [] : [...pageIds.value];
+    const visible = pageIds.value;
+    if (allPageSelected.value) {
+        const hide = new Set(visible);
+        selectedIds.value = selectedIds.value.filter((id) => !hide.has(id));
+        return;
+    }
+
+    selectedIds.value = [...new Set([...selectedIds.value, ...visible])];
+};
+
+const clearSelection = () => {
+    selectedIds.value = [];
 };
 
 const toggleRow = (id) => {
@@ -1115,6 +1124,15 @@ const duplicateCarCount = computed(() => (
                                 @click="deleteSelected"
                             >
                                 {{ t('common.delete') }}
+                                <span class="land-hub-bulk-n">({{ selectedCount }})</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-erp-ghost"
+                                :disabled="moveForm.processing || deletingSelected || !selectedCount"
+                                @click="clearSelection"
+                            >
+                                {{ t('land_trips.clear_selection') }}
                                 <span class="land-hub-bulk-n">({{ selectedCount }})</span>
                             </button>
                             <InputError :message="moveForm.errors.location_status_id || moveForm.errors.car_ids || moveForm.errors.cars" />

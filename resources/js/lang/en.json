@@ -836,6 +836,7 @@
     "move_to": "Move to location",
     "choose_location": "Choose location…",
     "apply_selected": "Selected",
+    "clear_selection": "Clear selection",
     "delete_selected_confirm": "Delete {count} selected cars?",
     "cars_deleted": "Selected cars deleted.",
     "apply_filtered": "Current filter",
