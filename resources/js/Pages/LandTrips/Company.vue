@@ -183,8 +183,22 @@ const exportHref = computed(() => hrefWithOutputParams(route('land-trips.compani
 const pdfHref = computed(() => hrefWithOutputParams(route('land-trips.companies.export.pdf', props.company.id)));
 const printHref = computed(() => hrefWithOutputParams(route('land-trips.companies.print', props.company.id)));
 const totalCars = computed(() => locationChips.value.reduce((sum, item) => sum + (item.count || 0), 0));
-const locationChips = computed(() => (props.statusSummary ?? []).filter((item) => !item.is_archive));
+const locationChips = computed(() => (props.statusSummary ?? []).filter((item) => {
+    if (item.is_archive) {
+        return false;
+    }
+
+    return Number(item.count) > 0 || String(filterForm.location_status_id || '') === String(item.id ?? '');
+}));
 const archiveChip = computed(() => (props.statusSummary ?? []).find((item) => item.is_archive) ?? null);
+const showArchiveChip = computed(() => {
+    const chip = archiveChip.value;
+    if (!chip) {
+        return false;
+    }
+
+    return Number(chip.count) > 0 || String(filterForm.location_status_id || '') === String(chip.id ?? '');
+});
 const countryMapRows = computed(() => {
     const groups = new Map();
 
@@ -1042,7 +1056,7 @@ const duplicateCarCount = computed(() => (
                             <span class="land-hub-chip-count">{{ item.count }}</span>
                         </button>
                         <button
-                            v-if="archiveChip"
+                            v-if="showArchiveChip"
                             type="button"
                             class="land-hub-chip is-archive"
                             :class="{ 'is-active': isChipActive(archiveChip.id) }"
