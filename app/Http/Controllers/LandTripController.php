@@ -7,6 +7,7 @@ use App\Enums\Permission;
 use App\Http\Requests\LandTrips\BulkDeleteCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarPriceRequest;
 use App\Http\Requests\LandTrips\BulkUpdateCompanyLandCarStatusRequest;
+use App\Http\Requests\LandTrips\CompanyLandCarsOutputRequest;
 use App\Http\Requests\LandTrips\DestroyCompanyCmrFileRequest;
 use App\Http\Requests\LandTrips\RenameCompanyCmrGroupRequest;
 use App\Http\Requests\LandTrips\StoreCompanyCmrFileRequest;
@@ -33,6 +34,7 @@ use App\Services\LandTripCarPriceChangeService;
 use App\Services\LandTripExcelImportService;
 use App\Services\LandTripPostingService;
 use App\Services\LandTripService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -395,14 +397,16 @@ class LandTripController extends Controller
         return redirect()->route('land-trips.import', $trip);
     }
 
-    public function exportCompany(Request $request, Company $company): StreamedResponse
+    public function exportCompany(CompanyLandCarsOutputRequest $request, Company $company): StreamedResponse
     {
-        Gate::authorize('viewAny', LandTrip::class);
+        return $this->importService->exportCompanyCars($company, $request->filters());
+    }
 
-        return $this->importService->exportCompanyCars($company, [
-            'search' => $request->string('search')->toString(),
-            'location_status_id' => $request->string('location_status_id')->toString(),
-            'sort' => $this->landTripService->normalizeCompanyCarSort($request->string('sort')->toString()),
+    public function printCompany(CompanyLandCarsOutputRequest $request, Company $company): Response
+    {
+        return Inertia::render('LandTrips/CompanyCarsPrint', [
+            ...$this->landTripService->companyCarsPrintPayload($company, $request->filters()),
+            'printedAt' => ApplicationTimezone::formatNowLabel(),
         ]);
     }
 

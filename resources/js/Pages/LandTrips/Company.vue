@@ -154,22 +154,33 @@ watch(success, (message) => {
     toastMessage.value = message;
 });
 
-const exportHref = computed(() => {
-    const base = route('land-trips.companies.export', props.company.id);
+const carsOutputParams = () => {
     const params = new URLSearchParams();
-    if (String(carSearch.value ?? '').trim() !== '') {
-        params.set('search', String(carSearch.value).trim());
-    }
-    if (filterForm.location_status_id) {
-        params.set('location_status_id', String(filterForm.location_status_id));
+    if (selectedIds.value.length) {
+        selectedIds.value.forEach((id) => params.append('car_ids[]', String(id)));
+    } else {
+        if (String(carSearch.value ?? '').trim() !== '') {
+            params.set('search', String(carSearch.value).trim());
+        }
+        if (filterForm.location_status_id) {
+            params.set('location_status_id', String(filterForm.location_status_id));
+        }
     }
     if (filterForm.sort && filterForm.sort !== 'newest') {
         params.set('sort', String(filterForm.sort));
     }
-    const query = params.toString();
+
+    return params;
+};
+
+const hrefWithOutputParams = (base) => {
+    const query = carsOutputParams().toString();
 
     return query ? `${base}?${query}` : base;
-});
+};
+
+const exportHref = computed(() => hrefWithOutputParams(route('land-trips.companies.export', props.company.id)));
+const printHref = computed(() => hrefWithOutputParams(route('land-trips.companies.print', props.company.id)));
 const totalCars = computed(() => locationChips.value.reduce((sum, item) => sum + (item.count || 0), 0));
 const locationChips = computed(() => (props.statusSummary ?? []).filter((item) => !item.is_archive));
 const archiveChip = computed(() => (props.statusSummary ?? []).find((item) => item.is_archive) ?? null);
@@ -894,8 +905,11 @@ const duplicateCarCount = computed(() => (
                         >
                             {{ t('land_trips.undo_last_import') }}
                         </button>
+                        <a :href="printHref" class="btn btn-erp-ghost">
+                            {{ selectedCount ? t('land_trips.print_n', { count: selectedCount }) : t('common.print') }}
+                        </a>
                         <a :href="exportHref" class="btn btn-erp-ghost">
-                            {{ t('land_trips.export') }}
+                            {{ selectedCount ? t('land_trips.export_n', { count: selectedCount }) : t('land_trips.export') }}
                         </a>
                         <button
                             type="button"

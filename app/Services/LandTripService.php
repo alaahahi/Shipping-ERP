@@ -533,7 +533,7 @@ class LandTripService
     }
 
     /**
-     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null}  $filters
+     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null, car_ids?: list<int>|null}  $filters
      * @return Collection<int, LandTripCar>
      */
     public function listCompanyCarsForExport(Company $company, array $filters = []): Collection
@@ -545,7 +545,39 @@ class LandTripService
     }
 
     /**
-     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null, car_ids?: list<int>|null}  $filters
+     * @return array{
+     *     company: array{id: int, name: string},
+     *     cars: list<array<string, mixed>>,
+     *     filters: array{search: string, location_status_id: string, sort: string, selected: bool},
+     *     summary: array{count: int, price: string}
+     * }
+     */
+    public function companyCarsPrintPayload(Company $company, array $filters = []): array
+    {
+        $cars = $this->listCompanyCarsForExport($company, $filters);
+
+        return [
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+            ],
+            'cars' => $cars->map(fn (LandTripCar $car) => $this->transformCar($car))->values()->all(),
+            'filters' => [
+                'search' => (string) ($filters['search'] ?? ''),
+                'location_status_id' => (string) ($filters['location_status_id'] ?? ''),
+                'sort' => $this->normalizeCompanyCarSort($filters['sort'] ?? null),
+                'selected' => $this->selectedCarIds($filters) !== [],
+            ],
+            'summary' => [
+                'count' => $cars->count(),
+                'price' => number_format((float) $cars->sum(fn (LandTripCar $car) => (float) ($car->price ?? 0)), 2, '.', ''),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array{search?: string|null, location_status_id?: string|null, car_ids?: list<int>|null}  $filters
      */
     private function companyCarsQuery(Company $company, array $filters = []): Builder
     {
@@ -556,6 +588,13 @@ class LandTripService
                 'locationStatus:id,code,name,name_ar,name_ckb,row_tone,color',
                 'landTrip:id,company_id,cmr_number,driver_name',
             ]);
+
+        $carIds = $this->selectedCarIds($filters);
+        if ($carIds !== []) {
+            $query->whereIn('land_trip_cars.id', $carIds);
+
+            return $query;
+        }
 
         if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
@@ -578,6 +617,18 @@ class LandTripService
         }
 
         return $query;
+    }
+
+    /**
+     * @param  array{car_ids?: list<int>|null}  $filters
+     * @return list<int>
+     */
+    private function selectedCarIds(array $filters): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map('intval', (array) ($filters['car_ids'] ?? [])),
+            static fn (int $id): bool => $id > 0
+        )));
     }
 
     public function normalizeCompanyCarSort(?string $sort): string

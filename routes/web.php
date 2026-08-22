@@ -161,6 +161,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.import');
     Route::get('/land-trips/companies/{company}/export', [LandTripController::class, 'exportCompany'])
         ->name('land-trips.companies.export');
+    Route::get('/land-trips/companies/{company}/print', [LandTripController::class, 'printCompany'])
+        ->name('land-trips.companies.print');
     Route::post('/land-trips/companies/{company}/wallet', [CompanyWalletController::class, 'store'])
         ->name('land-trips.companies.wallet.store');
     Route::delete('/land-trips/companies/{company}/wallet/{entry}', [CompanyWalletController::class, 'destroy'])

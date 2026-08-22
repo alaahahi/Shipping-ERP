@@ -65,7 +65,7 @@ class LandTripExcelImportService
     }
 
     /**
-     * @param  array{search?: string|null, location_status_id?: string|null}  $filters
+     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null, car_ids?: list<int>|null}  $filters
      */
     public function exportCompanyCars(Company $company, array $filters = []): StreamedResponse
     {
