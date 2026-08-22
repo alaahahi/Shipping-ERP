@@ -6,7 +6,6 @@ use App\Enums\AppLocale;
 use App\Enums\SettingKey;
 use App\Models\Account;
 use App\Support\ApplicationTimezone;
-use App\Support\PdfRtlText;
 use App\Support\ResolvedLocale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -103,16 +102,16 @@ class AccountLedgerExportService
     public function pdf(Account $account, array $filters): Response
     {
         $payload = $this->accountService->ledgerExport($account, $filters);
-        $locale = $this->locale();
+        $labels = $this->labels(AppLocale::English);
 
         $pdf = Pdf::loadView('reports.account-ledger-pdf', [
-            'company' => PdfRtlText::shape($this->companyName()),
-            'payload' => PdfRtlText::shapeArray($payload),
+            'company' => $this->companyName(),
+            'payload' => $payload,
             'filters' => $filters,
-            'labels' => PdfRtlText::shapeArray($this->labels()),
-            'period' => PdfRtlText::shape($this->periodLabel($filters, $this->labels())),
-            'rtl' => $locale->isRtl(),
-            'locale' => $locale->value,
+            'labels' => $labels,
+            'period' => $this->periodLabel($filters, $labels),
+            'rtl' => false,
+            'locale' => AppLocale::English->value,
             'generated_at' => ApplicationTimezone::formatNowLabel(),
         ])->setPaper('a4', 'landscape');
 
@@ -122,9 +121,9 @@ class AccountLedgerExportService
     /**
      * @return array<string, string>
      */
-    private function labels(): array
+    private function labels(?AppLocale $locale = null): array
     {
-        return match ($this->locale()) {
+        return match ($locale ?? $this->locale()) {
             AppLocale::English => [
                 'ledger' => 'Account statement',
                 'generated' => 'Generated',

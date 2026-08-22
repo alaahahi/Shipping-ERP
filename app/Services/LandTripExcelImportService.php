@@ -7,7 +7,10 @@ use App\Models\LandTrip;
 use App\Models\LandTripCar;
 use App\Models\LandTripCarStatus;
 use App\Models\User;
+use App\Support\ApplicationTimezone;
 use App\Support\ChassisLetterO;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -125,6 +128,52 @@ class LandTripExcelImportService
         }, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /**
+     * English-only PDF so shared hosts without ar-php still download a readable file.
+     *
+     * @param  array{search?: string|null, location_status_id?: string|null, sort?: string|null, car_ids?: list<int>|null}  $filters
+     */
+    public function exportCompanyCarsPdf(Company $company, array $filters = []): Response
+    {
+        $cars = $this->landTripService->listCompanyCarsForExport($company, $filters);
+        $slug = Str::slug($company->name) ?: 'company-'.$company->id;
+        $filename = 'sorted-inventory-'.$slug.'-'.now()->format('Ymd-His').'.pdf';
+
+        $rows = [];
+        $serial = 1;
+        $totalPrice = 0.0;
+
+        foreach ($cars as $car) {
+            $price = (float) ($car->price ?? 0);
+            $totalPrice += $price;
+            $rows[] = [
+                'serial' => $serial,
+                'model' => (string) ($car->model ?: $car->description ?? ''),
+                'color' => (string) ($car->color ?? ''),
+                'year' => $car->year !== null ? (string) $car->year : '',
+                'cmr' => (string) ($car->cmr_waybill ?? ''),
+                'vin' => (string) ($car->chassis_no ?? ''),
+                'status' => (string) ($car->locationStatus?->localizedName('en') ?: ''),
+                'consignee' => (string) ($car->consignee_name ?? ''),
+                'price' => number_format($price, 2, '.', ''),
+                'weight' => $car->weight !== null ? (string) $car->weight : '',
+                'notes' => (string) ($car->notes ?? ''),
+                'entered_at' => optional($car->created_at)?->format('Y-m-d H:i') ?? '',
+            ];
+            $serial++;
+        }
+
+        return Pdf::loadView('reports.land-trip-cars-pdf', [
+            'company' => $company->name,
+            'rows' => $rows,
+            'selected' => ($filters['car_ids'] ?? []) !== [],
+            'search' => trim((string) ($filters['search'] ?? '')),
+            'count' => count($rows),
+            'total_price' => number_format($totalPrice, 2, '.', ''),
+            'generated_at' => ApplicationTimezone::formatNowLabel(),
+        ])->setPaper('a4', 'landscape')->download($filename);
     }
 
     /**

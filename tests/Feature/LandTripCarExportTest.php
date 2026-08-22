@@ -132,6 +132,25 @@ class LandTripCarExportTest extends TestCase
             );
     }
 
+    public function test_pdf_export_uses_selected_car_ids_and_english_labels(): void
+    {
+        $user = $this->manager();
+        $company = $this->makeCompany('Pdf Co');
+        $trip = $this->makeTrip($company, $user, 'CMR-PDF');
+        $first = $this->addCar($trip, 'WVWZZZ3CZWE171717');
+        $this->addCar($trip, 'WVWZZZ3CZWE181818');
+
+        $response = $this->actingAs($user)
+            ->get(route('land-trips.companies.export.pdf', $company).'?'.http_build_query([
+                'car_ids' => [$first->id],
+            ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertStringContainsString('.pdf', (string) $response->headers->get('content-disposition'));
+    }
+
     public function test_user_without_permission_cannot_export_or_print(): void
     {
         $user = User::factory()->create();
@@ -141,6 +160,10 @@ class LandTripCarExportTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('land-trips.companies.export', $company))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('land-trips.companies.export.pdf', $company))
             ->assertForbidden();
 
         $this->actingAs($user)

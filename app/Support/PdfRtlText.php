@@ -2,11 +2,9 @@
 
 namespace App\Support;
 
-use ArPHP\I18N\Arabic;
-
 final class PdfRtlText
 {
-    private static ?Arabic $engine = null;
+    private static mixed $engine = null;
 
     public static function shape(?string $text): string
     {
@@ -16,7 +14,12 @@ final class PdfRtlText
             return $text;
         }
 
-        return self::engine()->utf8Glyphs($text, 2000, false);
+        $engine = self::engine();
+        if ($engine === null) {
+            return $text;
+        }
+
+        return $engine->utf8Glyphs($text, 2000, false);
     }
 
     /**
@@ -38,8 +41,16 @@ final class PdfRtlText
         return $data;
     }
 
-    private static function engine(): Arabic
+    private static function engine(): ?object
     {
-        return self::$engine ??= new Arabic;
+        if (self::$engine !== null) {
+            return self::$engine;
+        }
+
+        if (! class_exists(\ArPHP\I18N\Arabic::class)) {
+            return null;
+        }
+
+        return self::$engine = new \ArPHP\I18N\Arabic;
     }
 }

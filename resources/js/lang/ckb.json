@@ -661,6 +661,8 @@
     "import": "هێنانی ئێکسڵ",
     "export": "هەناردەی ئێکسڵ",
     "export_n": "هەناردەی ئێکسڵ ({count})",
+    "export_pdf": "هەناردەی PDF",
+    "export_pdf_n": "هەناردەی PDF ({count})",
     "print": "چاپ",
     "print_n": "چاپ ({count})",
     "print_title": "ئۆتۆمبێل — {company}",

@@ -13,7 +13,14 @@ class PdfRtlTextTest extends TestCase
         $shaped = PdfRtlText::shape($source);
 
         $this->assertNotSame('', $shaped);
-        $this->assertNotSame($source, $shaped);
+
+        if (class_exists(\ArPHP\I18N\Arabic::class)) {
+            $this->assertNotSame($source, $shaped);
+
+            return;
+        }
+
+        $this->assertSame($source, $shaped);
     }
 
     public function test_it_leaves_latin_and_numbers_unchanged(): void

@@ -38,6 +38,7 @@ use App\Support\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -400,6 +401,11 @@ class LandTripController extends Controller
     public function exportCompany(CompanyLandCarsOutputRequest $request, Company $company): StreamedResponse
     {
         return $this->importService->exportCompanyCars($company, $request->filters());
+    }
+
+    public function exportCompanyPdf(CompanyLandCarsOutputRequest $request, Company $company): HttpResponse
+    {
+        return $this->importService->exportCompanyCarsPdf($company, $request->filters());
     }
 
     public function printCompany(CompanyLandCarsOutputRequest $request, Company $company): Response

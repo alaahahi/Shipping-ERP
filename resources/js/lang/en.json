@@ -1053,6 +1053,8 @@
     "import": "Import Excel",
     "export": "Export Excel",
     "export_n": "Export Excel ({count})",
+    "export_pdf": "Export PDF",
+    "export_pdf_n": "Export PDF ({count})",
     "print": "Print",
     "print_n": "Print ({count})",
     "print_title": "Cars — {company}",

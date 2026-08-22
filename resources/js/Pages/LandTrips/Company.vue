@@ -180,6 +180,7 @@ const hrefWithOutputParams = (base) => {
 };
 
 const exportHref = computed(() => hrefWithOutputParams(route('land-trips.companies.export', props.company.id)));
+const pdfHref = computed(() => hrefWithOutputParams(route('land-trips.companies.export.pdf', props.company.id)));
 const printHref = computed(() => hrefWithOutputParams(route('land-trips.companies.print', props.company.id)));
 const totalCars = computed(() => locationChips.value.reduce((sum, item) => sum + (item.count || 0), 0));
 const locationChips = computed(() => (props.statusSummary ?? []).filter((item) => !item.is_archive));
@@ -910,6 +911,9 @@ const duplicateCarCount = computed(() => (
                         </a>
                         <a :href="exportHref" class="btn btn-erp-ghost">
                             {{ selectedCount ? t('land_trips.export_n', { count: selectedCount }) : t('land_trips.export') }}
+                        </a>
+                        <a :href="pdfHref" class="btn btn-erp-ghost">
+                            {{ selectedCount ? t('land_trips.export_pdf_n', { count: selectedCount }) : t('land_trips.export_pdf') }}
                         </a>
                         <button
                             type="button"
