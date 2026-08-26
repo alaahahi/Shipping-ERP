@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import ReportsNav from '@/Components/ReportsNav.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
@@ -44,11 +45,7 @@ const exportUrl = (name) => {
     <AppLayout>
         <template #header>{{ t('reports.voyages') }}</template>
 
-        <div class="mb-3">
-            <Link :href="route('reports.index')" class="text-decoration-none small fw-semibold">
-                ← {{ t('reports.back') }}
-            </Link>
-        </div>
+        <ReportsNav current="voyages" />
 
         <PageHeader :title="t('reports.voyages')" :subtitle="t('reports.voyages_help')">
             <template #actions>

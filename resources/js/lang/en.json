@@ -787,7 +787,20 @@
     "none": "No matching voyages.",
     "note": "Operational derived figures. Export Excel or PDF using the same filters.",
     "export_excel": "Export Excel",
-    "export_pdf": "Export PDF"
+    "export_pdf": "Export PDF",
+    "overview_tab": "Overview",
+    "land_trips": "Land transit cars",
+    "land_trips_help": "Export cars like the company inventory sheet, filtered by one or more countries and locations.",
+    "land_trips_filter_help": "Pick countries, locations, or both. When both are selected, only cars that match every selected filter are included.",
+    "land_trips_pick": "Select at least one country or location, then filter.",
+    "land_trips_none": "No cars match the selected countries and locations.",
+    "countries": "Countries",
+    "locations": "Locations",
+    "country": "Country",
+    "location": "Location",
+    "no_countries": "No countries linked to land locations yet.",
+    "no_locations": "No land locations yet.",
+    "archive_location": "Archive"
   },
   "notifications": {
     "title": "Notifications",

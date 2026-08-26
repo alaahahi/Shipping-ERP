@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import ReportsNav from '@/Components/ReportsNav.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
@@ -33,6 +34,8 @@ const voyagesExportUrl = (name) => {
     <Head :title="t('reports.title')" />
     <AppLayout>
         <template #header>{{ t('reports.title') }}</template>
+
+        <ReportsNav current="overview" />
 
         <PageHeader :kicker="t('nav.finance')" :title="t('reports.title')" :subtitle="t('reports.help')">
             <template #actions>
@@ -114,7 +117,8 @@ const voyagesExportUrl = (name) => {
                 <div class="erp-card p-4 h-100">
                     <h3 class="erp-panel-title mb-3">{{ t('reports.quick') }}</h3>
                     <p class="small text-secondary mb-3">{{ t('reports.note') }}</p>
-                    <Link :href="route('reports.voyages')" class="btn btn-erp w-100">{{ t('reports.open_voyages') }}</Link>
+                    <Link :href="route('reports.voyages')" class="btn btn-erp w-100 mb-2">{{ t('reports.open_voyages') }}</Link>
+                    <Link :href="route('reports.land-trips')" class="btn btn-erp-ghost w-100">{{ t('reports.land_trips') }}</Link>
                 </div>
             </div>
         </div>

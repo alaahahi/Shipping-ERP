@@ -21,6 +21,7 @@ use App\Http\Controllers\LandTripImportController;
 use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
 use App\Http\Controllers\LandTripPriceLogController;
+use App\Http\Controllers\LandTripReportController;
 use App\Http\Controllers\LandTripTransferLogController;
 use App\Http\Controllers\MoneyVoucherController;
 use App\Http\Controllers\NotificationController;
@@ -313,6 +314,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('reports.voyages.export.excel');
     Route::get('/reports/voyages/export/pdf', [ReportController::class, 'exportVoyagesPdf'])
         ->name('reports.voyages.export.pdf');
+    Route::get('/reports/land-trips', [LandTripReportController::class, 'index'])
+        ->name('reports.land-trips');
+    Route::get('/reports/land-trips/export/excel', [LandTripReportController::class, 'exportExcel'])
+        ->name('reports.land-trips.export.excel');
+    Route::get('/reports/land-trips/export/pdf', [LandTripReportController::class, 'exportPdf'])
+        ->name('reports.land-trips.export.pdf');
 
     Route::get('/journals', [JournalEntryController::class, 'index'])->name('journals.index');
     Route::get('/journals/create', [JournalEntryController::class, 'create'])->name('journals.create');
