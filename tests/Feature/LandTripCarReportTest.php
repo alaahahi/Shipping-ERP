@@ -69,6 +69,27 @@ class LandTripCarReportTest extends TestCase
                 ->has('cars.data', 2));
     }
 
+    public function test_report_orders_cars_by_company_name(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $zeta = $this->makeCompany('Zeta Transit');
+        $alpha = $this->makeCompany('Alpha Transit');
+        $this->addCar($this->makeTrip($zeta, $user), 'WVWZZZ3CZWE777777', $uz->id);
+        $this->addCar($this->makeTrip($alpha, $user), 'WVWZZZ3CZWE888888', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'location_status_ids' => [$uz->id],
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('cars.data.0.company_name', 'Alpha Transit')
+                ->where('cars.data.0.chassis_no', 'WVWZZZ3CZWE888888')
+                ->where('cars.data.1.company_name', 'Zeta Transit')
+                ->where('cars.data.1.chassis_no', 'WVWZZZ3CZWE777777'));
+    }
+
     public function test_excel_export_filters_by_location_and_keeps_vin_as_text(): void
     {
         $user = $this->reporter();

@@ -148,12 +148,13 @@ class LandTripCarReportService
 
         $query = LandTripCar::query()
             ->select('land_trip_cars.*')
+            ->join('land_trips', 'land_trips.id', '=', 'land_trip_cars.land_trip_id')
+            ->join('companies', 'companies.id', '=', 'land_trips.company_id')
             ->with([
                 'locationStatus.country:id,name,name_ar,iso_code',
                 'landTrip:id,company_id',
                 'landTrip.company:id,name',
-            ])
-            ->whereHas('landTrip');
+            ]);
 
         if ($locationIds !== []) {
             $query->whereIn('land_trip_cars.location_status_id', $locationIds);
@@ -166,6 +167,8 @@ class LandTripCarReportService
         }
 
         return $query
+            ->orderBy('companies.name')
+            ->orderBy('companies.id')
             ->orderByDesc('land_trip_cars.created_at')
             ->orderByDesc('land_trip_cars.id');
     }
