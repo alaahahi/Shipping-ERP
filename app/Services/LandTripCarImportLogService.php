@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\LandTripCarDeletionSource;
 use App\Models\Company;
 use App\Models\LandTrip;
 use App\Models\LandTripCar;
@@ -15,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class LandTripCarImportLogService
 {
+    public function __construct(
+        private readonly LandTripCarDeletionLogService $deletionLogService
+    ) {}
+
     /**
      * @param  array{imported?: int, updated?: int, skipped?: int, created_ids?: list<int>}  $result
      */
@@ -86,13 +91,12 @@ class LandTripCarImportLogService
                 }
 
                 if ($deleted > 0) {
-                    Log::info('Land trip cars deleted by import undo.', [
-                        'company_id' => $company->id,
-                        'import_id' => $import->id,
-                        'deleted_by' => $actor->id,
-                        'count' => $deleted,
-                        'car_ids' => $cars->pluck('id')->all(),
-                    ]);
+                    $this->deletionLogService->record(
+                        $company,
+                        $actor,
+                        $cars,
+                        LandTripCarDeletionSource::ImportUndo
+                    );
                 }
             }
 

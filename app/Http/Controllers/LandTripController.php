@@ -14,8 +14,8 @@ use App\Http\Requests\LandTrips\StoreCompanyCmrFileRequest;
 use App\Http\Requests\LandTrips\StoreLandTripRequest;
 use App\Http\Requests\LandTrips\SyncCompanyLandCarsRequest;
 use App\Http\Requests\LandTrips\SyncLandTripCarsRequest;
-use App\Http\Requests\LandTrips\TransitionLandTripRequest;
 use App\Http\Requests\LandTrips\TransferCompanyLandCarsRequest;
+use App\Http\Requests\LandTrips\TransitionLandTripRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarDetailsRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarPriceRequest;
 use App\Http\Requests\LandTrips\UpdateCompanyLandCarRequest;
@@ -28,6 +28,7 @@ use App\Models\LandTripCar;
 use App\Services\CompanyService;
 use App\Services\CompanyWalletService;
 use App\Services\CountryService;
+use App\Services\LandTripCarDeletionLogService;
 use App\Services\LandTripCarImportLogService;
 use App\Services\LandTripCarLocationChangeService;
 use App\Services\LandTripCarPriceChangeService;
@@ -56,6 +57,7 @@ class LandTripController extends Controller
         private readonly LandTripCarLocationChangeService $locationChangeService,
         private readonly LandTripCarImportLogService $importLogService,
         private readonly LandTripCarPriceChangeService $priceChangeService,
+        private readonly LandTripCarDeletionLogService $deletionLogService,
         private readonly CompanyWalletService $walletService
     ) {}
 
@@ -139,6 +141,7 @@ class LandTripController extends Controller
             'canManage' => $user?->can(Permission::LandTripsManage->value) ?? false,
             'locationLog' => $this->locationChangeService->meta($company),
             'importLog' => $this->importLogService->meta($company),
+            'deletionLog' => $this->deletionLogService->meta($company),
             'priceLog' => ['has_entries' => $this->priceChangeService->hasEntriesForCompany($company)],
             'wallet' => $this->walletService->payload($company),
             'chassisLetterOCount' => $this->landTripService->countChassisLetterO($company),

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LandTripCar extends Model
@@ -56,5 +57,10 @@ class LandTripCar extends Model
     public function car(): BelongsTo
     {
         return $this->belongsTo(Car::class);
+    }
+
+    public function deletionItems(): HasMany
+    {
+        return $this->hasMany(LandTripCarDeletionItem::class);
     }
 }

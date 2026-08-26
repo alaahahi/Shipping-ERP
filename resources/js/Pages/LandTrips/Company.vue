@@ -33,6 +33,7 @@ const props = defineProps({
     highlightCarId: { type: [Number, String], default: null },
     locationLog: { type: Object, default: () => ({ can_undo: false }) },
     importLog: { type: Object, default: () => ({ can_undo: false }) },
+    deletionLog: { type: Object, default: () => ({ unrestored_count: 0 }) },
     priceLog: { type: Object, default: () => ({ has_entries: false }) },
     wallet: { type: Object, default: () => ({ balances: [], summary: null, entries: [], currencies: ['USD'] }) },
     chassisLetterOCount: { type: Number, default: 0 },
@@ -148,7 +149,7 @@ watch(success, (message) => {
     if (!message) {
         return;
     }
-    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message)) || /excel import undone/i.test(String(message)) || /transferred \d+ cars/i.test(String(message))) {
+    if (/updated \d+ cars/i.test(String(message)) || /deleted \d+ cars/i.test(String(message)) || /restored \d+ cars/i.test(String(message)) || /location change undone/i.test(String(message)) || /excel import undone/i.test(String(message)) || /transferred \d+ cars/i.test(String(message))) {
         return;
     }
     toastMessage.value = message;
@@ -191,14 +192,7 @@ const locationChips = computed(() => (props.statusSummary ?? []).filter((item) =
     return Number(item.count) > 0 || String(filterForm.location_status_id || '') === String(item.id ?? '');
 }));
 const archiveChip = computed(() => (props.statusSummary ?? []).find((item) => item.is_archive) ?? null);
-const showArchiveChip = computed(() => {
-    const chip = archiveChip.value;
-    if (!chip) {
-        return false;
-    }
-
-    return Number(chip.count) > 0 || String(filterForm.location_status_id || '') === String(chip.id ?? '');
-});
+const showArchiveChip = computed(() => Boolean(archiveChip.value));
 const countryMapRows = computed(() => {
     const groups = new Map();
 
@@ -638,7 +632,7 @@ const deleteSelected = () => {
         data: { car_ids: carIds },
         preserveScroll: true,
         preserveState: true,
-        only: ['cars', 'statusSummary', 'locationLog'],
+        only: ['cars', 'statusSummary', 'locationLog', 'importLog', 'deletionLog'],
         onSuccess: () => {
             selectedIds.value = [];
             mergeLoadedCars(props.cars);
@@ -919,6 +913,17 @@ const duplicateCarCount = computed(() => (
                             rel="noopener noreferrer"
                         >
                             {{ t('land_trips.import_log') }}
+                        </a>
+                        <a
+                            :href="route('land-trips.companies.deletion-logs', company.id)"
+                            class="btn btn-erp-ghost"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('land_trips.deletion_log') }}
+                            <span v-if="deletionLog.unrestored_count" class="ms-1">
+                                ({{ deletionLog.unrestored_count }})
+                            </span>
                         </a>
                         <button
                             v-if="canManage"

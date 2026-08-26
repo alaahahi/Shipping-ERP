@@ -31,7 +31,8 @@ class LandTripService
         private readonly LandTripCarStatusService $carStatusService,
         private readonly LandTripCarLocationChangeService $locationChangeService,
         private readonly LandTripCarTransferService $carTransferService,
-        private readonly LandTripCarPriceChangeService $priceChangeService
+        private readonly LandTripCarPriceChangeService $priceChangeService,
+        private readonly LandTripCarDeletionLogService $deletionLogService
     ) {}
 
     /**
@@ -940,13 +941,7 @@ class LandTripService
                 return 0;
             }
 
-            Log::info('Land trip cars deleted.', [
-                'company_id' => $company->id,
-                'deleted_by' => $actor->id,
-                'count' => $cars->count(),
-                'car_ids' => $cars->pluck('id')->all(),
-                'chassis_nos' => $cars->pluck('chassis_no')->all(),
-            ]);
+            $this->deletionLogService->record($company, $actor, $cars);
 
             LandTripCar::query()
                 ->whereIn('id', $cars->pluck('id'))

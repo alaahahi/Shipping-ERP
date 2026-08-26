@@ -13,9 +13,10 @@ use App\Http\Controllers\IranCarPaymentController;
 use App\Http\Controllers\IranCarPoolPaymentController;
 use App\Http\Controllers\IranCarPrintController;
 use App\Http\Controllers\JournalEntryController;
+use App\Http\Controllers\LandDriverPaymentController;
 use App\Http\Controllers\LandTripCarStatusController;
 use App\Http\Controllers\LandTripController;
-use App\Http\Controllers\LandDriverPaymentController;
+use App\Http\Controllers\LandTripDeletionLogController;
 use App\Http\Controllers\LandTripImportController;
 use App\Http\Controllers\LandTripImportLogController;
 use App\Http\Controllers\LandTripLocationLogController;
@@ -155,6 +156,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.import-logs');
     Route::post('/land-trips/companies/{company}/import-logs/undo', [LandTripImportLogController::class, 'undo'])
         ->name('land-trips.companies.import-logs.undo');
+    Route::get('/land-trips/companies/{company}/deletion-logs', [LandTripDeletionLogController::class, 'index'])
+        ->name('land-trips.companies.deletion-logs');
+    Route::post('/land-trips/companies/{company}/deletion-logs/restore', [LandTripDeletionLogController::class, 'restore'])
+        ->name('land-trips.companies.deletion-logs.restore');
     Route::put('/land-trips/companies/{company}/manifest', [LandTripController::class, 'updateCompanyManifest'])
         ->name('land-trips.companies.manifest.update');
     Route::get('/land-trips/companies/{company}/import', [LandTripController::class, 'companyImport'])
