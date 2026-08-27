@@ -248,7 +248,8 @@ class LandTripCarReportService
     }
 
     /**
-     * Cars in report order, with optional yellow Excel separators from `*` in the paste.
+     * Cars in pasted chassis order for Excel, with optional yellow rows from `*`.
+     * Country/location-only exports stay sorted by company name.
      *
      * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string}  $filters
      * @return list<array{type: 'car', car: LandTripCar}|array{type: 'separator'}>
@@ -258,7 +259,7 @@ class LandTripCarReportService
         $cars = $this->list($filters);
         $tokens = $this->inspectChassisText($filters['chassis_text'] ?? '')['tokens'];
 
-        if (! in_array('*', $tokens, true)) {
+        if ($tokens === []) {
             return $cars
                 ->map(static fn (LandTripCar $car): array => ['type' => 'car', 'car' => $car])
                 ->all();

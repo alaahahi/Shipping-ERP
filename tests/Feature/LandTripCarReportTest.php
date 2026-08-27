@@ -301,6 +301,27 @@ class LandTripCarReportTest extends TestCase
         $this->assertSame('FFE599', $sheet->getStyle('A4')->getFill()->getStartColor()->getRGB());
     }
 
+    public function test_excel_export_follows_pasted_chassis_order(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $alpha = $this->makeCompany('Alpha Order');
+        $zeta = $this->makeCompany('Zeta Order');
+        $this->addCar($this->makeTrip($alpha, $user), 'WVWZZZ3CZWE202020', $uz->id);
+        $this->addCar($this->makeTrip($zeta, $user), 'WVWZZZ3CZWE212121', $uz->id);
+
+        $response = $this->actingAs($user)
+            ->get(route('reports.land-trips.export.excel', [
+                'chassis_text' => "WVWZZZ3CZWE212121\nWVWZZZ3CZWE202020",
+            ]));
+
+        $response->assertOk();
+        $this->assertSame(
+            ['WVWZZZ3CZWE212121', 'WVWZZZ3CZWE202020'],
+            $this->chassisFromExcel($response->streamedContent())
+        );
+    }
+
     public function test_report_keeps_star_separator_when_sent_as_wire_token(): void
     {
         $user = $this->reporter();
