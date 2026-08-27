@@ -50,8 +50,15 @@ const inspectChassisPaste = (raw) => {
     const parts = String(raw ?? '').split(/[\r\n\t,;/]+/);
     const counts = {};
     const order = [];
+    const tokens = [];
 
     for (const part of parts) {
+        const trimmed = part.trim();
+        if (/^\*+$/.test(trimmed) || trimmed.toUpperCase() === '__SEP__') {
+            tokens.push('*');
+            continue;
+        }
+
         const chassis = sanitizeChassisNumber(part).replace(/I/g, '1');
         if (!chassis) {
             continue;
@@ -62,12 +69,13 @@ const inspectChassisPaste = (raw) => {
             }
             order.push(chassis);
             counts[chassis] = 0;
+            tokens.push(chassis);
         }
         counts[chassis] += 1;
     }
 
     return {
-        text: order.join('\n'),
+        text: tokens.join('\n'),
         duplicates: order.filter((vin) => counts[vin] > 1),
     };
 };
@@ -79,7 +87,13 @@ const formatChassisLines = (raw, duplicates = []) => {
     return inspected.text
         .split('\n')
         .filter(Boolean)
-        .map((vin) => (dupSet.has(vin) ? `⚠ ${vin}` : vin))
+        .map((vin) => {
+            if (vin === '*') {
+                return '*';
+            }
+
+            return dupSet.has(vin) ? `⚠ ${vin}` : vin;
+        })
         .join('\n');
 };
 
@@ -129,22 +143,36 @@ const toggleId = (field, id) => {
 
 const isChecked = (field, id) => filterForm[field].includes(String(id));
 
+const toWireChassis = (raw) => inspectChassisPaste(raw).text
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => (line === '*' ? '__SEP__' : line))
+    .join('\n');
+
 const applyFilters = () => {
     const raw = pendingRawChassis.value || filterForm.chassis_text;
     const inspected = applyCleanedChassis(raw);
     filterForm.duplicate_chassis = inspected.duplicates;
-    filterForm.get(route('reports.land-trips'), {
-        preserveState: true,
-        replace: true,
-        onSuccess: () => {
-            pendingRawChassis.value = '';
-            filterForm.chassis_text = formatChassisLines(
-                props.filters.chassis_text ?? inspected.text,
-                props.duplicateChassis ?? inspected.duplicates,
-            );
-            filterForm.duplicate_chassis = [...(props.duplicateChassis ?? [])];
-        },
-    });
+    filterForm
+        .transform((data) => ({
+            ...data,
+            chassis_text: toWireChassis(data.chassis_text),
+        }))
+        .get(route('reports.land-trips'), {
+            preserveState: true,
+            replace: true,
+            onSuccess: () => {
+                pendingRawChassis.value = '';
+                filterForm.chassis_text = formatChassisLines(
+                    inspected.text,
+                    props.duplicateChassis ?? inspected.duplicates,
+                );
+                filterForm.duplicate_chassis = [...(props.duplicateChassis ?? [])];
+            },
+            onFinish: () => {
+                filterForm.transform((data) => data);
+            },
+        });
 };
 
 const resetFilters = () => {
@@ -163,7 +191,7 @@ const exportUrl = (name) => {
     filterForm.location_status_ids.forEach((id) => params.append('location_status_ids[]', id));
     const chassis = String(filterForm.chassis_text ?? '').trim();
     if (chassis !== '') {
-        params.set('chassis_text', chassis);
+        params.set('chassis_text', toWireChassis(chassis));
     }
     duplicateList.value.forEach((vin) => params.append('duplicate_chassis[]', vin));
     const query = params.toString();

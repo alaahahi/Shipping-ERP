@@ -14,6 +14,8 @@ class LandTripCarReportService
 {
     public const PER_PAGE = 100;
 
+    public const SEPARATOR_WIRE = '__SEP__';
+
     /**
      * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
      */
@@ -199,15 +201,22 @@ class LandTripCarReportService
     }
 
     /**
-     * @return array{chassis_nos: list<string>, duplicates: list<string>, cleaned_text: string}
+     * @return array{chassis_nos: list<string>, duplicates: list<string>, cleaned_text: string, tokens: list<string>}
      */
     public function inspectChassisText(?string $text): array
     {
         $parts = preg_split('#[\r\n\t,;/]+#', (string) $text) ?: [];
         $counts = [];
         $order = [];
+        $tokens = [];
 
         foreach ($parts as $part) {
+            if ($this->isSeparator($part)) {
+                $tokens[] = '*';
+
+                continue;
+            }
+
             $normalized = $this->normalizeChassis($part);
             if ($normalized === null) {
                 continue;
@@ -218,6 +227,7 @@ class LandTripCarReportService
                 }
                 $order[] = $normalized;
                 $counts[$normalized] = 0;
+                $tokens[] = $normalized;
             }
             $counts[$normalized]++;
         }
@@ -232,8 +242,64 @@ class LandTripCarReportService
         return [
             'chassis_nos' => $order,
             'duplicates' => $duplicates,
-            'cleaned_text' => implode("\n", $order),
+            'cleaned_text' => implode("\n", $tokens),
+            'tokens' => $tokens,
         ];
+    }
+
+    /**
+     * Cars in report order, with optional yellow Excel separators from `*` in the paste.
+     *
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string}  $filters
+     * @return list<array{type: 'car', car: LandTripCar}|array{type: 'separator'}>
+     */
+    public function exportLayout(array $filters): array
+    {
+        $cars = $this->list($filters);
+        $tokens = $this->inspectChassisText($filters['chassis_text'] ?? '')['tokens'];
+
+        if (! in_array('*', $tokens, true)) {
+            return $cars
+                ->map(static fn (LandTripCar $car): array => ['type' => 'car', 'car' => $car])
+                ->all();
+        }
+
+        $byVin = [];
+        foreach ($cars as $car) {
+            $normalized = $this->normalizeChassis($car->chassis_no);
+            if ($normalized === null) {
+                continue;
+            }
+            $byVin[$normalized][] = $car;
+        }
+
+        $written = [];
+        $rows = [];
+
+        foreach ($tokens as $token) {
+            if ($token === '*') {
+                $rows[] = ['type' => 'separator'];
+
+                continue;
+            }
+
+            foreach ($byVin[$token] ?? [] as $car) {
+                if (isset($written[$car->id])) {
+                    continue;
+                }
+                $written[$car->id] = true;
+                $rows[] = ['type' => 'car', 'car' => $car];
+            }
+        }
+
+        foreach ($cars as $car) {
+            if (isset($written[$car->id])) {
+                continue;
+            }
+            $rows[] = ['type' => 'car', 'car' => $car];
+        }
+
+        return $rows;
     }
 
     /**
@@ -300,8 +366,20 @@ class LandTripCarReportService
         return $this->normalizeChassis($value);
     }
 
+    private function isSeparator(mixed $value): bool
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === self::SEPARATOR_WIRE
+            || preg_match('/^\*+$/', $trimmed) === 1;
+    }
+
     private function normalizeChassis(mixed $value): ?string
     {
+        if ($this->isSeparator($value)) {
+            return null;
+        }
+
         $chassis = str_replace('I', '1', ChassisLetterO::replace(strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', trim((string) ($value ?? ''))))));
 
         return $chassis === '' ? null : $chassis;

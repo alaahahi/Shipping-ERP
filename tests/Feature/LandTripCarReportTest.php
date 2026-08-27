@@ -15,6 +15,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Tests\TestCase;
 
 class LandTripCarReportTest extends TestCase
@@ -257,6 +258,65 @@ class LandTripCarReportTest extends TestCase
         $this->assertSame('#', $sheet->getCell('A2')->getValue());
         $this->assertSame(1, (int) $sheet->getCell('A3')->getValue());
         $this->assertSame('VIN', $sheet->getCell('G2')->getValue());
+    }
+
+    public function test_excel_inserts_yellow_blank_row_when_paste_contains_star(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $alpha = $this->makeCompany('Alpha Split');
+        $zeta = $this->makeCompany('Zeta Split');
+        $this->addCar($this->makeTrip($alpha, $user), 'WVWZZZ3CZWE161616', $uz->id);
+        $this->addCar($this->makeTrip($zeta, $user), 'WVWZZZ3CZWE171717', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => "WVWZZZ3CZWE171717\n*\nWVWZZZ3CZWE161616",
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.chassis_text', "WVWZZZ3CZWE171717\n*\nWVWZZZ3CZWE161616"));
+
+        $response = $this->actingAs($user)
+            ->get(route('reports.land-trips.export.excel', [
+                'chassis_text' => "WVWZZZ3CZWE171717\n*\nWVWZZZ3CZWE161616",
+            ]));
+
+        $response->assertOk();
+        $content = $response->streamedContent();
+        $this->assertSame(['WVWZZZ3CZWE171717', 'WVWZZZ3CZWE161616'], $this->chassisFromExcel($content));
+
+        $path = tempnam(sys_get_temp_dir(), 'lrep');
+        $this->assertNotFalse($path);
+        file_put_contents($path, $content);
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        unlink($path);
+
+        $this->assertSame('WVWZZZ3CZWE171717', trim((string) $sheet->getCell('G3')->getValue()));
+        $this->assertSame('', trim((string) $sheet->getCell('G4')->getValue()));
+        $this->assertSame('', trim((string) $sheet->getCell('A4')->getValue()));
+        $this->assertSame('WVWZZZ3CZWE161616', trim((string) $sheet->getCell('G5')->getValue()));
+        $this->assertSame(2, (int) $sheet->getCell('A5')->getValue());
+        $this->assertSame(Fill::FILL_SOLID, $sheet->getStyle('A4')->getFill()->getFillType());
+        $this->assertSame('FFE599', $sheet->getStyle('A4')->getFill()->getStartColor()->getRGB());
+    }
+
+    public function test_report_keeps_star_separator_when_sent_as_wire_token(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Sep Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE181818', $uz->id);
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE191919', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => "WVWZZZ3CZWE181818\n__SEP__\nWVWZZZ3CZWE191919",
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.chassis_text', "WVWZZZ3CZWE181818\n*\nWVWZZZ3CZWE191919")
+                ->has('cars.data', 2));
     }
 
     public function test_pdf_export_requires_a_country_or_location(): void

@@ -7,6 +7,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -120,7 +121,7 @@ class ReportExportService
      */
     public function landTripCarsExcel(array $filters): StreamedResponse
     {
-        $cars = $this->landTripCarReportService->list($filters);
+        $rows = $this->landTripCarReportService->exportLayout($filters);
         $notes = $this->landTripCarReportService->chassisNotes($filters);
         $duplicateSet = array_flip($notes['duplicates']);
         $filename = 'land-trip-cars-'.now()->format('Ymd-His').'.xlsx';
@@ -152,7 +153,18 @@ class ReportExportService
 
         $line = 3;
         $serial = 1;
-        foreach ($cars as $car) {
+        foreach ($rows as $row) {
+            if ($row['type'] === 'separator') {
+                $sheet->getStyle("A{$line}:N{$line}")->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setRGB('FFE599');
+                $line++;
+
+                continue;
+            }
+
+            $car = $row['car'];
             $status = $car->locationStatus;
             $normalized = $this->landTripCarReportService->normalizedChassis($car->chassis_no);
             $sheet->setCellValue("A{$line}", $serial);
