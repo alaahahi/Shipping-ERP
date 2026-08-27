@@ -203,7 +203,7 @@ class LandTripCarReportService
      */
     public function inspectChassisText(?string $text): array
     {
-        $parts = preg_split('/[\r\n\t,;]+/', (string) $text) ?: [];
+        $parts = preg_split('#[\r\n\t,;/]+#', (string) $text) ?: [];
         $counts = [];
         $order = [];
 

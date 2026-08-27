@@ -47,7 +47,7 @@ const duplicateList = computed(() => {
 });
 
 const inspectChassisPaste = (raw) => {
-    const parts = String(raw ?? '').split(/[\r\n\t,;]+/);
+    const parts = String(raw ?? '').split(/[\r\n\t,;/]+/);
     const counts = {};
     const order = [];
 
@@ -86,9 +86,11 @@ const applyCleanedChassis = (raw) => {
 
 const onChassisPaste = (event) => {
     event.preventDefault();
-    const raw = event.clipboardData?.getData('text') ?? '';
-    pendingRawChassis.value = raw;
-    applyCleanedChassis(raw);
+    const pasted = event.clipboardData?.getData('text') ?? '';
+    const existing = String(filterForm.chassis_text ?? '').trim();
+    const combined = existing === '' ? pasted : `${existing}\n${pasted}`;
+    pendingRawChassis.value = combined;
+    applyCleanedChassis(combined);
 };
 
 const onChassisInput = () => {

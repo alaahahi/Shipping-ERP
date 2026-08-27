@@ -155,6 +155,26 @@ class LandTripCarReportTest extends TestCase
                 ->where('missingChassis', ['WVW1ZZ3CZWE555555']));
     }
 
+    public function test_report_splits_slash_separated_chassis_and_replaces_letter_o(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Slash Co');
+        $this->addCar($this->makeTrip($company, $user), 'LFMAAA0C7T0726814', $uz->id);
+        $this->addCar($this->makeTrip($company, $user), 'LFMAAA0C1T0726856', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => 'LFMAAA0C7T0726814/LFMAAA0C1T0726713/LFMAAAOC1T0726856',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('cars.data', 2)
+                ->where('filters.chassis_text', "LFMAAA0C7T0726814\nLFMAAA0C1T0726713\nLFMAAA0C1T0726856")
+                ->has('filters.chassis_nos', 3)
+                ->where('missingChassis', ['LFMAAA0C1T0726713']));
+    }
+
     public function test_report_keeps_duplicate_flag_after_paste_is_cleaned(): void
     {
         $user = $this->reporter();
