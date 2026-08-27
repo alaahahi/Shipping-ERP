@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Reports;
 
+use App\Services\LandTripCarReportService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -17,6 +18,7 @@ class LandTripCarReportRequest extends FormRequest
         $this->merge([
             'country_ids' => $this->idList($this->input('country_ids', [])),
             'location_status_ids' => $this->idList($this->input('location_status_ids', [])),
+            'chassis_text' => trim((string) $this->input('chassis_text', '')),
         ]);
     }
 
@@ -30,6 +32,7 @@ class LandTripCarReportRequest extends FormRequest
             'country_ids.*' => ['integer', 'exists:countries,id'],
             'location_status_ids' => ['nullable', 'array', 'max:100'],
             'location_status_ids.*' => ['integer', 'exists:land_trip_car_statuses,id'],
+            'chassis_text' => ['nullable', 'string', 'max:20000'],
         ];
     }
 
@@ -41,24 +44,37 @@ class LandTripCarReportRequest extends FormRequest
 
         $validator->after(function (Validator $validator): void {
             if ($this->idList($this->input('country_ids', [])) === []
-                && $this->idList($this->input('location_status_ids', [])) === []) {
+                && $this->idList($this->input('location_status_ids', [])) === []
+                && $this->chassisNos() === []) {
                 $validator->errors()->add(
                     'country_ids',
-                    'Select at least one country or location before exporting.'
+                    'Select a country, location, or paste chassis numbers before exporting.'
                 );
             }
         });
     }
 
     /**
-     * @return array{country_ids: list<int>, location_status_ids: list<int>}
+     * @return array{country_ids: list<int>, location_status_ids: list<int>, chassis_text: string, chassis_nos: list<string>}
      */
     public function filters(): array
     {
         return [
             'country_ids' => $this->idList($this->input('country_ids', [])),
             'location_status_ids' => $this->idList($this->input('location_status_ids', [])),
+            'chassis_text' => trim((string) $this->input('chassis_text', '')),
+            'chassis_nos' => $this->chassisNos(),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function chassisNos(): array
+    {
+        return app(LandTripCarReportService::class)->parseChassisText(
+            (string) $this->input('chassis_text', '')
+        );
     }
 
     private function isExport(): bool

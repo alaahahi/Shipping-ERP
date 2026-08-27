@@ -3887,6 +3887,45 @@ html.dark .text-muted,
     background: rgba(45, 212, 191, 0.08);
 }
 
+html.dark .land-report-table,
+html.dark .land-report-table thead,
+html.dark .land-report-table tbody,
+html.dark .land-report-table tr,
+html.dark .land-report-table th,
+html.dark .land-report-table td,
+html.dark .land-report-table > :not(caption) > * > *,
+[data-theme='dark'] .land-report-table,
+[data-theme='dark'] .land-report-table thead,
+[data-theme='dark'] .land-report-table tbody,
+[data-theme='dark'] .land-report-table tr,
+[data-theme='dark'] .land-report-table th,
+[data-theme='dark'] .land-report-table td,
+[data-theme='dark'] .land-report-table > :not(caption) > * > * {
+    background-color: var(--erp-surface) !important;
+    color: var(--erp-text) !important;
+    border-color: var(--erp-border) !important;
+    box-shadow: none !important;
+    --bs-table-bg: var(--erp-surface);
+    --bs-table-accent-bg: transparent;
+}
+
+html.dark .land-report-table thead,
+html.dark .land-report-table thead tr,
+html.dark .land-report-table thead th,
+[data-theme='dark'] .land-report-table thead,
+[data-theme='dark'] .land-report-table thead tr,
+[data-theme='dark'] .land-report-table thead th {
+    background-color: var(--erp-surface-soft) !important;
+    color: var(--erp-text-muted) !important;
+}
+
+html.dark .land-report-table tbody tr:hover,
+html.dark .land-report-table tbody tr:hover td,
+[data-theme='dark'] .land-report-table tbody tr:hover,
+[data-theme='dark'] .land-report-table tbody tr:hover td {
+    background-color: rgba(45, 212, 191, 0.08) !important;
+}
+
 [data-theme='dark'] .form-control,
 [data-theme='dark'] .form-select,
 [data-theme='dark'] .form-erp-control {

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Country;
 use App\Models\LandTripCar;
 use App\Models\LandTripCarStatus;
+use App\Support\ChassisLetterO;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -14,7 +15,7 @@ class LandTripCarReportService
     public const PER_PAGE = 100;
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
      */
     public function paginate(array $filters, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
@@ -31,7 +32,7 @@ class LandTripCarReportService
     }
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
      * @return Collection<int, LandTripCar>
      */
     public function list(array $filters): Collection
@@ -130,21 +131,69 @@ class LandTripCarReportService
     }
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
      */
     public function hasScope(array $filters): bool
     {
         return $this->idList($filters['country_ids'] ?? []) !== []
-            || $this->idList($filters['location_status_ids'] ?? []) !== [];
+            || $this->idList($filters['location_status_ids'] ?? []) !== []
+            || ($filters['chassis_nos'] ?? []) !== [];
     }
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * Chassis numbers from the paste that did not match any car in the current filters.
+     *
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
+     * @return list<string>
+     */
+    public function missingChassis(array $filters): array
+    {
+        $wanted = $filters['chassis_nos'] ?? [];
+        if ($wanted === [] || ! $this->hasScope($filters)) {
+            return [];
+        }
+
+        $found = $this->carsQuery($filters)
+            ->get(['land_trip_cars.chassis_no'])
+            ->map(fn (LandTripCar $car) => $this->normalizeChassis($car->chassis_no))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values(array_diff($wanted, $found));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function parseChassisText(?string $text): array
+    {
+        $parts = preg_split('/[\r\n\t,;]+/', (string) $text) ?: [];
+        $unique = [];
+
+        foreach ($parts as $part) {
+            $normalized = $this->normalizeChassis($part);
+            if ($normalized === null) {
+                continue;
+            }
+            $unique[$normalized] = $normalized;
+            if (count($unique) >= 300) {
+                break;
+            }
+        }
+
+        return array_values($unique);
+    }
+
+    /**
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
      */
     private function carsQuery(array $filters): Builder
     {
         $countryIds = $this->idList($filters['country_ids'] ?? []);
         $locationIds = $this->idList($filters['location_status_ids'] ?? []);
+        $chassisNos = $filters['chassis_nos'] ?? [];
 
         $query = LandTripCar::query()
             ->select('land_trip_cars.*')
@@ -166,6 +215,17 @@ class LandTripCarReportService
             });
         }
 
+        if ($chassisNos !== []) {
+            $query->where(function (Builder $builder) use ($chassisNos): void {
+                foreach ($chassisNos as $chassis) {
+                    $builder->orWhereRaw(
+                        "REPLACE(UPPER(REPLACE(REPLACE(COALESCE(land_trip_cars.chassis_no, ''), ' ', ''), '-', '')), 'O', '0') = ?",
+                        [$chassis]
+                    );
+                }
+            });
+        }
+
         return $query
             ->orderBy('companies.name')
             ->orderBy('companies.id')
@@ -183,5 +243,12 @@ class LandTripCarReportService
             array_map(static fn ($id): int => (int) $id, $ids),
             static fn (int $id): bool => $id > 0
         )));
+    }
+
+    private function normalizeChassis(mixed $value): ?string
+    {
+        $chassis = ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? '')))));
+
+        return $chassis === '' ? null : $chassis;
     }
 }

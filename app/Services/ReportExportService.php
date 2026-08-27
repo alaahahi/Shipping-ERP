@@ -125,49 +125,50 @@ class ReportExportService
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Land transit');
+        $sheet->setTitle('Sorted Inventory');
+
+        $sheet->setCellValue('A1', 'Sorted Inventory');
+        $sheet->getStyle('A1')->getFont()->setBold(true);
 
         $sheet->fromArray([
             'Company',
-            'Country',
-            'Location',
             'Vehicle Model',
             'Color',
             'Year',
             'CMR',
             'VIN',
             '#',
+            'Status',
             'Consignee',
             'Price',
             'Weight',
             'Notes',
             'Entered At',
-        ], null, 'A1');
-        $sheet->getStyle('A1:N1')->getFont()->setBold(true);
+        ], null, 'A2');
+        $sheet->getStyle('A2:M2')->getFont()->setBold(true);
 
-        $line = 2;
+        $line = 3;
         $serial = 1;
         foreach ($cars as $car) {
             $status = $car->locationStatus;
             $sheet->setCellValue("A{$line}", (string) ($car->landTrip?->company?->name ?? ''));
-            $sheet->setCellValue("B{$line}", (string) ($status?->country?->localizedName('en') ?? ''));
-            $sheet->setCellValue("C{$line}", (string) ($status?->localizedName('en') ?? ''));
-            $sheet->setCellValue("D{$line}", (string) ($car->model ?: $car->description ?? ''));
-            $sheet->setCellValue("E{$line}", (string) ($car->color ?? ''));
-            $sheet->setCellValue("F{$line}", $car->year !== null ? (string) $car->year : '');
-            $sheet->setCellValueExplicit("G{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit("H{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValue("I{$line}", $serial);
-            $sheet->setCellValue("J{$line}", (string) ($car->consignee_name ?? ''));
-            $sheet->setCellValue("K{$line}", (int) round((float) ($car->price ?? 0)));
-            $sheet->setCellValue("L{$line}", $car->weight !== null ? (string) $car->weight : '');
-            $sheet->setCellValue("M{$line}", (string) ($car->notes ?? ''));
-            $sheet->setCellValue("N{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
+            $sheet->setCellValue("B{$line}", (string) ($car->model ?: $car->description ?? ''));
+            $sheet->setCellValue("C{$line}", (string) ($car->color ?? ''));
+            $sheet->setCellValue("D{$line}", $car->year !== null ? (string) $car->year : '');
+            $sheet->setCellValueExplicit("E{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("F{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValue("G{$line}", $serial);
+            $sheet->setCellValue("H{$line}", (string) ($status?->localizedName('en') ?? ''));
+            $sheet->setCellValue("I{$line}", (string) ($car->consignee_name ?? ''));
+            $sheet->setCellValue("J{$line}", (int) round((float) ($car->price ?? 0)));
+            $sheet->setCellValue("K{$line}", $car->weight !== null ? (string) $car->weight : '');
+            $sheet->setCellValue("L{$line}", (string) ($car->notes ?? ''));
+            $sheet->setCellValue("M{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
             $line++;
             $serial++;
         }
 
-        foreach (range('A', 'N') as $column) {
+        foreach (range('A', 'M') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -198,13 +199,12 @@ class ReportExportService
             $rows[] = [
                 'serial' => $serial,
                 'company' => (string) ($car->landTrip?->company?->name ?? ''),
-                'country' => (string) ($status?->country?->localizedName('en') ?? ''),
-                'location' => (string) ($status?->localizedName('en') ?? ''),
                 'model' => (string) ($car->model ?: $car->description ?? ''),
                 'color' => (string) ($car->color ?? ''),
                 'year' => $car->year !== null ? (string) $car->year : '',
                 'cmr' => (string) ($car->cmr_waybill ?? ''),
                 'vin' => (string) ($car->chassis_no ?? ''),
+                'status' => (string) ($status?->localizedName('en') ?? ''),
                 'consignee' => (string) ($car->consignee_name ?? ''),
                 'price' => number_format($price, 2, '.', ''),
                 'weight' => $car->weight !== null ? (string) $car->weight : '',

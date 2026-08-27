@@ -90,6 +90,30 @@ class LandTripCarReportTest extends TestCase
                 ->where('cars.data.1.chassis_no', 'WVWZZZ3CZWE777777'));
     }
 
+    public function test_report_finds_pasted_chassis_across_companies(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $ir = $this->locationStatus('trip_to_iran_bazargan');
+        $first = $this->makeCompany('First Co');
+        $second = $this->makeCompany('Second Co');
+        $this->addCar($this->makeTrip($first, $user), 'LBECNAFD4TZ679845', $uz->id);
+        $this->addCar($this->makeTrip($second, $user), 'WVWZZZ3CZWE123456', $ir->id);
+        $this->addCar($this->makeTrip($second, $user), 'WVWZZZ3CZWE999999', $ir->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => "LBECNAFD4TZ679845\nWVWZZZ3CZWE123456\nMISSINGVIN0000001",
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('scoped', true)
+                ->has('cars.data', 2)
+                ->where('missingChassis', ['MISSINGVIN0000001'])
+                ->where('cars.data.0.company_name', 'First Co')
+                ->where('cars.data.1.company_name', 'Second Co'));
+    }
+
     public function test_excel_export_filters_by_location_and_keeps_vin_as_text(): void
     {
         $user = $this->reporter();
@@ -107,6 +131,23 @@ class LandTripCarReportTest extends TestCase
 
         $response->assertOk();
         $this->assertSame(['LBECNAFD4TZ679845'], $this->chassisFromExcel($response->streamedContent()));
+    }
+
+    public function test_excel_export_accepts_pasted_chassis_only(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Paste Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE121212', $uz->id);
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE131313', $uz->id);
+
+        $response = $this->actingAs($user)
+            ->get(route('reports.land-trips.export.excel', [
+                'chassis_text' => "WVWZZZ3CZWE121212\tWVWZZZ3CZWE000000",
+            ]));
+
+        $response->assertOk();
+        $this->assertSame(['WVWZZZ3CZWE121212'], $this->chassisFromExcel($response->streamedContent()));
     }
 
     public function test_pdf_export_requires_a_country_or_location(): void
@@ -160,8 +201,8 @@ class LandTripCarReportTest extends TestCase
         unlink($path);
 
         $values = [];
-        for ($row = 2, $last = $sheet->getHighestRow(); $row <= $last; $row++) {
-            $vin = trim((string) $sheet->getCell("H{$row}")->getValue());
+        for ($row = 3, $last = $sheet->getHighestRow(); $row <= $last; $row++) {
+            $vin = trim((string) $sheet->getCell("F{$row}")->getValue());
             if ($vin !== '') {
                 $values[] = $vin;
             }

@@ -32,6 +32,7 @@ class LandTripReportController extends Controller
             'filters' => $filters,
             'options' => $this->landTripCarReportService->filterOptions(),
             'scoped' => $this->landTripCarReportService->hasScope($filters),
+            'missingChassis' => $this->landTripCarReportService->missingChassis($filters),
         ]);
     }
 
