@@ -3926,6 +3926,20 @@ html.dark .land-report-table tbody tr:hover td,
     background-color: rgba(45, 212, 191, 0.08) !important;
 }
 
+.land-report-table tbody tr.land-report-dup td {
+    background-color: rgb(255 251 235) !important;
+}
+
+html.dark .land-report-table tbody tr.land-report-dup td,
+[data-theme='dark'] .land-report-table tbody tr.land-report-dup td {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+}
+
+html.dark .land-report-table tbody tr.land-report-dup:hover td,
+[data-theme='dark'] .land-report-table tbody tr.land-report-dup:hover td {
+    background-color: rgba(245, 158, 11, 0.22) !important;
+}
+
 [data-theme='dark'] .form-control,
 [data-theme='dark'] .form-select,
 [data-theme='dark'] .form-erp-control {

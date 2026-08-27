@@ -116,11 +116,13 @@ class ReportExportService
     }
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string, duplicate_chassis?: list<string>}  $filters
      */
     public function landTripCarsExcel(array $filters): StreamedResponse
     {
         $cars = $this->landTripCarReportService->list($filters);
+        $notes = $this->landTripCarReportService->chassisNotes($filters);
+        $duplicateSet = array_flip($notes['duplicates']);
         $filename = 'land-trip-cars-'.now()->format('Ymd-His').'.xlsx';
 
         $spreadsheet = new Spreadsheet;
@@ -131,13 +133,14 @@ class ReportExportService
         $sheet->getStyle('A1')->getFont()->setBold(true);
 
         $sheet->fromArray([
+            '#',
             'Company',
             'Vehicle Model',
             'Color',
             'Year',
             'CMR',
             'VIN',
-            '#',
+            'Duplicate',
             'Status',
             'Consignee',
             'Price',
@@ -145,30 +148,50 @@ class ReportExportService
             'Notes',
             'Entered At',
         ], null, 'A2');
-        $sheet->getStyle('A2:M2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:N2')->getFont()->setBold(true);
 
         $line = 3;
         $serial = 1;
         foreach ($cars as $car) {
             $status = $car->locationStatus;
-            $sheet->setCellValue("A{$line}", (string) ($car->landTrip?->company?->name ?? ''));
-            $sheet->setCellValue("B{$line}", (string) ($car->model ?: $car->description ?? ''));
-            $sheet->setCellValue("C{$line}", (string) ($car->color ?? ''));
-            $sheet->setCellValue("D{$line}", $car->year !== null ? (string) $car->year : '');
-            $sheet->setCellValueExplicit("E{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit("F{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValue("G{$line}", $serial);
-            $sheet->setCellValue("H{$line}", (string) ($status?->localizedName('en') ?? ''));
-            $sheet->setCellValue("I{$line}", (string) ($car->consignee_name ?? ''));
-            $sheet->setCellValue("J{$line}", (int) round((float) ($car->price ?? 0)));
-            $sheet->setCellValue("K{$line}", $car->weight !== null ? (string) $car->weight : '');
-            $sheet->setCellValue("L{$line}", (string) ($car->notes ?? ''));
-            $sheet->setCellValue("M{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
+            $normalized = $this->landTripCarReportService->normalizedChassis($car->chassis_no);
+            $sheet->setCellValue("A{$line}", $serial);
+            $sheet->setCellValue("B{$line}", (string) ($car->landTrip?->company?->name ?? ''));
+            $sheet->setCellValue("C{$line}", (string) ($car->model ?: $car->description ?? ''));
+            $sheet->setCellValue("D{$line}", (string) ($car->color ?? ''));
+            $sheet->setCellValue("E{$line}", $car->year !== null ? (string) $car->year : '');
+            $sheet->setCellValueExplicit("F{$line}", (string) ($car->cmr_waybill ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("G{$line}", (string) ($car->chassis_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValue("H{$line}", $normalized !== null && isset($duplicateSet[$normalized]) ? 'Yes' : '');
+            $sheet->setCellValue("I{$line}", (string) ($status?->localizedName('en') ?? ''));
+            $sheet->setCellValue("J{$line}", (string) ($car->consignee_name ?? ''));
+            $sheet->setCellValue("K{$line}", (int) round((float) ($car->price ?? 0)));
+            $sheet->setCellValue("L{$line}", $car->weight !== null ? (string) $car->weight : '');
+            $sheet->setCellValue("M{$line}", (string) ($car->notes ?? ''));
+            $sheet->setCellValue("N{$line}", optional($car->created_at)?->format('Y-m-d H:i') ?? '');
             $line++;
             $serial++;
         }
 
-        foreach (range('A', 'M') as $column) {
+        if ($notes['missing'] !== []) {
+            $line += 1;
+            $sheet->setCellValue("A{$line}", 'Not found chassis');
+            $sheet->getStyle("A{$line}")->getFont()->setBold(true);
+            $line++;
+            $sheet->fromArray(['#', 'VIN', 'Duplicate'], null, "A{$line}");
+            $sheet->getStyle("A{$line}:C{$line}")->getFont()->setBold(true);
+            $line++;
+            $missingSerial = 1;
+            foreach ($notes['missing'] as $chassis) {
+                $sheet->setCellValue("A{$line}", $missingSerial);
+                $sheet->setCellValueExplicit("B{$line}", $chassis, DataType::TYPE_STRING);
+                $sheet->setCellValue("C{$line}", isset($duplicateSet[$chassis]) ? 'Yes' : '');
+                $line++;
+                $missingSerial++;
+            }
+        }
+
+        foreach (range('A', 'N') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -181,11 +204,13 @@ class ReportExportService
     }
 
     /**
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string, duplicate_chassis?: list<string>}  $filters
      */
     public function landTripCarsPdf(array $filters): Response
     {
         $cars = $this->landTripCarReportService->list($filters);
+        $notes = $this->landTripCarReportService->chassisNotes($filters);
+        $duplicateSet = array_flip($notes['duplicates']);
         $filename = 'land-trip-cars-'.now()->format('Ymd-His').'.pdf';
 
         $rows = [];
@@ -196,6 +221,7 @@ class ReportExportService
             $price = (float) ($car->price ?? 0);
             $totalPrice += $price;
             $status = $car->locationStatus;
+            $normalized = $this->landTripCarReportService->normalizedChassis($car->chassis_no);
             $rows[] = [
                 'serial' => $serial,
                 'company' => (string) ($car->landTrip?->company?->name ?? ''),
@@ -204,6 +230,7 @@ class ReportExportService
                 'year' => $car->year !== null ? (string) $car->year : '',
                 'cmr' => (string) ($car->cmr_waybill ?? ''),
                 'vin' => (string) ($car->chassis_no ?? ''),
+                'is_duplicate' => $normalized !== null && isset($duplicateSet[$normalized]),
                 'status' => (string) ($status?->localizedName('en') ?? ''),
                 'consignee' => (string) ($car->consignee_name ?? ''),
                 'price' => number_format($price, 2, '.', ''),
@@ -214,8 +241,20 @@ class ReportExportService
             $serial++;
         }
 
+        $missing = [];
+        $missingSerial = 1;
+        foreach ($notes['missing'] as $chassis) {
+            $missing[] = [
+                'serial' => $missingSerial,
+                'vin' => $chassis,
+                'is_duplicate' => isset($duplicateSet[$chassis]),
+            ];
+            $missingSerial++;
+        }
+
         return Pdf::loadView('reports.land-trip-cars-report-pdf', [
             'rows' => $rows,
+            'missing' => $missing,
             'count' => count($rows),
             'total_price' => number_format($totalPrice, 2, '.', ''),
             'generated_at' => ApplicationTimezone::formatNowLabel(),

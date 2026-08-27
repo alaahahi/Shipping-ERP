@@ -23,16 +23,18 @@ class LandTripReportController extends Controller
         Gate::authorize('viewReports');
 
         $filters = $request->filters();
+        $notes = $this->landTripCarReportService->chassisNotes($filters);
         $cars = $this->landTripCarReportService
             ->paginate($filters)
-            ->through(fn ($car) => $this->landTripCarReportService->transformCar($car));
+            ->through(fn ($car) => $this->landTripCarReportService->transformCar($car, $notes['duplicates']));
 
         return Inertia::render('Reports/LandTrips', [
             'cars' => $cars,
             'filters' => $filters,
             'options' => $this->landTripCarReportService->filterOptions(),
             'scoped' => $this->landTripCarReportService->hasScope($filters),
-            'missingChassis' => $this->landTripCarReportService->missingChassis($filters),
+            'missingChassis' => $notes['missing'],
+            'duplicateChassis' => $notes['duplicates'],
         ]);
     }
 

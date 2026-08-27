@@ -109,9 +109,68 @@ class LandTripCarReportTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('scoped', true)
                 ->has('cars.data', 2)
-                ->where('missingChassis', ['MISSINGVIN0000001'])
+                ->where('missingChassis', ['M1SS1NGV1N0000001'])
                 ->where('cars.data.0.company_name', 'First Co')
                 ->where('cars.data.1.company_name', 'Second Co'));
+    }
+
+    public function test_report_cleans_pasted_chassis_replaces_letter_o_and_flags_duplicates(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Paste Clean Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE111111', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => "WVWZZZ3CZWE111111; WVWOZZ3CZWE222222, WVWZZZ3CZWE111111;\nMISSINGVIN0000001",
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('scoped', true)
+                ->has('cars.data', 1)
+                ->where('filters.chassis_text', "WVWZZZ3CZWE111111\nWVW0ZZ3CZWE222222\nM1SS1NGV1N0000001")
+                ->has('filters.chassis_nos', 3)
+                ->where('duplicateChassis', ['WVWZZZ3CZWE111111'])
+                ->where('cars.data.0.is_duplicate', true)
+                ->where('missingChassis', ['WVW0ZZ3CZWE222222', 'M1SS1NGV1N0000001']));
+    }
+
+    public function test_report_replaces_letter_i_with_one_when_matching_chassis(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Letter I Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVW1ZZ3CZWE444444', $uz->id);
+        $this->addCar($this->makeTrip($company, $user), 'WVWIZZ3CZWE666666', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => "WVWIZZ3CZWE444444; wvwizz3czwe555555\nWVW1ZZ3CZWE666666",
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('cars.data', 2)
+                ->where('filters.chassis_text', "WVW1ZZ3CZWE444444\nWVW1ZZ3CZWE555555\nWVW1ZZ3CZWE666666")
+                ->where('missingChassis', ['WVW1ZZ3CZWE555555']));
+    }
+
+    public function test_report_keeps_duplicate_flag_after_paste_is_cleaned(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Hint Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE151515', $uz->id);
+
+        $this->actingAs($user)
+            ->get(route('reports.land-trips', [
+                'chassis_text' => 'WVWZZZ3CZWE151515',
+                'duplicate_chassis' => ['WVWZZZ3CZWE151515'],
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('duplicateChassis', ['WVWZZZ3CZWE151515'])
+                ->where('cars.data.0.is_duplicate', true));
     }
 
     public function test_excel_export_filters_by_location_and_keeps_vin_as_text(): void
@@ -147,7 +206,37 @@ class LandTripCarReportTest extends TestCase
             ]));
 
         $response->assertOk();
-        $this->assertSame(['WVWZZZ3CZWE121212'], $this->chassisFromExcel($response->streamedContent()));
+        $content = $response->streamedContent();
+        $this->assertSame(['WVWZZZ3CZWE121212'], $this->chassisFromExcel($content));
+        $this->assertSame(['WVWZZZ3CZWE000000'], $this->missingFromExcel($content));
+    }
+
+    public function test_excel_export_puts_serial_first_and_keeps_missing_section_separate(): void
+    {
+        $user = $this->reporter();
+        $uz = $this->locationStatus('loaded_in_bukhara');
+        $company = $this->makeCompany('Serial Co');
+        $this->addCar($this->makeTrip($company, $user), 'WVWZZZ3CZWE141414', $uz->id);
+
+        $response = $this->actingAs($user)
+            ->get(route('reports.land-trips.export.excel', [
+                'chassis_text' => 'WVWZZZ3CZWE141414; MISSINGVIN0000002',
+            ]));
+
+        $response->assertOk();
+        $content = $response->streamedContent();
+        $this->assertSame(['WVWZZZ3CZWE141414'], $this->chassisFromExcel($content));
+        $this->assertSame(['M1SS1NGV1N0000002'], $this->missingFromExcel($content));
+
+        $path = tempnam(sys_get_temp_dir(), 'lrep');
+        $this->assertNotFalse($path);
+        file_put_contents($path, $content);
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        unlink($path);
+
+        $this->assertSame('#', $sheet->getCell('A2')->getValue());
+        $this->assertSame(1, (int) $sheet->getCell('A3')->getValue());
+        $this->assertSame('VIN', $sheet->getCell('G2')->getValue());
     }
 
     public function test_pdf_export_requires_a_country_or_location(): void
@@ -202,8 +291,47 @@ class LandTripCarReportTest extends TestCase
 
         $values = [];
         for ($row = 3, $last = $sheet->getHighestRow(); $row <= $last; $row++) {
-            $vin = trim((string) $sheet->getCell("F{$row}")->getValue());
+            $heading = trim((string) $sheet->getCell("A{$row}")->getValue());
+            if (strcasecmp($heading, 'Not found chassis') === 0) {
+                break;
+            }
+
+            $vin = trim((string) $sheet->getCell("G{$row}")->getValue());
             if ($vin !== '') {
+                $values[] = $vin;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function missingFromExcel(string $content): array
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lrep');
+        $this->assertNotFalse($path);
+        file_put_contents($path, $content);
+
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        unlink($path);
+
+        $values = [];
+        $inMissing = false;
+        for ($row = 1, $last = $sheet->getHighestRow(); $row <= $last; $row++) {
+            $heading = trim((string) $sheet->getCell("A{$row}")->getValue());
+            if (strcasecmp($heading, 'Not found chassis') === 0) {
+                $inMissing = true;
+
+                continue;
+            }
+            if (! $inMissing) {
+                continue;
+            }
+
+            $vin = trim((string) $sheet->getCell("B{$row}")->getValue());
+            if ($vin !== '' && strcasecmp($vin, 'VIN') !== 0) {
                 $values[] = $vin;
             }
         }

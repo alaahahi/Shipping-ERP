@@ -103,11 +103,13 @@ class LandTripCarReportService
     }
 
     /**
+     * @param  list<string>  $duplicateChassis
      * @return array<string, mixed>
      */
-    public function transformCar(LandTripCar $car): array
+    public function transformCar(LandTripCar $car, array $duplicateChassis = []): array
     {
         $status = $car->locationStatus;
+        $normalized = $this->normalizeChassis($car->chassis_no);
 
         return [
             'id' => $car->id,
@@ -127,6 +129,7 @@ class LandTripCarReportService
             'location_status_label' => $status?->localizedName(),
             'location_status_color' => $status?->resolvedColor(),
             'created_at_label' => optional($car->created_at)?->format('Y-m-d H:i'),
+            'is_duplicate' => $normalized !== null && in_array($normalized, $duplicateChassis, true),
         ];
     }
 
@@ -143,25 +146,48 @@ class LandTripCarReportService
     /**
      * Chassis numbers from the paste that did not match any car in the current filters.
      *
-     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>}  $filters
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string}  $filters
      * @return list<string>
      */
     public function missingChassis(array $filters): array
     {
-        $wanted = $filters['chassis_nos'] ?? [];
-        if ($wanted === [] || ! $this->hasScope($filters)) {
-            return [];
+        return $this->chassisNotes($filters)['missing'];
+    }
+
+    /**
+     * @param  array{country_ids?: list<int>, location_status_ids?: list<int>, chassis_nos?: list<string>, chassis_text?: string}  $filters
+     * @return array{missing: list<string>, duplicates: list<string>}
+     */
+    public function chassisNotes(array $filters): array
+    {
+        $inspect = $this->inspectChassisText($filters['chassis_text'] ?? '');
+        $wanted = $filters['chassis_nos'] ?? $inspect['chassis_nos'];
+        $pasteDuplicates = $filters['duplicate_chassis'] ?? $inspect['duplicates'];
+
+        if ($wanted === []) {
+            return [
+                'missing' => [],
+                'duplicates' => [],
+            ];
         }
 
-        $found = $this->carsQuery($filters)
-            ->get(['land_trip_cars.chassis_no'])
-            ->map(fn (LandTripCar $car) => $this->normalizeChassis($car->chassis_no))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $dbCounts = [];
+        if ($this->hasScope($filters)) {
+            foreach ($this->list($filters) as $car) {
+                $normalized = $this->normalizeChassis($car->chassis_no);
+                if ($normalized === null) {
+                    continue;
+                }
+                $dbCounts[$normalized] = ($dbCounts[$normalized] ?? 0) + 1;
+            }
+        }
 
-        return array_values(array_diff($wanted, $found));
+        $dbDuplicates = array_keys(array_filter($dbCounts, static fn (int $count): bool => $count > 1));
+
+        return [
+            'missing' => array_values(array_diff($wanted, array_keys($dbCounts))),
+            'duplicates' => array_values(array_unique([...$pasteDuplicates, ...$dbDuplicates])),
+        ];
     }
 
     /**
@@ -169,21 +195,45 @@ class LandTripCarReportService
      */
     public function parseChassisText(?string $text): array
     {
+        return $this->inspectChassisText($text)['chassis_nos'];
+    }
+
+    /**
+     * @return array{chassis_nos: list<string>, duplicates: list<string>, cleaned_text: string}
+     */
+    public function inspectChassisText(?string $text): array
+    {
         $parts = preg_split('/[\r\n\t,;]+/', (string) $text) ?: [];
-        $unique = [];
+        $counts = [];
+        $order = [];
 
         foreach ($parts as $part) {
             $normalized = $this->normalizeChassis($part);
             if ($normalized === null) {
                 continue;
             }
-            $unique[$normalized] = $normalized;
-            if (count($unique) >= 300) {
-                break;
+            if (! isset($counts[$normalized])) {
+                if (count($order) >= 300) {
+                    continue;
+                }
+                $order[] = $normalized;
+                $counts[$normalized] = 0;
+            }
+            $counts[$normalized]++;
+        }
+
+        $duplicates = [];
+        foreach ($order as $chassis) {
+            if ($counts[$chassis] > 1) {
+                $duplicates[] = $chassis;
             }
         }
 
-        return array_values($unique);
+        return [
+            'chassis_nos' => $order,
+            'duplicates' => $duplicates,
+            'cleaned_text' => implode("\n", $order),
+        ];
     }
 
     /**
@@ -219,7 +269,7 @@ class LandTripCarReportService
             $query->where(function (Builder $builder) use ($chassisNos): void {
                 foreach ($chassisNos as $chassis) {
                     $builder->orWhereRaw(
-                        "REPLACE(UPPER(REPLACE(REPLACE(COALESCE(land_trip_cars.chassis_no, ''), ' ', ''), '-', '')), 'O', '0') = ?",
+                        "REPLACE(REPLACE(UPPER(REPLACE(REPLACE(COALESCE(land_trip_cars.chassis_no, ''), ' ', ''), '-', '')), 'O', '0'), 'I', '1') = ?",
                         [$chassis]
                     );
                 }
@@ -245,9 +295,14 @@ class LandTripCarReportService
         )));
     }
 
+    public function normalizedChassis(mixed $value): ?string
+    {
+        return $this->normalizeChassis($value);
+    }
+
     private function normalizeChassis(mixed $value): ?string
     {
-        $chassis = ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? '')))));
+        $chassis = str_replace('I', '1', ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? ''))))));
 
         return $chassis === '' ? null : $chassis;
     }

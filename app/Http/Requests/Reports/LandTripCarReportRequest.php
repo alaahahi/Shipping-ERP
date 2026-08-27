@@ -33,6 +33,8 @@ class LandTripCarReportRequest extends FormRequest
             'location_status_ids' => ['nullable', 'array', 'max:100'],
             'location_status_ids.*' => ['integer', 'exists:land_trip_car_statuses,id'],
             'chassis_text' => ['nullable', 'string', 'max:20000'],
+            'duplicate_chassis' => ['nullable', 'array', 'max:300'],
+            'duplicate_chassis.*' => ['nullable', 'string', 'max:64'],
         ];
     }
 
@@ -55,16 +57,50 @@ class LandTripCarReportRequest extends FormRequest
     }
 
     /**
-     * @return array{country_ids: list<int>, location_status_ids: list<int>, chassis_text: string, chassis_nos: list<string>}
+     * @return array{
+     *     country_ids: list<int>,
+     *     location_status_ids: list<int>,
+     *     chassis_text: string,
+     *     chassis_nos: list<string>,
+     *     duplicate_chassis: list<string>
+     * }
      */
     public function filters(): array
     {
+        $inspect = $this->inspect();
+        $wanted = array_flip($inspect['chassis_nos']);
+        $hinted = [];
+
+        $rawDuplicates = $this->input('duplicate_chassis', []);
+        if (! is_array($rawDuplicates)) {
+            $rawDuplicates = $rawDuplicates === null || $rawDuplicates === '' ? [] : [$rawDuplicates];
+        }
+
+        foreach ($rawDuplicates as $item) {
+            $parsed = app(LandTripCarReportService::class)->parseChassisText((string) $item);
+            $chassis = $parsed[0] ?? null;
+            if ($chassis !== null && isset($wanted[$chassis])) {
+                $hinted[] = $chassis;
+            }
+        }
+
         return [
             'country_ids' => $this->idList($this->input('country_ids', [])),
             'location_status_ids' => $this->idList($this->input('location_status_ids', [])),
-            'chassis_text' => trim((string) $this->input('chassis_text', '')),
-            'chassis_nos' => $this->chassisNos(),
+            'chassis_text' => $inspect['cleaned_text'],
+            'chassis_nos' => $inspect['chassis_nos'],
+            'duplicate_chassis' => array_values(array_unique([...$inspect['duplicates'], ...$hinted])),
         ];
+    }
+
+    /**
+     * @return array{chassis_nos: list<string>, duplicates: list<string>, cleaned_text: string}
+     */
+    private function inspect(): array
+    {
+        return app(LandTripCarReportService::class)->inspectChassisText(
+            (string) $this->input('chassis_text', '')
+        );
     }
 
     /**
@@ -72,9 +108,7 @@ class LandTripCarReportRequest extends FormRequest
      */
     private function chassisNos(): array
     {
-        return app(LandTripCarReportService::class)->parseChassisText(
-            (string) $this->input('chassis_text', '')
-        );
+        return $this->inspect()['chassis_nos'];
     }
 
     private function isExport(): bool
