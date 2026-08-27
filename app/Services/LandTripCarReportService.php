@@ -302,7 +302,7 @@ class LandTripCarReportService
 
     private function normalizeChassis(mixed $value): ?string
     {
-        $chassis = str_replace('I', '1', ChassisLetterO::replace(strtoupper((string) preg_replace('/[\s\-]/', '', trim((string) ($value ?? ''))))));
+        $chassis = str_replace('I', '1', ChassisLetterO::replace(strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', trim((string) ($value ?? ''))))));
 
         return $chassis === '' ? null : $chassis;
     }

@@ -1190,7 +1190,7 @@
     "chassis_paste_placeholder": "LBECNAFD4TZ679845\nWVWZZZ3CZWE123456",
     "chassis_missing": "{count} شاسی نەدۆزرایەوە — لە بەشی خوارەوەن.",
     "chassis_duplicate": "دووبارە",
-    "chassis_duplicates": "{count} شاسی دووبارە:",
+    "chassis_duplicate_title": "دووبارە",
     "chassis_not_found_title": "شاسی نەدۆزراوە",
     "chassis_count": "{count} شاسی",
     "countries": "وڵاتەکان",

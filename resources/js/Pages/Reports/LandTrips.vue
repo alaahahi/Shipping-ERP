@@ -72,10 +72,21 @@ const inspectChassisPaste = (raw) => {
     };
 };
 
+const formatChassisLines = (raw, duplicates = []) => {
+    const inspected = inspectChassisPaste(raw);
+    const dupSet = new Set((duplicates.length ? duplicates : inspected.duplicates).map((vin) => String(vin)));
+
+    return inspected.text
+        .split('\n')
+        .filter(Boolean)
+        .map((vin) => (dupSet.has(vin) ? `⚠ ${vin}` : vin))
+        .join('\n');
+};
+
 const applyCleanedChassis = (raw) => {
     const inspected = inspectChassisPaste(raw);
     syncingChassis.value = true;
-    filterForm.chassis_text = inspected.text;
+    filterForm.chassis_text = formatChassisLines(inspected.text, inspected.duplicates);
     localDuplicates.value = inspected.duplicates;
     queueMicrotask(() => {
         syncingChassis.value = false;
@@ -127,7 +138,10 @@ const applyFilters = () => {
         replace: true,
         onSuccess: () => {
             pendingRawChassis.value = '';
-            filterForm.chassis_text = props.filters.chassis_text ?? inspected.text;
+            filterForm.chassis_text = formatChassisLines(
+                props.filters.chassis_text ?? inspected.text,
+                props.duplicateChassis ?? inspected.duplicates,
+            );
             filterForm.duplicate_chassis = [...(props.duplicateChassis ?? [])];
         },
     });
@@ -304,14 +318,6 @@ const locationHint = (item) => {
         </form>
 
         <p
-            v-if="duplicateList.length"
-            class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-        >
-            {{ t('reports.chassis_duplicates', { count: duplicateList.length }) }}
-            <span class="ms-1 font-mono">{{ duplicateList.join(' · ') }}</span>
-        </p>
-
-        <p
             v-if="missingChassis.length"
             class="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
         >
@@ -348,21 +354,12 @@ const locationHint = (item) => {
                             v-for="(car, index) in cars.data"
                             v-else
                             :key="car.id"
-                            :class="car.is_duplicate ? 'land-report-dup' : ''"
                         >
                             <td class="ps-4 font-monospace">{{ rowSerial(index) }}</td>
                             <td class="font-medium">{{ car.company_name || '—' }}</td>
                             <td>{{ car.country_label || '—' }}</td>
                             <td>{{ car.location_status_label || '—' }}</td>
-                            <td class="font-monospace">
-                                {{ car.chassis_no || '—' }}
-                                <span
-                                    v-if="car.is_duplicate"
-                                    class="ms-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                                >
-                                    {{ t('reports.chassis_duplicate') }}
-                                </span>
-                            </td>
+                            <td class="font-monospace">{{ car.chassis_no || '—' }}</td>
                             <td>{{ car.model || '—' }}</td>
                             <td>{{ car.consignee_name || '—' }}</td>
                             <td class="text-end pe-4 font-monospace">{{ car.price }}</td>
@@ -397,6 +394,40 @@ const locationHint = (item) => {
             </div>
         </div>
 
+        <div v-if="duplicateList.length" class="erp-card mt-3 p-0 overflow-hidden">
+            <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                <h2 class="mb-0 text-base font-semibold text-gray-900 dark:text-white">
+                    {{ t('reports.chassis_duplicate_title') }}
+                    <span class="ms-2 text-sm font-normal text-gray-500 dark:text-gray-400">{{ duplicateList.length }}</span>
+                </h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table erp-table land-report-table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">{{ t('land_trips.sequence') }}</th>
+                            <th class="pe-4">{{ t('land_trips.chassis') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="(chassis, index) in duplicateList"
+                            :key="chassis"
+                            class="land-report-dup"
+                        >
+                            <td class="ps-4 font-monospace">{{ index + 1 }}</td>
+                            <td class="pe-4 font-monospace">
+                                {{ chassis }}
+                                <span class="ms-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                                    {{ t('reports.chassis_duplicate') }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div v-if="missingChassis.length" class="erp-card mt-3 p-0 overflow-hidden">
             <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
                 <h2 class="mb-0 text-base font-semibold text-gray-900 dark:text-white">
@@ -416,18 +447,9 @@ const locationHint = (item) => {
                         <tr
                             v-for="(chassis, index) in missingChassis"
                             :key="chassis"
-                            :class="duplicateList.includes(chassis) ? 'land-report-dup' : ''"
                         >
                             <td class="ps-4 font-monospace">{{ index + 1 }}</td>
-                            <td class="pe-4 font-monospace">
-                                {{ chassis }}
-                                <span
-                                    v-if="duplicateList.includes(chassis)"
-                                    class="ms-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                                >
-                                    {{ t('reports.chassis_duplicate') }}
-                                </span>
-                            </td>
+                            <td class="pe-4 font-monospace">{{ chassis }}</td>
                         </tr>
                     </tbody>
                 </table>

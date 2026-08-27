@@ -799,7 +799,7 @@
     "chassis_paste_placeholder": "LBECNAFD4TZ679845\nWVWZZZ3CZWE123456",
     "chassis_missing": "{count} chassis not found — listed in the section below.",
     "chassis_duplicate": "Duplicate",
-    "chassis_duplicates": "{count} repeated chassis:",
+    "chassis_duplicate_title": "Duplicate chassis",
     "chassis_not_found_title": "Not found chassis",
     "chassis_count": "{count} chassis",
     "countries": "Countries",
