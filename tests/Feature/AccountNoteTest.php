@@ -26,18 +26,18 @@ class AccountNoteTest extends TestCase
         $this->seed(ChartOfAccountsSeeder::class);
     }
 
-    public function test_account_page_includes_notes_tab(): void
+    public function test_account_page_includes_note_composer(): void
     {
         $user = $this->accountingUser();
         $account = Account::query()->where('code', '1100')->firstOrFail();
 
         $this->actingAs($user)
-            ->get(route('accounts.show', ['account' => $account, 'tab' => 'notes']))
+            ->get(route('accounts.show', $account))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Accounts/Show')
-                ->where('tab', 'notes')
-                ->has('notes.data', 0));
+                ->has('today')
+                ->where('canManage', true));
     }
 
     public function test_manager_can_add_edit_and_delete_account_note(): void
@@ -49,7 +49,7 @@ class AccountNoteTest extends TestCase
             ->post(route('accounts.notes.store', $account), [
                 'body' => 'Call the owner on Sunday.',
             ])
-            ->assertRedirect(route('accounts.show', ['account' => $account, 'tab' => 'notes']));
+            ->assertRedirect(route('accounts.show', $account));
 
         $note = AccountNote::query()->where('account_id', $account->id)->firstOrFail();
         $this->assertSame('Call the owner on Sunday.', $note->body);
@@ -60,7 +60,7 @@ class AccountNoteTest extends TestCase
             ->put(route('accounts.notes.update', [$account, $note]), [
                 'body' => 'Called. Will pay next week.',
             ])
-            ->assertRedirect(route('accounts.show', ['account' => $account, 'tab' => 'notes']));
+            ->assertRedirect(route('accounts.show', $account));
 
         $this->assertSame('Called. Will pay next week.', $note->fresh()->body);
         $this->assertSame($user->id, $note->fresh()->updated_by);
@@ -69,7 +69,7 @@ class AccountNoteTest extends TestCase
 
         $this->actingAs($user)
             ->delete(route('accounts.notes.destroy', [$account, $note]))
-            ->assertRedirect(route('accounts.show', ['account' => $account, 'tab' => 'notes']));
+            ->assertRedirect(route('accounts.show', $account));
 
         $this->assertSoftDeleted('account_notes', ['id' => $note->id]);
         Log::shouldHaveReceived('info')->withArgs(fn (string $message) => $message === 'Account note deleted.');

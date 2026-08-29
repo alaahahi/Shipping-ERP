@@ -10,10 +10,8 @@ use App\Http\Requests\Accounts\StoreAccountRequest;
 use App\Http\Requests\Accounts\UpdateAccountMovementRequest;
 use App\Http\Requests\Accounts\UpdateAccountRequest;
 use App\Models\Account;
-use App\Models\AccountNote;
 use App\Models\JournalEntry;
 use App\Services\AccountLedgerExportService;
-use App\Services\AccountNoteService;
 use App\Services\AccountService;
 use App\Support\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
@@ -29,8 +27,7 @@ class AccountController extends Controller
 {
     public function __construct(
         private readonly AccountService $accountService,
-        private readonly AccountLedgerExportService $accountLedgerExportService,
-        private readonly AccountNoteService $accountNoteService
+        private readonly AccountLedgerExportService $accountLedgerExportService
     ) {}
 
     public function index(Request $request): Response
@@ -89,8 +86,6 @@ class AccountController extends Controller
         Gate::authorize('view', $account);
 
         $filters = $this->ledgerFilters($request);
-        $tab = $request->string('tab')->toString() === 'notes' ? 'notes' : 'ledger';
-
         $ledger = $this->accountService->ledger($account, $filters);
 
         return Inertia::render('Accounts/Show', [
@@ -108,15 +103,11 @@ class AccountController extends Controller
                 'balance' => $this->accountService->balance($account),
                 'has_posted_movements' => $this->accountService->hasPostedMovements($account),
             ],
-            'tab' => $tab,
             'filters' => $filters,
             'period_debit' => $ledger['period_debit'],
             'period_credit' => $ledger['period_credit'],
             'period_net' => $ledger['period_net'],
             'lines' => $ledger['lines'],
-            'notes' => $this->accountNoteService
-                ->paginate($account)
-                ->through(fn (AccountNote $note) => $this->accountNoteService->transform($note)),
             'counterpartAccounts' => $this->accountService->counterpartOptions($account),
             'canManage' => $request->user()?->can('accounting.manage') ?? false,
             'today' => now(ApplicationTimezone::resolve())->toDateString(),

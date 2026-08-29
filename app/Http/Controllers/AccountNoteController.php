@@ -30,7 +30,7 @@ class AccountNoteController extends Controller
         );
 
         return redirect()
-            ->route('accounts.show', ['account' => $account, 'tab' => 'notes'])
+            ->route('accounts.show', $account)
             ->with('success', 'Note added.');
     }
 
@@ -47,7 +47,7 @@ class AccountNoteController extends Controller
         );
 
         return redirect()
-            ->route('accounts.show', ['account' => $account, 'tab' => 'notes'])
+            ->route('accounts.show', $account)
             ->with('success', 'Note updated.');
     }
 
@@ -62,7 +62,7 @@ class AccountNoteController extends Controller
         $this->accountNoteService->delete($note, $user);
 
         return redirect()
-            ->route('accounts.show', ['account' => $account, 'tab' => 'notes'])
+            ->route('accounts.show', $account)
             ->with('success', 'Note deleted.');
     }
 

@@ -12,13 +12,11 @@ import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     account: { type: Object, required: true },
-    tab: { type: String, default: 'ledger' },
     filters: { type: Object, default: () => ({}) },
     period_debit: { type: String, required: true },
     period_credit: { type: String, required: true },
     period_net: { type: String, required: true },
     lines: { type: Object, required: true },
-    notes: { type: Object, default: () => ({ data: [] }) },
     counterpartAccounts: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
     today: { type: String, default: '' },
@@ -29,14 +27,8 @@ const { requireActionPin } = useActionPin();
 const movementOpen = ref(false);
 const movementType = ref('receipt');
 const previewUrl = ref(null);
+const editingNoteId = ref(null);
 let filterTimer = null;
-
-const tabClass = (active) => [
-    'inline-flex items-center px-4 py-2 text-sm font-medium border-b-2',
-    active
-        ? 'text-teal-700 border-teal-700 dark:text-teal-400 dark:border-teal-400'
-        : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600',
-].join(' ');
 
 const filterForm = useForm({
     date_from: props.filters.date_from ?? '',
@@ -51,6 +43,11 @@ const editForm = useForm({
     description: '',
     attachment: null,
     remove_attachment: false,
+});
+
+const noteForm = useForm({
+    body: '',
+    note_date: '',
 });
 
 const toggleDashboard = () => {
@@ -163,12 +160,44 @@ const reverseLine = async (line) => {
         preserveScroll: true,
     });
 };
+
+const startEditNote = (line) => {
+    editingNoteId.value = line.note_id;
+    noteForm.body = line.description || '';
+    noteForm.note_date = line.entry_date || props.today;
+    noteForm.clearErrors();
+};
+
+const cancelEditNote = () => {
+    editingNoteId.value = null;
+    noteForm.reset();
+};
+
+const saveNote = (line) => {
+    noteForm.put(route('accounts.notes.update', [props.account.id, line.note_id]), {
+        preserveScroll: true,
+        onSuccess: () => {
+            editingNoteId.value = null;
+            noteForm.reset();
+        },
+    });
+};
+
+const deleteNote = (line) => {
+    if (!window.confirm(t('accounts.note_delete_confirm'))) {
+        return;
+    }
+
+    router.delete(route('accounts.notes.destroy', [props.account.id, line.note_id]), {
+        preserveScroll: true,
+    });
+};
 </script>
 
 <template>
-    <Head :title="`${tab === 'notes' ? t('common.notes') : t('accounts.ledger')} · ${account.code}`" />
+    <Head :title="`${t('accounts.ledger')} · ${account.code}`" />
     <AppLayout>
-        <template #header>{{ tab === 'notes' ? t('common.notes') : t('accounts.ledger') }} · {{ account.code }}</template>
+        <template #header>{{ t('accounts.ledger') }} · {{ account.code }}</template>
 
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <Link :href="route('accounts.index')" class="text-sm font-semibold text-teal-700 no-underline dark:text-teal-400">
@@ -218,8 +247,14 @@ const reverseLine = async (line) => {
             </button>
         </div>
 
+        <AccountNotesPanel
+            v-if="canManage"
+            :account-id="account.id"
+            :default-date="today"
+        />
+
         <div class="erp-hero mb-3">
-            <div class="erp-hero-kicker">{{ tab === 'notes' ? t('common.notes') : t('accounts.ledger') }}</div>
+            <div class="erp-hero-kicker">{{ t('accounts.ledger') }}</div>
             <h2 class="erp-hero-title">{{ account.code }} — {{ account.name }}</h2>
             <p class="erp-hero-subtitle">
                 {{ account.type_label }} · {{ account.currency }} · {{ t('accounts.balance') }}:
@@ -229,36 +264,6 @@ const reverseLine = async (line) => {
             </p>
         </div>
 
-        <nav
-            class="mb-4 flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700"
-            :aria-label="t('accounts.ledger')"
-        >
-            <Link :href="route('accounts.show', account.id)" :class="tabClass(tab !== 'notes')">
-                {{ t('accounts.ledger') }}
-            </Link>
-            <Link
-                :href="route('accounts.show', { account: account.id, tab: 'notes' })"
-                :class="tabClass(tab === 'notes')"
-            >
-                {{ t('common.notes') }}
-                <span
-                    v-if="notes.total"
-                    class="ms-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                >
-                    {{ notes.total }}
-                </span>
-            </Link>
-        </nav>
-
-        <template v-if="tab === 'notes'">
-            <AccountNotesPanel
-                :account-id="account.id"
-                :notes="notes"
-                :can-manage="canManage"
-                :default-date="today"
-            />
-        </template>
-        <template v-else>
         <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
             <div class="erp-stat account-ledger-inflow">
                 <div class="erp-stat-label">{{ t('journals.debit') }}</div>
@@ -358,7 +363,15 @@ const reverseLine = async (line) => {
                             :key="line.id"
                             :class="line.row_type === 'note' ? 'bg-teal-50 dark:bg-teal-950/50' : ''"
                         >
-                            <td class="ps-4">{{ line.entry_date }}</td>
+                            <td class="ps-4">
+                                <input
+                                    v-if="line.row_type === 'note' && editingNoteId === line.note_id"
+                                    v-model="noteForm.note_date"
+                                    type="date"
+                                    :class="[fbInput, '!py-1']"
+                                />
+                                <span v-else>{{ line.entry_date }}</span>
+                            </td>
                             <td>
                                 <span v-if="line.row_type === 'note'" class="text-xs font-semibold text-teal-700 dark:text-teal-400">
                                     {{ t('common.notes') }}
@@ -372,17 +385,29 @@ const reverseLine = async (line) => {
                                 </Link>
                             </td>
                             <td>
-                                <div :class="line.row_type === 'note' ? 'whitespace-pre-wrap text-sm' : ''">{{ line.description }}</div>
-                                <div v-if="line.memo" class="small text-secondary">{{ line.memo }}</div>
-                                <button
-                                    v-if="line.attachment_url"
-                                    type="button"
-                                    :class="fbGhostButton"
-                                    class="mt-1 !px-2 !py-0.5 text-xs"
-                                    @click="previewUrl = line.attachment_url"
-                                >
-                                    {{ t('accounts.view_image') }}
-                                </button>
+                                <div v-if="line.row_type === 'note' && editingNoteId === line.note_id">
+                                    <textarea
+                                        v-model="noteForm.body"
+                                        :class="fbInput"
+                                        rows="2"
+                                        maxlength="5000"
+                                    />
+                                    <InputError :message="noteForm.errors.body" />
+                                    <InputError :message="noteForm.errors.note_date" />
+                                </div>
+                                <template v-else>
+                                    <div :class="line.row_type === 'note' ? 'whitespace-pre-wrap text-sm' : ''">{{ line.description }}</div>
+                                    <div v-if="line.memo" class="small text-secondary">{{ line.memo }}</div>
+                                    <button
+                                        v-if="line.attachment_url"
+                                        type="button"
+                                        :class="fbGhostButton"
+                                        class="mt-1 !px-2 !py-0.5 text-xs"
+                                        @click="previewUrl = line.attachment_url"
+                                    >
+                                        {{ t('accounts.view_image') }}
+                                    </button>
+                                </template>
                             </td>
                             <td>
                                 <span v-if="line.row_type === 'note'" class="text-secondary">—</span>
@@ -401,7 +426,38 @@ const reverseLine = async (line) => {
                                 <MoneyAmount :value="line.balance" tone="balance" />
                             </td>
                             <td class="pe-2 text-end">
-                                <div v-if="line.row_type !== 'note'" class="inline-flex flex-wrap justify-end gap-1">
+                                <div v-if="line.row_type === 'note' && canManage" class="inline-flex flex-wrap justify-end gap-1">
+                                    <template v-if="editingNoteId === line.note_id">
+                                        <button
+                                            type="button"
+                                            :class="[fbButton, '!w-auto !px-2 !py-1 text-xs']"
+                                            :disabled="noteForm.processing"
+                                            @click="saveNote(line)"
+                                        >
+                                            {{ noteForm.processing ? t('common.saving') : t('common.save') }}
+                                        </button>
+                                        <button type="button" :class="[fbGhostButton, '!px-2 !py-1 text-xs']" @click="cancelEditNote">
+                                            {{ t('common.cancel') }}
+                                        </button>
+                                    </template>
+                                    <template v-else>
+                                        <button
+                                            type="button"
+                                            :class="[fbGhostButton, '!px-2 !py-1 text-xs']"
+                                            @click="startEditNote(line)"
+                                        >
+                                            {{ t('common.edit') }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            :class="[fbDangerButton, '!w-auto !px-2 !py-1 text-xs']"
+                                            @click="deleteNote(line)"
+                                        >
+                                            {{ t('common.delete') }}
+                                        </button>
+                                    </template>
+                                </div>
+                                <div v-else-if="line.row_type !== 'note'" class="inline-flex flex-wrap justify-end gap-1">
                                     <Link
                                         :href="route('journals.print', line.journal_entry_id)"
                                         :class="fbGhostButton"
@@ -470,7 +526,6 @@ const reverseLine = async (line) => {
                 <span v-else></span>
             </div>
         </div>
-        </template>
 
         <AccountMovementModal
             :show="movementOpen"
