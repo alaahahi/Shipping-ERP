@@ -53,6 +53,7 @@ class AccountNoteTest extends TestCase
         $note = AccountNote::query()->where('account_id', $account->id)->firstOrFail();
         $this->assertSame('Call the owner on Sunday.', $note->body);
         $this->assertSame($user->id, $note->created_by);
+        $this->assertSame(now()->toDateString(), $note->note_date?->toDateString());
 
         $this->actingAs($user)
             ->put(route('accounts.notes.update', [$account, $note]), [
@@ -106,6 +107,79 @@ class AccountNoteTest extends TestCase
             ->assertNotFound();
 
         $this->assertSame('Cash only', $note->fresh()->body);
+    }
+
+    public function test_note_date_can_be_set_and_appears_in_ledger_by_date(): void
+    {
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($user)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 100,
+            'entry_date' => '2026-08-10',
+            'description' => 'First receipt',
+        ])->assertRedirect();
+
+        $this->actingAs($user)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 50,
+            'entry_date' => '2026-08-20',
+            'description' => 'Second receipt',
+        ])->assertRedirect();
+
+        $this->actingAs($user)
+            ->post(route('accounts.notes.store', $cash), [
+                'body' => 'Follow up with the owner.',
+                'note_date' => '2026-08-15',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($user)
+            ->get(route('accounts.show', $cash))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('lines.data.0.description', 'First receipt')
+                ->where('lines.data.0.row_type', 'movement')
+                ->where('lines.data.1.row_type', 'note')
+                ->where('lines.data.1.description', 'Follow up with the owner.')
+                ->where('lines.data.1.entry_date', '2026-08-15')
+                ->where('lines.data.1.balance', '100.00')
+                ->where('lines.data.2.description', 'Second receipt')
+                ->where('lines.data.2.balance', '150.00'));
+    }
+
+    public function test_ledger_pdf_includes_dated_note(): void
+    {
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($user)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 25,
+            'entry_date' => '2026-08-10',
+            'description' => 'Exportable receipt',
+        ])->assertRedirect();
+
+        $this->actingAs($user)->post(route('accounts.notes.store', $cash), [
+            'body' => 'Owner promised to pay Friday.',
+            'note_date' => '2026-08-12',
+        ])->assertRedirect();
+
+        $this->actingAs($user)
+            ->get(route('accounts.export.pdf', $cash))
+            ->assertOk()
+            ->assertSee('Owner promised to pay Friday.', false);
+
+        $this->actingAs($user)
+            ->get(route('accounts.export.excel', $cash))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
     private function accountingUser(): User

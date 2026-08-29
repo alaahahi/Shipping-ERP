@@ -10,6 +10,7 @@ const props = defineProps({
     accountId: { type: Number, required: true },
     notes: { type: Object, required: true },
     canManage: { type: Boolean, default: false },
+    defaultDate: { type: String, default: '' },
 });
 
 const { t } = useI18n();
@@ -17,17 +18,20 @@ const editingId = ref(null);
 
 const createForm = useForm({
     body: '',
+    note_date: props.defaultDate,
 });
 
 const editForm = useForm({
     body: '',
+    note_date: '',
 });
 
 const addNote = () => {
     createForm.post(route('accounts.notes.store', props.accountId), {
         preserveScroll: true,
         onSuccess: () => {
-            createForm.reset('body');
+            createForm.reset();
+            createForm.note_date = props.defaultDate;
         },
     });
 };
@@ -35,6 +39,7 @@ const addNote = () => {
 const startEdit = (note) => {
     editingId.value = note.id;
     editForm.body = note.body;
+    editForm.note_date = note.note_date || props.defaultDate;
     editForm.clearErrors();
 };
 
@@ -66,19 +71,31 @@ const deleteNote = (note) => {
 
 <template>
     <div class="erp-card p-4 mb-3" v-if="canManage">
-        <form @submit.prevent="addNote">
-            <label :class="fbLabel" for="account-note-body">{{ t('accounts.add_note') }}</label>
-            <textarea
-                id="account-note-body"
-                v-model="createForm.body"
-                :class="fbInput"
-                rows="3"
-                maxlength="5000"
-                :placeholder="t('accounts.note_placeholder')"
-                required
-            />
-            <InputError :message="createForm.errors.body" />
-            <div class="mt-3 flex justify-end">
+        <form class="flex flex-col gap-3" @submit.prevent="addNote">
+            <div>
+                <label :class="fbLabel" for="account-note-date">{{ t('common.date') }}</label>
+                <input
+                    id="account-note-date"
+                    v-model="createForm.note_date"
+                    type="date"
+                    :class="[fbInput, 'sm:w-48']"
+                />
+                <InputError :message="createForm.errors.note_date" />
+            </div>
+            <div>
+                <label :class="fbLabel" for="account-note-body">{{ t('accounts.add_note') }}</label>
+                <textarea
+                    id="account-note-body"
+                    v-model="createForm.body"
+                    :class="fbInput"
+                    rows="3"
+                    maxlength="5000"
+                    :placeholder="t('accounts.note_placeholder')"
+                    required
+                />
+                <InputError :message="createForm.errors.body" />
+            </div>
+            <div class="flex justify-end">
                 <button type="submit" :class="[fbButton, '!w-auto']" :disabled="createForm.processing">
                     {{ createForm.processing ? t('common.saving') : t('accounts.add_note') }}
                 </button>
@@ -92,7 +109,13 @@ const deleteNote = (note) => {
         </div>
         <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
             <li v-for="note in notes.data" :key="note.id" class="p-4">
-                <div v-if="editingId === note.id">
+                <div v-if="editingId === note.id" class="flex flex-col gap-3">
+                    <input
+                        v-model="editForm.note_date"
+                        type="date"
+                        :class="[fbInput, 'sm:w-48']"
+                    />
+                    <InputError :message="editForm.errors.note_date" />
                     <textarea
                         v-model="editForm.body"
                         :class="fbInput"
@@ -100,7 +123,7 @@ const deleteNote = (note) => {
                         maxlength="5000"
                     />
                     <InputError :message="editForm.errors.body" />
-                    <div class="mt-2 flex flex-wrap gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <button
                             type="button"
                             :class="[fbButton, '!w-auto']"
@@ -115,6 +138,7 @@ const deleteNote = (note) => {
                     </div>
                 </div>
                 <div v-else>
+                    <p class="mb-1 text-xs font-semibold text-teal-700 dark:text-teal-400">{{ note.note_date }}</p>
                     <p class="whitespace-pre-wrap text-sm text-gray-900 dark:text-white">{{ note.body }}</p>
                     <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                         <p class="mb-0 text-xs text-gray-500 dark:text-gray-400">

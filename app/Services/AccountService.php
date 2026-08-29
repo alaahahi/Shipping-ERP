@@ -20,7 +20,8 @@ class AccountService
 {
     public function __construct(
         private readonly CompanyReceivableAccountService $companyReceivableAccounts,
-        private readonly JournalService $journalService
+        private readonly JournalService $journalService,
+        private readonly AccountNoteService $accountNoteService
     ) {}
 
     /**
@@ -391,13 +392,29 @@ class AccountService
         );
 
         $running = $opening + $this->signedFromTotals($account, $priorTotals['debit'], $priorTotals['credit']);
+        $pageOpening = $running;
 
-        $paginator = $this->postedLinesQuery($account, $dateFrom, $dateTo, search: $search)
+        $lineQuery = $this->postedLinesQuery($account, $dateFrom, $dateTo, search: $search);
+        $paginator = (clone $lineQuery)
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(function (JournalLine $line) use ($account, &$running): array {
-                return $this->mapLedgerLine($account, $line, $running);
-            });
+            ->withQueryString();
+
+        $prevLine = $offset > 0
+            ? (clone $lineQuery)->offset($offset - 1)->limit(1)->first()
+            : null;
+        $nextLine = (clone $lineQuery)->offset($offset + $paginator->count())->limit(1)->first();
+
+        $paginator->through(function (JournalLine $line) use ($account, &$running): array {
+            return $this->mapLedgerLine($account, $line, $running);
+        });
+
+        $paginator->setCollection(collect($this->interleaveLedgerNotes(
+            $paginator->getCollection()->all(),
+            $this->accountNoteService->ledgerRows($account, $dateFrom, $dateTo, $search),
+            $prevLine,
+            $nextLine,
+            $pageOpening
+        )));
 
         $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo, search: $search);
         $closing = $opening + $this->signedFromTotals(
@@ -457,6 +474,14 @@ class AccountService
             ->values()
             ->all();
 
+        $lines = $this->interleaveLedgerNotes(
+            $lines,
+            $this->accountNoteService->ledgerRows($account, $dateFrom, $dateTo, $search),
+            null,
+            null,
+            $opening
+        );
+
         $periodTotals = $this->postedLineTotals($account, dateFrom: $dateFrom, dateTo: $dateTo, search: $search);
         $closing = $opening + $this->signedFromTotals(
             $account,
@@ -494,6 +519,7 @@ class AccountService
 
         return [
             'id' => $line->id,
+            'row_type' => 'movement',
             'entry_date' => $entry?->entry_date?->format('Y-m-d'),
             'voucher_number' => $entry?->voucher_number,
             'journal_entry_id' => $entry?->id,
@@ -506,6 +532,102 @@ class AccountService
             'debit' => $this->formatAmount($debit),
             'credit' => $this->formatAmount($credit),
             'balance' => $this->formatAmount($running),
+        ];
+    }
+
+    /**
+     * Insert notes into a ledger page by date (after movements of the same day). Notes do not change the running balance.
+     *
+     * @param  list<array<string, mixed>>  $movements
+     * @param  list<array<string, mixed>>  $notes
+     * @return list<array<string, mixed>>
+     */
+    private function interleaveLedgerNotes(
+        array $movements,
+        array $notes,
+        ?JournalLine $previous,
+        ?JournalLine $next,
+        float $pageOpening
+    ): array {
+        $previousKey = $previous ? $this->movementSortKey($previous) : null;
+        $nextKey = $next ? $this->movementSortKey($next) : null;
+
+        $eligible = array_values(array_filter($notes, function (array $note) use ($previousKey, $nextKey): bool {
+            $key = $this->noteSortKey($note);
+            if ($previousKey !== null && ($key <=> $previousKey) <= 0) {
+                return false;
+            }
+
+            return ! ($nextKey !== null && ($key <=> $nextKey) >= 0);
+        }));
+
+        $merged = [];
+        $movementIndex = 0;
+        $noteIndex = 0;
+        $balance = $this->formatAmount($pageOpening);
+        $movementCount = count($movements);
+        $noteCount = count($eligible);
+
+        while ($movementIndex < $movementCount || $noteIndex < $noteCount) {
+            $takeNote = false;
+            if ($noteIndex < $noteCount && $movementIndex < $movementCount) {
+                $takeNote = ($this->noteSortKey($eligible[$noteIndex]) <=> $this->mappedMovementSortKey($movements[$movementIndex])) < 0;
+            } elseif ($noteIndex < $noteCount) {
+                $takeNote = true;
+            }
+
+            if ($takeNote) {
+                $row = $eligible[$noteIndex++];
+                $row['balance'] = $balance;
+                $merged[] = $row;
+            } else {
+                $row = $movements[$movementIndex++];
+                $balance = (string) $row['balance'];
+                $merged[] = $row;
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @return array{0: string, 1: int, 2: int, 3: int}
+     */
+    private function movementSortKey(JournalLine $line): array
+    {
+        return [
+            $line->journalEntry?->entry_date?->format('Y-m-d') ?? '',
+            0,
+            (int) $line->journal_entry_id,
+            (int) $line->id,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{0: string, 1: int, 2: int, 3: int}
+     */
+    private function mappedMovementSortKey(array $row): array
+    {
+        return [
+            (string) ($row['entry_date'] ?? ''),
+            0,
+            (int) ($row['journal_entry_id'] ?? 0),
+            (int) $row['id'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $note
+     * @return array{0: string, 1: int, 2: int, 3: int}
+     */
+    private function noteSortKey(array $note): array
+    {
+        return [
+            (string) ($note['entry_date'] ?? ''),
+            1,
+            0,
+            (int) ($note['note_id'] ?? 0),
         ];
     }
 

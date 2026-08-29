@@ -21,6 +21,7 @@ const props = defineProps({
     notes: { type: Object, default: () => ({ data: [] }) },
     counterpartAccounts: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
+    today: { type: String, default: '' },
 });
 
 const { t } = useI18n();
@@ -254,6 +255,7 @@ const reverseLine = async (line) => {
                 :account-id="account.id"
                 :notes="notes"
                 :can-manage="canManage"
+                :default-date="today"
             />
         </template>
         <template v-else>
@@ -351,10 +353,18 @@ const reverseLine = async (line) => {
                         <tr v-if="lines.data.length === 0">
                             <td colspan="8" class="text-center text-secondary py-4">{{ t('accounts.ledger_none') }}</td>
                         </tr>
-                        <tr v-for="line in lines.data" :key="line.id">
+                        <tr
+                            v-for="line in lines.data"
+                            :key="line.id"
+                            :class="line.row_type === 'note' ? 'bg-teal-50 dark:bg-teal-950/50' : ''"
+                        >
                             <td class="ps-4">{{ line.entry_date }}</td>
                             <td>
+                                <span v-if="line.row_type === 'note'" class="text-xs font-semibold text-teal-700 dark:text-teal-400">
+                                    {{ t('common.notes') }}
+                                </span>
                                 <Link
+                                    v-else
                                     :href="route('journals.show', line.journal_entry_id)"
                                     class="accounts-chart-link"
                                 >
@@ -362,7 +372,7 @@ const reverseLine = async (line) => {
                                 </Link>
                             </td>
                             <td>
-                                <div>{{ line.description }}</div>
+                                <div :class="line.row_type === 'note' ? 'whitespace-pre-wrap text-sm' : ''">{{ line.description }}</div>
                                 <div v-if="line.memo" class="small text-secondary">{{ line.memo }}</div>
                                 <button
                                     v-if="line.attachment_url"
@@ -375,20 +385,23 @@ const reverseLine = async (line) => {
                                 </button>
                             </td>
                             <td>
-                                <span v-if="line.counterpart">{{ line.counterpart.label }}</span>
+                                <span v-if="line.row_type === 'note'" class="text-secondary">—</span>
+                                <span v-else-if="line.counterpart">{{ line.counterpart.label }}</span>
                                 <span v-else class="text-secondary">—</span>
                             </td>
                             <td class="text-end">
-                                <MoneyAmount :value="line.debit" tone="debit" />
+                                <span v-if="line.row_type === 'note'" class="text-secondary">—</span>
+                                <MoneyAmount v-else :value="line.debit" tone="debit" />
                             </td>
                             <td class="text-end">
-                                <MoneyAmount :value="line.credit" tone="credit" />
+                                <span v-if="line.row_type === 'note'" class="text-secondary">—</span>
+                                <MoneyAmount v-else :value="line.credit" tone="credit" />
                             </td>
                             <td class="text-end">
                                 <MoneyAmount :value="line.balance" tone="balance" />
                             </td>
                             <td class="pe-2 text-end">
-                                <div class="inline-flex flex-wrap justify-end gap-1">
+                                <div v-if="line.row_type !== 'note'" class="inline-flex flex-wrap justify-end gap-1">
                                     <Link
                                         :href="route('journals.print', line.journal_entry_id)"
                                         :class="fbGhostButton"

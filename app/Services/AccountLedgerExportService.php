@@ -10,6 +10,7 @@ use App\Support\ResolvedLocale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -72,15 +73,26 @@ class AccountLedgerExportService
 
         $line = 10;
         foreach ($payload['lines'] as $row) {
+            $isNote = ($row['row_type'] ?? '') === 'note';
             $sheet->fromArray([
                 $row['entry_date'] ?? '',
-                $row['voucher_number'] ?? '',
-                trim((string) ($row['description'] ?? '').(filled($row['memo'] ?? null) ? ' / '.$row['memo'] : '')),
-                $row['counterpart']['label'] ?? '',
-                $row['debit'],
-                $row['credit'],
+                $isNote ? $labels['note'] : ($row['voucher_number'] ?? ''),
+                $isNote
+                    ? (string) ($row['description'] ?? '')
+                    : trim((string) ($row['description'] ?? '').(filled($row['memo'] ?? null) ? ' / '.$row['memo'] : '')),
+                $isNote ? '' : ($row['counterpart']['label'] ?? ''),
+                $isNote ? '' : $row['debit'],
+                $isNote ? '' : $row['credit'],
                 $row['balance'],
             ], null, "A{$line}");
+
+            if ($isNote) {
+                $sheet->getStyle("A{$line}:G{$line}")->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setRGB('CCFBF1');
+            }
+
             $line++;
         }
 
@@ -140,6 +152,7 @@ class AccountLedgerExportService
                 'balance' => 'Balance',
                 'period_net' => 'Net',
                 'empty' => 'No posted activity in this period.',
+                'note' => 'Note',
             ],
             AppLocale::KurdishSorani => [
                 'ledger' => 'پەڕەی هەژمار',
@@ -157,6 +170,7 @@ class AccountLedgerExportService
                 'balance' => 'باڵانس',
                 'period_net' => 'ئەنجام',
                 'empty' => 'هیچ جووڵەیەک نییە.',
+                'note' => 'تێبینی',
             ],
             default => [
                 'ledger' => 'كشف الحساب',
@@ -174,6 +188,7 @@ class AccountLedgerExportService
                 'balance' => 'الرصيد',
                 'period_net' => 'الناتج',
                 'empty' => 'لا توجد حركات مرحلة في هذه الفترة.',
+                'note' => 'ملاحظة',
             ],
         };
     }

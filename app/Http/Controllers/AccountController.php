@@ -15,6 +15,7 @@ use App\Models\JournalEntry;
 use App\Services\AccountLedgerExportService;
 use App\Services\AccountNoteService;
 use App\Services\AccountService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -118,6 +119,7 @@ class AccountController extends Controller
                 ->through(fn (AccountNote $note) => $this->accountNoteService->transform($note)),
             'counterpartAccounts' => $this->accountService->counterpartOptions($account),
             'canManage' => $request->user()?->can('accounting.manage') ?? false,
+            'today' => now(ApplicationTimezone::resolve())->toDateString(),
         ]);
     }
 

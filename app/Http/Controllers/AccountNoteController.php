@@ -25,7 +25,8 @@ class AccountNoteController extends Controller
         $this->accountNoteService->create(
             $account,
             $request->user(),
-            $request->validated('body')
+            $request->validated('body'),
+            $request->validated('note_date')
         );
 
         return redirect()
@@ -41,7 +42,8 @@ class AccountNoteController extends Controller
         $this->accountNoteService->update(
             $note,
             $request->user(),
-            $request->validated('body')
+            $request->validated('body'),
+            $request->validated('note_date')
         );
 
         return redirect()

@@ -22,6 +22,7 @@ class StoreAccountNoteRequest extends FormRequest
     {
         return [
             'body' => ['required', 'string', 'max:5000'],
+            'note_date' => ['nullable', 'date'],
         ];
     }
 }

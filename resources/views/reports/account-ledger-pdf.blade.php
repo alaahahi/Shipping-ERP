@@ -16,6 +16,7 @@
         .lines th { background: #f3f3f3; font-weight: bold; }
         td.num, th.num { text-align: right; }
         tfoot td { font-weight: bold; background: #fafafa; }
+        .lines tr.note td { background: #ccfbf1; }
     </style>
 </head>
 <body>
@@ -60,18 +61,19 @@
         </thead>
         <tbody>
             @forelse ($payload['lines'] as $row)
-                <tr>
+                @php $isNote = ($row['row_type'] ?? '') === 'note'; @endphp
+                <tr class="{{ $isNote ? 'note' : '' }}">
                     <td>{{ $row['entry_date'] ?? '—' }}</td>
-                    <td>{{ $row['voucher_number'] ?? '—' }}</td>
+                    <td>{{ $isNote ? $labels['note'] : ($row['voucher_number'] ?? '—') }}</td>
                     <td>
                         {{ $row['description'] ?? '' }}
-                        @if (!empty($row['memo']))
+                        @if (! $isNote && ! empty($row['memo']))
                             / {{ $row['memo'] }}
                         @endif
                     </td>
-                    <td>{{ $row['counterpart']['label'] ?? '—' }}</td>
-                    <td class="num">{{ $row['debit'] }}</td>
-                    <td class="num">{{ $row['credit'] }}</td>
+                    <td>{{ $isNote ? '—' : ($row['counterpart']['label'] ?? '—') }}</td>
+                    <td class="num">{{ $isNote ? '' : $row['debit'] }}</td>
+                    <td class="num">{{ $isNote ? '' : $row['credit'] }}</td>
                     <td class="num">{{ $row['balance'] }}</td>
                 </tr>
             @empty
