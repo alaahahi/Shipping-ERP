@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AccountNoteController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanyDirectChargeController;
 use App\Http\Controllers\CompanyWalletController;
@@ -101,6 +102,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounts.journals.void');
     Route::post('/accounts/{account}/journals/{journal}/reverse', [AccountController::class, 'reverseMovement'])
         ->name('accounts.journals.reverse');
+    Route::post('/accounts/{account}/notes', [AccountNoteController::class, 'store'])
+        ->name('accounts.notes.store');
+    Route::put('/accounts/{account}/notes/{note}', [AccountNoteController::class, 'update'])
+        ->name('accounts.notes.update');
+    Route::delete('/accounts/{account}/notes/{note}', [AccountNoteController::class, 'destroy'])
+        ->name('accounts.notes.destroy');
 
     Route::resource('ships', ShipController::class);
     Route::resource('companies', CompanyController::class);

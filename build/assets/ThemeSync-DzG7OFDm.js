@@ -1,0 +1,1 @@
+import{u as n}from"./useTheme-BOsM4d1V.js";import{G as o,c as s,o as t}from"./app-RT__ncGR.js";const c={class:"d-none","aria-hidden":"true"},u={__name:"ThemeSync",setup(a){const{sync:e}=n();return o(e),(r,_)=>(t(),s("span",c))}};export{u as _};

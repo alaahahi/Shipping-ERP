@@ -354,7 +354,12 @@
     "show_on_dashboard_help": "يظهر الحساب في لوحة التحكم للوصول السريع إلى الكشف.",
     "pinned": "مثبّت",
     "pin_dashboard": "تثبيت في الرئيسية",
-    "unpin_dashboard": "إزالة من الرئيسية"
+    "unpin_dashboard": "إزالة من الرئيسية",
+    "add_note": "إضافة ملاحظة",
+    "note_placeholder": "اكتب ملاحظة عن صاحب الحساب…",
+    "notes_none": "لا توجد ملاحظات بعد.",
+    "note_edited": "عُدّلت",
+    "note_delete_confirm": "حذف هذه الملاحظة؟"
   },
   "journals": {
     "title": "القيود اليومية",

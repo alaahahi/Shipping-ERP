@@ -54,6 +54,11 @@ class Account extends Model
         return $this->hasMany(JournalLine::class);
     }
 
+    public function notes(): HasMany
+    {
+        return $this->hasMany(AccountNote::class);
+    }
+
     public function accountable(): MorphTo
     {
         return $this->morphTo();

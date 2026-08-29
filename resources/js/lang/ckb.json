@@ -354,7 +354,12 @@
     "show_on_dashboard_help": "ئەم هەژمارە لە داشبۆرد دەردەکەوێت بۆ دەستگەیشتنی خێرا.",
     "pinned": "جێگیرکراو",
     "pin_dashboard": "جێگیرکردن لە سەرەکی",
-    "unpin_dashboard": "لابردن لە سەرەکی"
+    "unpin_dashboard": "لابردن لە سەرەکی",
+    "add_note": "زیادکردنی تێبینی",
+    "note_placeholder": "تێبینییەک لەسەر خاوەنی هەژمارەکە بنووسە…",
+    "notes_none": "هێشتا تێبینی نییە.",
+    "note_edited": "دەستکاریکرا",
+    "note_delete_confirm": "ئەم تێبینییە بسڕیتەوە؟"
   },
   "journals": {
     "title": "دۆخی ژوورناڵ",

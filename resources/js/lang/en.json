@@ -354,7 +354,12 @@
     "show_on_dashboard_help": "Pin this account on the home page for quick ledger access.",
     "pinned": "Pinned",
     "pin_dashboard": "Pin to dashboard",
-    "unpin_dashboard": "Unpin from dashboard"
+    "unpin_dashboard": "Unpin from dashboard",
+    "add_note": "Add note",
+    "note_placeholder": "Write a note about this account holder…",
+    "notes_none": "No notes yet.",
+    "note_edited": "Edited",
+    "note_delete_confirm": "Delete this note?"
   },
   "journals": {
     "title": "Journal Entries",

@@ -1,5 +1,6 @@
 <script setup>
 import AccountMovementModal from '@/Components/AccountMovementModal.vue';
+import AccountNotesPanel from '@/Components/AccountNotesPanel.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
@@ -11,11 +12,13 @@ import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     account: { type: Object, required: true },
+    tab: { type: String, default: 'ledger' },
     filters: { type: Object, default: () => ({}) },
     period_debit: { type: String, required: true },
     period_credit: { type: String, required: true },
     period_net: { type: String, required: true },
     lines: { type: Object, required: true },
+    notes: { type: Object, default: () => ({ data: [] }) },
     counterpartAccounts: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
 });
@@ -26,6 +29,13 @@ const movementOpen = ref(false);
 const movementType = ref('receipt');
 const previewUrl = ref(null);
 let filterTimer = null;
+
+const tabClass = (active) => [
+    'inline-flex items-center px-4 py-2 text-sm font-medium border-b-2',
+    active
+        ? 'text-teal-700 border-teal-700 dark:text-teal-400 dark:border-teal-400'
+        : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600',
+].join(' ');
 
 const filterForm = useForm({
     date_from: props.filters.date_from ?? '',
@@ -155,9 +165,9 @@ const reverseLine = async (line) => {
 </script>
 
 <template>
-    <Head :title="`${t('accounts.ledger')} · ${account.code}`" />
+    <Head :title="`${tab === 'notes' ? t('common.notes') : t('accounts.ledger')} · ${account.code}`" />
     <AppLayout>
-        <template #header>{{ t('accounts.ledger') }} · {{ account.code }}</template>
+        <template #header>{{ tab === 'notes' ? t('common.notes') : t('accounts.ledger') }} · {{ account.code }}</template>
 
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <Link :href="route('accounts.index')" class="text-sm font-semibold text-teal-700 no-underline dark:text-teal-400">
@@ -208,7 +218,7 @@ const reverseLine = async (line) => {
         </div>
 
         <div class="erp-hero mb-3">
-            <div class="erp-hero-kicker">{{ t('accounts.ledger') }}</div>
+            <div class="erp-hero-kicker">{{ tab === 'notes' ? t('common.notes') : t('accounts.ledger') }}</div>
             <h2 class="erp-hero-title">{{ account.code }} — {{ account.name }}</h2>
             <p class="erp-hero-subtitle">
                 {{ account.type_label }} · {{ account.currency }} · {{ t('accounts.balance') }}:
@@ -218,6 +228,35 @@ const reverseLine = async (line) => {
             </p>
         </div>
 
+        <nav
+            class="mb-4 flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700"
+            :aria-label="t('accounts.ledger')"
+        >
+            <Link :href="route('accounts.show', account.id)" :class="tabClass(tab !== 'notes')">
+                {{ t('accounts.ledger') }}
+            </Link>
+            <Link
+                :href="route('accounts.show', { account: account.id, tab: 'notes' })"
+                :class="tabClass(tab === 'notes')"
+            >
+                {{ t('common.notes') }}
+                <span
+                    v-if="notes.total"
+                    class="ms-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                >
+                    {{ notes.total }}
+                </span>
+            </Link>
+        </nav>
+
+        <template v-if="tab === 'notes'">
+            <AccountNotesPanel
+                :account-id="account.id"
+                :notes="notes"
+                :can-manage="canManage"
+            />
+        </template>
+        <template v-else>
         <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
             <div class="erp-stat account-ledger-inflow">
                 <div class="erp-stat-label">{{ t('journals.debit') }}</div>
@@ -418,6 +457,7 @@ const reverseLine = async (line) => {
                 <span v-else></span>
             </div>
         </div>
+        </template>
 
         <AccountMovementModal
             :show="movementOpen"
