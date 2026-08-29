@@ -6,6 +6,7 @@ use App\Enums\Permission;
 use App\Models\Account;
 use App\Models\AccountNote;
 use App\Models\User;
+use App\Services\AccountService;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -171,10 +172,16 @@ class AccountNoteTest extends TestCase
             'note_date' => '2026-08-12',
         ])->assertRedirect();
 
+        $payload = app(AccountService::class)->ledgerExport($cash, []);
+        $this->assertSame('movement', $payload['lines'][0]['row_type']);
+        $this->assertSame('note', $payload['lines'][1]['row_type']);
+        $this->assertSame('Owner promised to pay Friday.', $payload['lines'][1]['description']);
+        $this->assertSame('2026-08-12', $payload['lines'][1]['entry_date']);
+
         $this->actingAs($user)
             ->get(route('accounts.export.pdf', $cash))
             ->assertOk()
-            ->assertSee('Owner promised to pay Friday.', false);
+            ->assertHeader('content-type', 'application/pdf');
 
         $this->actingAs($user)
             ->get(route('accounts.export.excel', $cash))

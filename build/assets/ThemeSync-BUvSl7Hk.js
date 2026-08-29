@@ -1,0 +1,1 @@
+import{u as n}from"./useTheme-B3lGDemG.js";import{G as o,c as s,o as t}from"./app-dHp8rJx4.js";const c={class:"d-none","aria-hidden":"true"},u={__name:"ThemeSync",setup(a){const{sync:e}=n();return o(e),(r,_)=>(t(),s("span",c))}};export{u as _};
