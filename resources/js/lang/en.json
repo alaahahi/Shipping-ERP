@@ -951,6 +951,7 @@
     "attach_file": "Attach file",
     "attach_file_help": "Image or PDF, up to 10 MB.",
     "view_attachment": "View attachment",
+    "replace_attachment": "Replace",
     "cash_account": "Cash account",
     "journal_voucher": "Journal",
     "sequence": "No.",

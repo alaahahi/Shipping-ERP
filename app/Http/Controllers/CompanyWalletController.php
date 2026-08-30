@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LandTrips\AssignPaymentChassisRequest;
 use App\Http\Requests\LandTrips\DestroyCompanyWalletEntryRequest;
 use App\Http\Requests\LandTrips\StoreCompanyWalletEntryRequest;
+use App\Http\Requests\LandTrips\UpdateCompanyWalletAttachmentRequest;
 use App\Models\Company;
 use App\Models\CompanyWalletEntry;
 use App\Models\LandTrip;
+use App\Models\User;
 use App\Services\CompanyWalletService;
 use App\Services\LandPaymentChassisService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -79,6 +82,22 @@ class CompanyWalletController extends Controller
         $payload = $this->walletService->printPayload($company, $entry);
 
         return Inertia::render('LandTrips/WalletPrint', $payload);
+    }
+
+    public function updateAttachment(
+        UpdateCompanyWalletAttachmentRequest $request,
+        Company $company,
+        CompanyWalletEntry $entry
+    ): RedirectResponse {
+        Gate::authorize('update', $entry);
+
+        $user = $request->user();
+        $file = $request->file('attachment');
+        abort_unless($user instanceof User && $file instanceof UploadedFile, 422);
+
+        $this->walletService->replaceAttachment($company, $entry, $user, $file);
+
+        return back()->with('success', 'Attachment updated.');
     }
 
     public function showAttachment(Company $company, CompanyWalletEntry $entry): StreamedResponse

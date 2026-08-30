@@ -14,6 +14,7 @@ use App\Support\ApplicationTimezone;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class CompanyWalletService
@@ -306,6 +307,38 @@ class CompanyWalletService
         });
     }
 
+    public function replaceAttachment(
+        Company $company,
+        CompanyWalletEntry $entry,
+        User $actor,
+        UploadedFile $file
+    ): CompanyWalletEntry {
+        if ((int) $entry->company_id !== (int) $company->id) {
+            abort(404);
+        }
+
+        return DB::transaction(function () use ($entry, $actor, $file): CompanyWalletEntry {
+            $locked = CompanyWalletEntry::query()
+                ->whereKey($entry->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $journal = $locked->journal_entry_id
+                ? JournalEntry::query()->find($locked->journal_entry_id)
+                : null;
+
+            $this->attachFile($locked, $journal, $file);
+
+            Log::info('Company wallet attachment replaced.', [
+                'company_id' => $locked->company_id,
+                'entry_id' => $locked->id,
+                'user_id' => $actor->id,
+            ]);
+
+            return $locked->fresh() ?? $locked;
+        });
+    }
+
     /**
      * @param  list<array{id: int, land_trip_car_id: int|null, chassis_no: string}>  $chassis
      * @return array<string, mixed>
@@ -327,8 +360,10 @@ class CompanyWalletService
             'created_by_name' => $entry->creator?->name,
             'journal_voucher' => $entry->journalEntry?->voucher_number,
             'has_attachment' => filled($entry->attachment_path),
-            'attachment_url' => $entry->attachmentUrl(),
+            'attachment_url' => $this->versionedAttachmentUrl($entry->attachmentUrl(), $entry->updated_at?->timestamp),
             'attachment_name' => $entry->attachment_original_name,
+            'attachment_is_image' => $this->attachmentIsImage($entry->attachment_original_name, $entry->attachment_path),
+            'attachment_is_pdf' => $this->attachmentIsPdf($entry->attachment_original_name, $entry->attachment_path),
             'amount_words_ar' => $words['arabic'],
             'amount_words_ckb' => $words['kurdish'],
             'chassis' => $chassis,
@@ -375,12 +410,13 @@ class CompanyWalletService
         return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
-    private function attachFile(CompanyWalletEntry $entry, JournalEntry $journal, ?UploadedFile $file): void
+    private function attachFile(CompanyWalletEntry $entry, ?JournalEntry $journal, ?UploadedFile $file): void
     {
         if (! $file) {
             return;
         }
 
+        $oldPath = $entry->attachment_path;
         $path = $file->store('land-payments/wallet/'.$entry->id, 'public');
         $name = mb_substr($file->getClientOriginalName(), 0, 180);
 
@@ -388,9 +424,37 @@ class CompanyWalletService
             'attachment_path' => $path,
             'attachment_original_name' => $name,
         ]);
-        $journal->update([
+        $journal?->update([
             'attachment_path' => $path,
         ]);
+
+        if ($oldPath && $oldPath !== $path && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+    }
+
+    private function versionedAttachmentUrl(?string $url, ?int $version): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.($version ?: time());
+    }
+
+    private function attachmentIsImage(?string $name, ?string $path): bool
+    {
+        return in_array($this->attachmentExtension($name, $path), ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+    }
+
+    private function attachmentIsPdf(?string $name, ?string $path): bool
+    {
+        return $this->attachmentExtension($name, $path) === 'pdf';
+    }
+
+    private function attachmentExtension(?string $name, ?string $path): string
+    {
+        return strtolower(pathinfo((string) ($name ?: $path ?: ''), PATHINFO_EXTENSION));
     }
 
     private function nullableString(mixed $value): ?string

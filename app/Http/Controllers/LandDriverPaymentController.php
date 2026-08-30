@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LandTrips\AssignPaymentChassisRequest;
 use App\Http\Requests\LandTrips\DestroyLandDriverPaymentRequest;
 use App\Http\Requests\LandTrips\StoreLandDriverPaymentRequest;
+use App\Http\Requests\LandTrips\UpdateLandDriverPaymentAttachmentRequest;
 use App\Models\Company;
 use App\Models\LandDriverPayment;
+use App\Models\User;
 use App\Services\LandDriverPaymentService;
 use App\Services\LandPaymentChassisService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -70,6 +73,22 @@ class LandDriverPaymentController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    public function updateAttachment(
+        UpdateLandDriverPaymentAttachmentRequest $request,
+        Company $company,
+        LandDriverPayment $payment
+    ): RedirectResponse {
+        Gate::authorize('update', $payment);
+
+        $user = $request->user();
+        $file = $request->file('attachment');
+        abort_unless($user instanceof User && $file instanceof UploadedFile, 422);
+
+        $this->driverPaymentService->replaceAttachment($company, $payment, $user, $file);
+
+        return back()->with('success', 'Attachment updated.');
     }
 
     public function showAttachment(Company $company, LandDriverPayment $payment): StreamedResponse

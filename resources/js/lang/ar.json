@@ -951,6 +951,7 @@
     "attach_file": "إرفاق ملف",
     "attach_file_help": "صورة أو PDF حتى 10 ميغابايت.",
     "view_attachment": "عرض المرفق",
+    "replace_attachment": "استبدال",
     "cash_account": "حساب الصندوق",
     "journal_voucher": "القيد",
     "sequence": "تسلسل",

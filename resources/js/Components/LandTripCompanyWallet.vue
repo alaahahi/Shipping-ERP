@@ -2,6 +2,7 @@
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import LandDriverPaymentModal from '@/Components/LandTrips/LandDriverPaymentModal.vue';
+import LandPaymentAttachmentField from '@/Components/LandTrips/LandPaymentAttachmentField.vue';
 import PaymentChassisAssignModal from '@/Components/LandTrips/PaymentChassisAssignModal.vue';
 import PaymentChassisBadges from '@/Components/LandTrips/PaymentChassisBadges.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
@@ -23,6 +24,8 @@ const deletingId = ref(null);
 const deletingPaymentId = ref(null);
 const showDriverModal = ref(false);
 const chassisTarget = ref(null);
+const preview = ref(null);
+const replacingKey = ref(null);
 const deleteError = computed(() => page.props.errors?.entry || page.props.errors?.cash_account_id);
 const cashAccount = computed(() => props.wallet.cash_account || null);
 const driverPayments = computed(() => props.wallet.driver_payments || []);
@@ -130,6 +133,35 @@ const destroyPayment = (payment) => {
         only: ['wallet', 'errors', 'flash'],
         onFinish: () => {
             deletingPaymentId.value = null;
+        },
+    });
+};
+
+const openPreview = (row) => {
+    if (!row.attachment_url) {
+        return;
+    }
+
+    preview.value = {
+        url: row.attachment_url,
+        name: row.attachment_name || '',
+        isImage: !!row.attachment_is_image,
+        isPdf: !!row.attachment_is_pdf,
+    };
+};
+
+const replaceAttachment = (key, url, file) => {
+    replacingKey.value = key;
+    router.post(url, { attachment: file }, {
+        forceFormData: true,
+        preserveScroll: true,
+        preserveState: true,
+        only: ['wallet', 'errors', 'flash'],
+        onSuccess: () => {
+            preview.value = null;
+        },
+        onFinish: () => {
+            replacingKey.value = null;
         },
     });
 };
@@ -262,16 +294,14 @@ const destroyPayment = (payment) => {
                             </td>
                             <td>{{ entry.notes || '—' }}</td>
                             <td>
-                                <a
-                                    v-if="entry.attachment_url"
-                                    class="btn btn-sm btn-erp-ghost"
-                                    :href="entry.attachment_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {{ t('land_trips.view_attachment') }}
-                                </a>
-                                <span v-else>—</span>
+                                <LandPaymentAttachmentField
+                                    :url="entry.attachment_url"
+                                    :name="entry.attachment_name"
+                                    :can-manage="canManage"
+                                    :replacing="replacingKey === `wallet-${entry.id}`"
+                                    @preview="openPreview(entry)"
+                                    @replace="replaceAttachment(`wallet-${entry.id}`, route('land-trips.companies.wallet.attachment.update', [company.id, entry.id]), $event)"
+                                />
                             </td>
                             <td class="font-monospace small">{{ entry.journal_voucher || '—' }}</td>
                             <td>{{ entry.created_by_name || '—' }}</td>
@@ -357,16 +387,14 @@ const destroyPayment = (payment) => {
                             <td>{{ payment.cash_account_name || '—' }}</td>
                             <td class="font-monospace small">{{ payment.journal_voucher || '—' }}</td>
                             <td>
-                                <a
-                                    v-if="payment.attachment_url"
-                                    class="btn btn-sm btn-erp-ghost"
-                                    :href="payment.attachment_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {{ t('land_trips.view_attachment') }}
-                                </a>
-                                <span v-else>—</span>
+                                <LandPaymentAttachmentField
+                                    :url="payment.attachment_url"
+                                    :name="payment.attachment_name"
+                                    :can-manage="canManage"
+                                    :replacing="replacingKey === `driver-${payment.id}`"
+                                    @preview="openPreview(payment)"
+                                    @replace="replaceAttachment(`driver-${payment.id}`, route('land-trips.companies.driver-payments.attachment.update', [company.id, payment.id]), $event)"
+                                />
                             </td>
                             <td>{{ payment.created_by_name || '—' }}</td>
                             <td v-if="canManage" class="text-end pe-3">
@@ -411,5 +439,56 @@ const destroyPayment = (payment) => {
             :cash-account="cashAccount"
             @close="showDriverModal = false"
         />
+
+        <div v-if="preview" class="erp-modal-backdrop" @click.self="preview = null">
+            <div
+                class="erp-modal-dialog erp-card p-0 overflow-hidden"
+                style="width: min(920px, 100%)"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="t('land_trips.preview')"
+            >
+                <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom">
+                    <div>
+                        <h3 class="h5 erp-display mb-1">{{ t('land_trips.preview') }}</h3>
+                        <p v-if="preview.name" class="small text-secondary mb-0">{{ preview.name }}</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a
+                            :href="preview.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn btn-sm btn-erp-ghost"
+                        >
+                            {{ t('land_trips.view_attachment') }}
+                        </a>
+                        <button type="button" class="btn btn-sm btn-erp-ghost" @click="preview = null">
+                            {{ t('common.cancel') }}
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 bg-dark-subtle">
+                    <img
+                        v-if="preview.isImage"
+                        :src="preview.url"
+                        :alt="preview.name || t('land_trips.preview')"
+                        class="mx-auto d-block rounded"
+                        style="max-height: 75vh; max-width: 100%; width: auto;"
+                    />
+                    <iframe
+                        v-else-if="preview.isPdf"
+                        :src="preview.url"
+                        class="w-100 rounded bg-white"
+                        style="height: 75vh; border: 0;"
+                        :title="preview.name || t('land_trips.preview')"
+                    />
+                    <p v-else class="mb-0">
+                        <a :href="preview.url" target="_blank" rel="noopener noreferrer">
+                            {{ preview.name || t('land_trips.view_attachment') }}
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </template>

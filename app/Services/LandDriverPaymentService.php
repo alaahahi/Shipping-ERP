@@ -11,8 +11,10 @@ use App\Models\LandTrip;
 use App\Models\User;
 use App\Support\ApplicationTimezone;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class LandDriverPaymentService
@@ -24,7 +26,7 @@ class LandDriverPaymentService
     ) {}
 
     /**
-     * @return \Illuminate\Support\Collection<int, LandDriverPayment>
+     * @return Collection<int, LandDriverPayment>
      */
     public function models(Company $company)
     {
@@ -224,6 +226,38 @@ class LandDriverPaymentService
         });
     }
 
+    public function replaceAttachment(
+        Company $company,
+        LandDriverPayment $payment,
+        User $actor,
+        UploadedFile $file
+    ): LandDriverPayment {
+        if ((int) $payment->company_id !== (int) $company->id) {
+            abort(404);
+        }
+
+        return DB::transaction(function () use ($payment, $actor, $file): LandDriverPayment {
+            $locked = LandDriverPayment::query()
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $journal = $locked->journal_entry_id
+                ? JournalEntry::query()->find($locked->journal_entry_id)
+                : null;
+
+            $this->attachFile($locked, $journal, $file);
+
+            Log::info('Land driver payment attachment replaced.', [
+                'company_id' => $locked->company_id,
+                'payment_id' => $locked->id,
+                'user_id' => $actor->id,
+            ]);
+
+            return $locked->fresh() ?? $locked;
+        });
+    }
+
     /**
      * @param  list<array{id: int, land_trip_car_id: int|null, chassis_no: string}>  $chassis
      * @return array<string, mixed>
@@ -250,8 +284,10 @@ class LandDriverPaymentService
             'cash_account_name' => $payment->cashAccount?->name,
             'journal_voucher' => $payment->journalEntry?->voucher_number,
             'has_attachment' => filled($payment->attachment_path),
-            'attachment_url' => $payment->attachmentUrl(),
+            'attachment_url' => $this->versionedAttachmentUrl($payment->attachmentUrl(), $payment->updated_at?->timestamp),
             'attachment_name' => $payment->attachment_original_name,
+            'attachment_is_image' => $this->attachmentIsImage($payment->attachment_original_name, $payment->attachment_path),
+            'attachment_is_pdf' => $this->attachmentIsPdf($payment->attachment_original_name, $payment->attachment_path),
             'created_at' => ApplicationTimezone::formatDateTime($payment->created_at),
             'created_by_name' => $payment->creator?->name,
             'chassis' => $chassis,
@@ -277,12 +313,13 @@ class LandDriverPaymentService
         $this->journalService->void($journal, $actor, $reason);
     }
 
-    private function attachFile(LandDriverPayment $payment, JournalEntry $journal, ?UploadedFile $file): void
+    private function attachFile(LandDriverPayment $payment, ?JournalEntry $journal, ?UploadedFile $file): void
     {
         if (! $file) {
             return;
         }
 
+        $oldPath = $payment->attachment_path;
         $path = $file->store('land-payments/drivers/'.$payment->id, 'public');
         $name = mb_substr($file->getClientOriginalName(), 0, 180);
 
@@ -290,9 +327,37 @@ class LandDriverPaymentService
             'attachment_path' => $path,
             'attachment_original_name' => $name,
         ]);
-        $journal->update([
+        $journal?->update([
             'attachment_path' => $path,
         ]);
+
+        if ($oldPath && $oldPath !== $path && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+    }
+
+    private function versionedAttachmentUrl(?string $url, ?int $version): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.($version ?: time());
+    }
+
+    private function attachmentIsImage(?string $name, ?string $path): bool
+    {
+        return in_array($this->attachmentExtension($name, $path), ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+    }
+
+    private function attachmentIsPdf(?string $name, ?string $path): bool
+    {
+        return $this->attachmentExtension($name, $path) === 'pdf';
+    }
+
+    private function attachmentExtension(?string $name, ?string $path): string
+    {
+        return strtolower(pathinfo((string) ($name ?: $path ?: ''), PATHINFO_EXTENSION));
     }
 
     private function nullableString(mixed $value): ?string

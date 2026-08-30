@@ -162,6 +162,72 @@ class LandDriverPaymentAccountingTest extends TestCase
             ->assertOk();
     }
 
+    public function test_manager_can_replace_wallet_attachment(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $this->setCashAccount($this->cashAccount());
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.wallet.store', $company), [
+                'type' => 'deposit',
+                'amount' => 25,
+                'currency' => Currency::USD->value,
+                'attachment' => UploadedFile::fake()->image('old.jpg'),
+            ])
+            ->assertRedirect();
+
+        $wallet = CompanyWalletEntry::query()->firstOrFail();
+        $oldPath = $wallet->attachment_path;
+        $this->assertNotNull($oldPath);
+        Storage::disk('public')->assertExists($oldPath);
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.wallet.attachment.update', [$company, $wallet]), [
+                'attachment' => UploadedFile::fake()->image('new.png'),
+            ])
+            ->assertRedirect();
+
+        $wallet->refresh();
+        $this->assertSame('new.png', $wallet->attachment_original_name);
+        $this->assertNotSame($oldPath, $wallet->attachment_path);
+        Storage::disk('public')->assertMissing($oldPath);
+        Storage::disk('public')->assertExists($wallet->attachment_path);
+        $this->assertSame($wallet->attachment_path, $wallet->journalEntry?->attachment_path);
+    }
+
+    public function test_viewer_cannot_replace_wallet_attachment(): void
+    {
+        Storage::fake('public');
+
+        $manager = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $this->setCashAccount($this->cashAccount());
+
+        $this->actingAs($manager)
+            ->post(route('land-trips.companies.wallet.store', $company), [
+                'type' => 'deposit',
+                'amount' => 25,
+                'currency' => Currency::USD->value,
+                'attachment' => UploadedFile::fake()->image('keep.jpg'),
+            ])
+            ->assertRedirect();
+
+        $wallet = CompanyWalletEntry::query()->firstOrFail();
+        $viewer = User::factory()->create();
+        $viewer->givePermissionTo(Permission::LandTripsView->value);
+
+        $this->actingAs($viewer)
+            ->post(route('land-trips.companies.wallet.attachment.update', [$company, $wallet]), [
+                'attachment' => UploadedFile::fake()->image('hack.png'),
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('keep.jpg', $wallet->fresh()->attachment_original_name);
+    }
+
     public function test_driver_payment_stores_attachment_and_links_it_to_the_journal(): void
     {
         Storage::fake('public');
@@ -191,6 +257,42 @@ class LandDriverPaymentAccountingTest extends TestCase
         $this->actingAs($user)
             ->get(route('land-trips.companies.driver-payments.attachment', [$company, $payment]))
             ->assertOk();
+    }
+
+    public function test_manager_can_replace_driver_payment_attachment(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $this->setCashAccount($this->cashAccount());
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.driver-payments.store', $company), [
+                'driver_name' => 'Sami Driver',
+                'cars_count' => 2,
+                'type' => 'freight',
+                'payment_date' => '2026-08-18',
+                'amount' => 40,
+                'attachment' => UploadedFile::fake()->create('old.pdf', 40, 'application/pdf'),
+            ])
+            ->assertRedirect();
+
+        $payment = LandDriverPayment::query()->firstOrFail();
+        $oldPath = $payment->attachment_path;
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.driver-payments.attachment.update', [$company, $payment]), [
+                'attachment' => UploadedFile::fake()->image('new.jpg'),
+            ])
+            ->assertRedirect();
+
+        $payment->refresh();
+        $this->assertSame('new.jpg', $payment->attachment_original_name);
+        $this->assertNotSame($oldPath, $payment->attachment_path);
+        Storage::disk('public')->assertMissing($oldPath);
+        Storage::disk('public')->assertExists($payment->attachment_path);
+        $this->assertSame($payment->attachment_path, $payment->journalEntry?->attachment_path);
     }
 
     public function test_missing_cash_account_setting_fails_validation(): void
