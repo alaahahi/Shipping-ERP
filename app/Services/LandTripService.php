@@ -13,6 +13,7 @@ use App\Models\LandTripCar;
 use App\Models\User;
 use App\Models\Voyage;
 use App\Models\VoyageCar;
+use App\Support\AttachmentMeta;
 use App\Support\ChassisLetterO;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -301,11 +302,7 @@ class LandTripService
                     'is_unspecified' => $key === '',
                     'cars_count' => 0,
                     'chassis_nos' => [],
-                    'attachment' => $file ? [
-                        'id' => $file->id,
-                        'original_name' => $file->original_name,
-                        'url' => $file->publicUrl(),
-                    ] : null,
+                    'attachment' => $file ? $this->cmrAttachmentPayload($file) : null,
                 ];
             }
 
@@ -327,11 +324,7 @@ class LandTripService
                 'is_unspecified' => $key === '',
                 'cars_count' => 0,
                 'chassis_nos' => [],
-                'attachment' => [
-                    'id' => $file->id,
-                    'original_name' => $file->original_name,
-                    'url' => $file->publicUrl(),
-                ],
+                'attachment' => $this->cmrAttachmentPayload($file),
             ];
         }
 
@@ -488,6 +481,27 @@ class LandTripService
 
             return $record->fresh();
         });
+    }
+
+    /**
+     * @return array{id: int, original_name: string|null, url: string|null, is_image: bool, is_pdf: bool}
+     */
+    public function cmrAttachmentPayload(LandCompanyCmrFile $file): array
+    {
+        $meta = AttachmentMeta::payload(
+            $file->publicUrl(),
+            $file->original_name,
+            $file->attachment_path,
+            $file->updated_at?->timestamp
+        );
+
+        return [
+            'id' => $file->id,
+            'original_name' => $file->original_name,
+            'url' => $meta['attachment_url'],
+            'is_image' => $meta['attachment_is_image'],
+            'is_pdf' => $meta['attachment_is_pdf'],
+        ];
     }
 
     public function destroyCompanyCmrFile(Company $company, ?string $cmrKey, User $actor): void

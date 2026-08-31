@@ -157,7 +157,9 @@
     "attachment": "المرفق",
     "attach_file": "إرفاق ملف",
     "attach_file_help": "صورة أو PDF، حتى 10 ميغابايت.",
-    "view_attachment": "عرض المرفق"
+    "view_attachment": "عرض المرفق",
+    "preview": "معاينة",
+    "replace_attachment": "استبدال"
   },
   "action_pin": {
     "title": "تأكيد برمز PIN",
@@ -343,7 +345,7 @@
     "select_counterpart": "اختر الحساب",
     "post_movement": "ترحيل الحركة",
     "edit_movement": "تعديل الحركة",
-    "edit_movement_help": "المبلغ والحسابات لا تُغيَّر بعد الترحيل. يمكن تعديل الوصف وإرفاق صورة. الحذف يُبطل القيد دون مسح التاريخ.",
+    "edit_movement_help": "المبلغ والحسابات لا تُغيَّر بعد الترحيل. يمكن تعديل الوصف وإرفاق صورة أو PDF. الحذف يُبطل القيد دون مسح التاريخ.",
     "attach_image": "إرفاق صورة",
     "view_image": "عرض الصورة",
     "remove_image": "إزالة الصورة",

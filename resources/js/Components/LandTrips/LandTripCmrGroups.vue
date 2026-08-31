@@ -1,4 +1,5 @@
 <script setup>
+import AttachmentPreviewModal from '@/Components/AttachmentPreviewModal.vue';
 import { fbButton, fbGhostButton, fbInput, fbLink } from '@/flowbite';
 import axios from 'axios';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -25,6 +26,7 @@ const editingKey = ref(null);
 const editValue = ref('');
 const editInputRef = ref(null);
 const fileInputs = ref({});
+const preview = ref(null);
 
 const matchesGroup = (group, query) => {
     if (!query) {
@@ -154,6 +156,19 @@ const pickFile = (group) => {
     fileInputs.value[group.cmr_key]?.click();
 };
 
+const openPreview = (group) => {
+    if (!group.attachment?.url) {
+        return;
+    }
+
+    preview.value = {
+        url: group.attachment.url,
+        name: group.attachment.original_name || '',
+        isImage: !!group.attachment.is_image,
+        isPdf: !!group.attachment.is_pdf,
+    };
+};
+
 const onFileChosen = async (group, event) => {
     const input = event.target;
     const file = input?.files?.[0];
@@ -183,6 +198,7 @@ const onFileChosen = async (group, event) => {
             };
         }
         emit('toast', t('land_trips.cmr_file_uploaded'));
+        preview.value = null;
     } catch (err) {
         const message = err?.response?.data?.message
             || err?.response?.data?.errors?.file?.[0]
@@ -325,6 +341,15 @@ defineExpose({ reload: loadGroups });
 
                     <div class="land-cmr-file-actions">
                         <template v-if="group.attachment">
+                            <button
+                                type="button"
+                                :class="fbGhostButton"
+                                class="!w-auto cursor-pointer land-cmr-action-btn"
+                                :title="group.attachment.original_name || ''"
+                                @click="openPreview(group)"
+                            >
+                                {{ t('common.preview') }}
+                            </button>
                             <a
                                 :href="group.attachment.url"
                                 :class="fbLink"
@@ -382,5 +407,14 @@ defineExpose({ reload: loadGroups });
                 </div>
             </article>
         </TransitionGroup>
+
+        <AttachmentPreviewModal
+            :show="!!preview"
+            :url="preview?.url || ''"
+            :name="preview?.name || ''"
+            :is-image="!!preview?.isImage"
+            :is-pdf="!!preview?.isPdf"
+            @close="preview = null"
+        />
     </div>
 </template>

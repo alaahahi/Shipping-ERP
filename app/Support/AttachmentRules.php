@@ -13,4 +13,12 @@ final class AttachmentRules
     {
         return ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'];
     }
+
+    /**
+     * @return list<string>
+     */
+    public static function requiredFile(): array
+    {
+        return ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'];
+    }
 }

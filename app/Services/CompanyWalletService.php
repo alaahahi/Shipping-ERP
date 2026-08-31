@@ -11,6 +11,7 @@ use App\Models\LandTripCar;
 use App\Models\User;
 use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
+use App\Support\AttachmentMeta;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -359,11 +360,12 @@ class CompanyWalletService
             'created_at' => ApplicationTimezone::formatDateTime($entry->created_at),
             'created_by_name' => $entry->creator?->name,
             'journal_voucher' => $entry->journalEntry?->voucher_number,
-            'has_attachment' => filled($entry->attachment_path),
-            'attachment_url' => $this->versionedAttachmentUrl($entry->attachmentUrl(), $entry->updated_at?->timestamp),
-            'attachment_name' => $entry->attachment_original_name,
-            'attachment_is_image' => $this->attachmentIsImage($entry->attachment_original_name, $entry->attachment_path),
-            'attachment_is_pdf' => $this->attachmentIsPdf($entry->attachment_original_name, $entry->attachment_path),
+            ...AttachmentMeta::payload(
+                $entry->attachmentUrl(),
+                $entry->attachment_original_name,
+                $entry->attachment_path,
+                $entry->updated_at?->timestamp
+            ),
             'amount_words_ar' => $words['arabic'],
             'amount_words_ckb' => $words['kurdish'],
             'chassis' => $chassis,
@@ -431,30 +433,6 @@ class CompanyWalletService
         if ($oldPath && $oldPath !== $path && Storage::disk('public')->exists($oldPath)) {
             Storage::disk('public')->delete($oldPath);
         }
-    }
-
-    private function versionedAttachmentUrl(?string $url, ?int $version): ?string
-    {
-        if (! $url) {
-            return null;
-        }
-
-        return $url.(str_contains($url, '?') ? '&' : '?').'v='.($version ?: time());
-    }
-
-    private function attachmentIsImage(?string $name, ?string $path): bool
-    {
-        return in_array($this->attachmentExtension($name, $path), ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
-    }
-
-    private function attachmentIsPdf(?string $name, ?string $path): bool
-    {
-        return $this->attachmentExtension($name, $path) === 'pdf';
-    }
-
-    private function attachmentExtension(?string $name, ?string $path): string
-    {
-        return strtolower(pathinfo((string) ($name ?: $path ?: ''), PATHINFO_EXTENSION));
     }
 
     private function nullableString(mixed $value): ?string

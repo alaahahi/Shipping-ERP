@@ -258,15 +258,16 @@ const submit = async () => {
                     <InputError :message="form.errors.description" />
                 </div>
                 <div class="mb-4">
-                    <label :class="fbLabel" for="movement-file">{{ t('accounts.attach_image') }}</label>
+                    <label :class="fbLabel" for="movement-file">{{ t('common.attach_file') }}</label>
                     <input
                         :key="fileKey"
                         id="movement-file"
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         :class="[fbInput, 'erp-file-input']"
                         @change="onFile"
                     />
+                    <p class="mt-1 mb-0 text-xs text-gray-500 dark:text-gray-400">{{ t('common.attach_file_help') }}</p>
                     <InputError :message="form.errors.attachment" />
                 </div>
                 <div class="d-flex justify-content-end gap-2">

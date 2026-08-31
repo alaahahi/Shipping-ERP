@@ -96,6 +96,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounts.dashboard.toggle');
     Route::post('/accounts/{account}/movements', [AccountController::class, 'storeMovement'])
         ->name('accounts.movements.store');
+    Route::post('/accounts/{account}/journals/{journal}/attachment', [AccountController::class, 'updateMovementAttachment'])
+        ->name('accounts.journals.attachment.update');
     Route::post('/accounts/{account}/journals/{journal}', [AccountController::class, 'updateMovement'])
         ->name('accounts.journals.update');
     Route::post('/accounts/{account}/journals/{journal}/void', [AccountController::class, 'voidMovement'])
@@ -255,6 +257,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('ships.expenses.voucher');
     Route::get('/ships/{ship}/expenses/{expense}/attachment', [ShipExpenseController::class, 'attachment'])
         ->name('ships.expenses.attachment');
+    Route::post('/ships/{ship}/expenses/{expense}/attachment', [ShipExpenseController::class, 'updateAttachment'])
+        ->name('ships.expenses.attachment.update');
     Route::post('/ships/{ship}/expenses', [ShipExpenseController::class, 'store'])
         ->name('ships.expenses.store');
     Route::post('/ships/{ship}/expenses/bulk', [ShipExpenseController::class, 'bulkStore'])
@@ -340,6 +344,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/journals/{journal}/print', [JournalEntryController::class, 'print'])->name('journals.print');
     Route::get('/journals/{journal}/attachment', [JournalEntryController::class, 'showAttachment'])
         ->name('journals.attachment');
+    Route::post('/journals/{journal}/attachment', [JournalEntryController::class, 'updateAttachment'])
+        ->name('journals.attachment.update');
     Route::get('/journals/{journal}', [JournalEntryController::class, 'show'])->name('journals.show');
     Route::get('/journals/{journal}/edit', [JournalEntryController::class, 'edit'])->name('journals.edit');
     Route::put('/journals/{journal}', [JournalEntryController::class, 'update'])->name('journals.update');

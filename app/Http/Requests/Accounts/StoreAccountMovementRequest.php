@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Accounts;
 
 use App\Enums\Permission;
+use App\Support\AttachmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,7 +32,7 @@ class StoreAccountMovementRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'entry_date' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:255'],
-            'attachment' => ['nullable', 'image', 'max:4096'],
+            'attachment' => AttachmentRules::file(),
         ];
     }
 }

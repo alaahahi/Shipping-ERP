@@ -1,5 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AttachmentField from '@/Components/AttachmentField.vue';
+import AttachmentPreviewModal from '@/Components/AttachmentPreviewModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
@@ -52,6 +54,8 @@ const editingExpenseId = ref(null);
 const postingExpenseId = ref(null);
 const postingContributionId = ref(null);
 const editingContributionId = ref(null);
+const preview = ref(null);
+const replacingKey = ref(null);
 const ledgerCurrency = ref('USD');
 const createNewOwner = ref(props.ownerOptions.length === 0);
 
@@ -216,6 +220,36 @@ const resetExpenseForm = () => {
     expenseForm.expense_date = new Date().toISOString().slice(0, 10);
     expenseForm.paid_by_owner_id = defaultSpenderId();
     expenseForm.attachment = null;
+};
+
+const openPreview = (row) => {
+    if (!row?.attachment_url) {
+        return;
+    }
+
+    preview.value = {
+        url: row.attachment_url,
+        name: row.attachment_name || '',
+        isImage: !!row.attachment_is_image,
+        isPdf: !!row.attachment_is_pdf,
+    };
+};
+
+const replaceExpenseAttachment = (expense, file) => {
+    replacingKey.value = expense.id;
+    router.post(route('ships.expenses.attachment.update', [props.ship.id, expense.id]), {
+        attachment: file,
+    }, {
+        forceFormData: true,
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            preview.value = null;
+        },
+        onFinish: () => {
+            replacingKey.value = null;
+        },
+    });
 };
 
 const startEditExpense = (expense) => {
@@ -795,15 +829,14 @@ const submitPostContribution = (row) => {
                                                 >
                                                     {{ t('journals.print_voucher') }}
                                                 </a>
-                                                <a
-                                                    v-if="expense.attachment_url"
-                                                    class="btn btn-sm btn-erp-ghost"
-                                                    :href="expense.attachment_url"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    {{ t('common.view_attachment') }}
-                                                </a>
+                                                <AttachmentField
+                                                    :url="expense.attachment_url"
+                                                    :name="expense.attachment_name"
+                                                    :can-manage="canManage"
+                                                    :replacing="replacingKey === expense.id"
+                                                    @preview="openPreview(expense)"
+                                                    @replace="replaceExpenseAttachment(expense, $event)"
+                                                />
                                                 <template v-if="canPostAccounting && expense.can_post">
                                                     <button
                                                         v-if="postingExpenseId !== expense.id"
@@ -1017,15 +1050,14 @@ const submitPostContribution = (row) => {
                                     />
                                     <p class="small text-secondary mb-0 mt-1">{{ t('common.attach_file_help') }}</p>
                                     <InputError :message="expenseForm.errors.attachment" />
-                                    <a
+                                    <button
                                         v-if="editingExpense?.attachment_url"
-                                        class="small d-inline-block mt-1"
-                                        :href="editingExpense.attachment_url"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        type="button"
+                                        class="small d-inline-block mt-1 btn btn-link p-0"
+                                        @click="openPreview(editingExpense)"
                                     >
-                                        {{ t('common.view_attachment') }}
-                                    </a>
+                                        {{ t('common.preview') }}
+                                    </button>
                                 </div>
                             </div>
                             <p class="small text-secondary mb-0 mt-3">{{ t('ship_expenses.paid_by_help') }}</p>
@@ -1079,5 +1111,14 @@ const submitPostContribution = (row) => {
                         </form>
             </div>
         </div>
+
+        <AttachmentPreviewModal
+            :show="!!preview"
+            :url="preview?.url || ''"
+            :name="preview?.name || ''"
+            :is-image="!!preview?.isImage"
+            :is-pdf="!!preview?.isPdf"
+            @close="preview = null"
+        />
     </AppLayout>
 </template>

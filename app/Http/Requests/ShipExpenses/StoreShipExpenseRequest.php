@@ -30,7 +30,6 @@ class StoreShipExpenseRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             'paid_by_owner_id' => ['nullable', 'integer', 'exists:owners,id'],
             'attachment' => AttachmentRules::file(),
-            'attachment' => AttachmentRules::file(),
         ];
     }
 }

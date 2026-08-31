@@ -193,8 +193,10 @@ class AccountMovementTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('lines.data', 1)
-                ->where('lines.data.0.attachment_url', $attachmentUrl)
-                ->where('lines.data.0.has_attachment', true));
+                ->where('lines.data.0.has_attachment', true)
+                ->where('lines.data.0.attachment_is_image', true)
+                ->where('lines.data.0.attachment_url', fn ($url) => is_string($url)
+                    && str_contains($url, '/journals/'.$entry->id.'/attachment')));
     }
 
     public function test_voiding_a_movement_removes_it_from_the_posted_ledger(): void
@@ -333,6 +335,74 @@ class AccountMovementTest extends TestCase
 
         $this->get(route('accounts.export.excel', $cash))->assertRedirect();
         $this->get(route('accounts.export.pdf', $cash))->assertRedirect();
+    }
+
+    public function test_manager_can_replace_movement_attachment_with_pdf(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($user)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 40,
+            'entry_date' => '2026-08-15',
+            'description' => 'With image',
+            'attachment' => UploadedFile::fake()->image('old.jpg'),
+        ])->assertRedirect();
+
+        $entry = JournalEntry::query()->latest('id')->firstOrFail();
+        $oldPath = $entry->attachment_path;
+
+        $this->actingAs($user)
+            ->post(route('accounts.journals.attachment.update', [$cash, $entry]), [
+                'attachment' => UploadedFile::fake()->create('receipt.pdf', 30, 'application/pdf'),
+            ])
+            ->assertRedirect();
+
+        $entry->refresh();
+        $this->assertNotSame($oldPath, $entry->attachment_path);
+        $this->assertSame('With image', $entry->description);
+        $this->assertEquals(40.0, (float) JournalLine::query()->where('journal_entry_id', $entry->id)->where('account_id', $cash->id)->value('debit'));
+        Storage::disk('public')->assertExists($entry->attachment_path);
+        $this->assertTrue(str_ends_with(strtolower((string) $entry->attachment_path), '.pdf'));
+
+        $this->actingAs($user)
+            ->get(route('journals.show', $entry))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('entry.attachment_is_pdf', true)
+                ->where('entry.has_attachment', true));
+    }
+
+    public function test_viewer_cannot_replace_movement_attachment(): void
+    {
+        Storage::fake('public');
+
+        $manager = $this->accountingUser();
+        $cash = Account::query()->where('code', '1100')->firstOrFail();
+        $bank = Account::query()->where('code', '1200')->firstOrFail();
+
+        $this->actingAs($manager)->post(route('accounts.movements.store', $cash), [
+            'type' => 'receipt',
+            'counterpart_account_id' => $bank->id,
+            'amount' => 10,
+            'entry_date' => '2026-08-15',
+            'attachment' => UploadedFile::fake()->image('shot.jpg'),
+        ])->assertRedirect();
+
+        $entry = JournalEntry::query()->latest('id')->firstOrFail();
+        $viewer = User::factory()->create();
+        $viewer->givePermissionTo(Permission::AccountingView->value);
+
+        $this->actingAs($viewer)
+            ->post(route('accounts.journals.attachment.update', [$cash, $entry]), [
+                'attachment' => UploadedFile::fake()->image('hack.jpg'),
+            ])
+            ->assertForbidden();
     }
 
     private function accountingUser(): User

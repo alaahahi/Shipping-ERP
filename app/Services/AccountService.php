@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Support\AttachmentMeta;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -332,6 +333,11 @@ class AccountService
         return $this->journalService->updatePostedMeta($entry, $data, $attachment);
     }
 
+    public function replaceMovementAttachment(JournalEntry $entry, UploadedFile $file): JournalEntry
+    {
+        return $this->journalService->replaceAttachment($entry, $file);
+    }
+
     public function voidMovement(JournalEntry $entry, User $actor, ?string $reason = null): JournalEntry
     {
         return $this->journalService->void($entry, $actor, $reason);
@@ -526,8 +532,12 @@ class AccountService
             'description' => $entry?->description,
             'reference' => $entry?->reference,
             'memo' => $line->memo,
-            'attachment_url' => $entry?->attachmentUrl(),
-            'has_attachment' => filled($entry?->attachment_path),
+            ...AttachmentMeta::payload(
+                $entry?->attachmentUrl(),
+                $entry?->attachment_path ? basename((string) $entry->attachment_path) : null,
+                $entry?->attachment_path,
+                $entry?->updated_at?->timestamp
+            ),
             'counterpart' => $this->counterpartAccount($line),
             'debit' => $this->formatAmount($debit),
             'credit' => $this->formatAmount($credit),

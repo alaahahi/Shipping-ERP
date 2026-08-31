@@ -252,6 +252,25 @@ class JournalService
         return $entry->fresh(['lines.account']);
     }
 
+    public function replaceAttachment(JournalEntry $entry, UploadedFile $file): JournalEntry
+    {
+        if ($entry->isVoid()) {
+            throw ValidationException::withMessages([
+                'attachment' => 'Voided entries cannot receive attachments.',
+            ]);
+        }
+
+        if ($entry->isPosted()) {
+            return $this->updatePostedMeta($entry, [
+                'description' => (string) $entry->description,
+            ], $file);
+        }
+
+        $this->storeAttachment($entry, $file);
+
+        return $entry->fresh(['lines.account']);
+    }
+
     public function storeAttachment(JournalEntry $entry, UploadedFile $file): void
     {
         $this->deleteStoredAttachment($entry);

@@ -339,11 +339,7 @@ class LandTripController extends Controller
 
         return response()->json([
             'cmr_key' => $file->cmr_key,
-            'attachment' => [
-                'id' => $file->id,
-                'original_name' => $file->original_name,
-                'url' => $file->publicUrl(),
-            ],
+            'attachment' => $this->landTripService->cmrAttachmentPayload($file),
         ]);
     }
 

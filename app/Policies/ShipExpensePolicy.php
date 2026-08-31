@@ -22,6 +22,11 @@ class ShipExpensePolicy
             && ! $expense->isPostedToAccounting();
     }
 
+    public function updateAttachment(User $user, ShipExpense $expense): bool
+    {
+        return $user->can(Permission::ShipsManage->value);
+    }
+
     public function delete(User $user, ShipExpense $expense): bool
     {
         $expense->loadMissing('journalEntry');

@@ -7,6 +7,7 @@ use App\Enums\Currency;
 use App\Http\Requests\Accounts\AccountLedgerRequest;
 use App\Http\Requests\Accounts\StoreAccountMovementRequest;
 use App\Http\Requests\Accounts\StoreAccountRequest;
+use App\Http\Requests\Accounts\UpdateAccountMovementAttachmentRequest;
 use App\Http\Requests\Accounts\UpdateAccountMovementRequest;
 use App\Http\Requests\Accounts\UpdateAccountRequest;
 use App\Models\Account;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -157,6 +159,22 @@ class AccountController extends Controller
         return redirect()
             ->route('accounts.show', $account)
             ->with('success', 'Movement updated.');
+    }
+
+    public function updateMovementAttachment(
+        UpdateAccountMovementAttachmentRequest $request,
+        Account $account,
+        JournalEntry $journal
+    ): RedirectResponse {
+        Gate::authorize('updateMeta', $journal);
+        $this->accountService->assertTouchesAccount($account, $journal);
+
+        $file = $request->file('attachment');
+        abort_unless($file instanceof UploadedFile, 422);
+
+        $this->accountService->replaceMovementAttachment($journal, $file);
+
+        return back()->with('success', 'Attachment updated.');
     }
 
     public function voidMovement(Request $request, Account $account, JournalEntry $journal): RedirectResponse

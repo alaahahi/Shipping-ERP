@@ -5,14 +5,17 @@ namespace App\Http\Controllers;
 use App\Enums\Currency;
 use App\Enums\JournalStatus;
 use App\Http\Requests\Journals\StoreJournalEntryRequest;
+use App\Http\Requests\Journals\UpdateJournalAttachmentRequest;
 use App\Http\Requests\Journals\UpdateJournalEntryRequest;
 use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Services\JournalService;
 use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
+use App\Support\AttachmentMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -134,6 +137,18 @@ class JournalEntryController extends Controller
         );
     }
 
+    public function updateAttachment(UpdateJournalAttachmentRequest $request, JournalEntry $journal): RedirectResponse
+    {
+        Gate::authorize('updateAttachment', $journal);
+
+        $file = $request->file('attachment');
+        abort_unless($file instanceof UploadedFile, 422);
+
+        $this->journalService->replaceAttachment($journal, $file);
+
+        return back()->with('success', 'Attachment updated.');
+    }
+
     public function edit(JournalEntry $journal): Response
     {
         Gate::authorize('update', $journal);
@@ -253,7 +268,12 @@ class JournalEntryController extends Controller
             'voided_by' => $entry->voider?->name,
             'voided_at' => ApplicationTimezone::formatDateTime($entry->voided_at),
             'void_reason' => $entry->void_reason,
-            'attachment_url' => $entry->attachmentUrl(),
+            ...AttachmentMeta::payload(
+                $entry->attachmentUrl(),
+                $entry->attachment_path ? basename($entry->attachment_path) : null,
+                $entry->attachment_path,
+                $entry->updated_at?->timestamp
+            ),
             'total_debit' => number_format((float) $entry->lines->sum('debit'), 2, '.', ''),
             'total_credit' => number_format((float) $entry->lines->sum('credit'), 2, '.', ''),
             'lines' => $entry->lines->map(fn ($line) => [

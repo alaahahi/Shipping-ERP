@@ -1,12 +1,14 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AttachmentField from '@/Components/AttachmentField.vue';
+import AttachmentPreviewModal from '@/Components/AttachmentPreviewModal.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { useActionPin } from '@/composables/useActionPin';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-defineProps({
+const props = defineProps({
     entry: { type: Object, required: true },
     canManage: { type: Boolean, default: false },
 });
@@ -16,6 +18,37 @@ const { t } = useI18n();
 const { requireActionPin } = useActionPin();
 const success = computed(() => page.props.flash?.success);
 const posting = ref(false);
+const preview = ref(null);
+const replacing = ref(false);
+
+const openPreview = () => {
+    if (!props.entry.attachment_url) {
+        return;
+    }
+
+    preview.value = {
+        url: props.entry.attachment_url,
+        name: props.entry.attachment_name || '',
+        isImage: !!props.entry.attachment_is_image,
+        isPdf: !!props.entry.attachment_is_pdf,
+    };
+};
+
+const replaceAttachment = (file) => {
+    replacing.value = true;
+    router.post(route('journals.attachment.update', props.entry.id), {
+        attachment: file,
+    }, {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            preview.value = null;
+        },
+        onFinish: () => {
+            replacing.value = false;
+        },
+    });
+};
 
 const postEntry = (id) => {
     if (!window.confirm(t('journals.post_confirm'))) return;
@@ -120,6 +153,17 @@ const reverseEntry = async (id, voucher) => {
                     <div class="text-secondary small">{{ t('common.description') }}</div>
                     <div class="fw-semibold">{{ entry.description }}</div>
                 </div>
+                <div class="col-12">
+                    <div class="text-secondary small mb-1">{{ t('common.attachment') }}</div>
+                    <AttachmentField
+                        :url="entry.attachment_url"
+                        :name="entry.attachment_name"
+                        :can-manage="canManage && entry.status !== 'void'"
+                        :replacing="replacing"
+                        @preview="openPreview"
+                        @replace="replaceAttachment"
+                    />
+                </div>
             </div>
         </div>
 
@@ -163,5 +207,13 @@ const reverseEntry = async (id, voucher) => {
                 </table>
             </div>
         </div>
+        <AttachmentPreviewModal
+            :show="!!preview"
+            :url="preview?.url || ''"
+            :name="preview?.name || ''"
+            :is-image="!!preview?.isImage"
+            :is-pdf="!!preview?.isPdf"
+            @close="preview = null"
+        />
     </AppLayout>
 </template>

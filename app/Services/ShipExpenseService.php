@@ -6,11 +6,14 @@ use App\Enums\Currency;
 use App\Models\Owner;
 use App\Models\Ship;
 use App\Models\ShipExpense;
+use App\Models\User;
 use App\Support\AmountInWords;
 use App\Support\ApplicationTimezone;
+use App\Support\AttachmentMeta;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ShipExpenseService
@@ -61,7 +64,6 @@ class ShipExpenseService
 
     /**
      * @param  list<array<string, mixed>>  $rows
-     * @return int
      */
     public function createMany(Ship $ship, array $rows, ?int $createdBy = null): int
     {
@@ -122,6 +124,45 @@ class ShipExpenseService
         });
     }
 
+    public function replaceAttachment(ShipExpense $expense, User $actor, UploadedFile $file): ShipExpense
+    {
+        return DB::transaction(function () use ($expense, $actor, $file): ShipExpense {
+            $locked = ShipExpense::query()
+                ->whereKey($expense->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $locked->loadMissing(['latestAttachment', 'journalEntry', 'attachments']);
+            $oldPaths = array_filter([
+                $locked->latestAttachment?->path,
+                $locked->journalEntry?->attachment_path,
+            ]);
+
+            $this->attachmentService->deleteFor($locked, $actor->id);
+            $stored = $this->attachmentService->store($locked, $file, $actor->id);
+
+            if ($locked->journalEntry) {
+                $locked->journalEntry->update([
+                    'attachment_path' => $stored->path,
+                ]);
+            }
+
+            foreach (array_unique($oldPaths) as $stale) {
+                if ($stale !== $stored->path && Storage::disk('public')->exists($stale)) {
+                    Storage::disk('public')->delete($stale);
+                }
+            }
+
+            Log::info('Ship expense attachment replaced.', [
+                'expense_id' => $locked->id,
+                'ship_id' => $locked->ship_id,
+                'user_id' => $actor->id,
+            ]);
+
+            return $locked->fresh(['paidByOwner', 'latestAttachment', 'journalEntry']) ?? $locked;
+        });
+    }
+
     public function delete(ShipExpense $expense, ?int $actorId = null): void
     {
         $expense->loadMissing(['journalEntry', 'attachments']);
@@ -171,9 +212,12 @@ class ShipExpenseService
             'journal_entry_id' => $expense->journalEntry?->id,
             'journal_voucher' => $expense->journalEntry?->voucher_number,
             'journal_status' => $expense->journalEntry?->status?->value,
-            'has_attachment' => $attachment !== null,
-            'attachment_url' => $attachment ? $expense->attachmentUrl() : null,
-            'attachment_name' => $attachment?->original_name,
+            ...AttachmentMeta::payload(
+                $attachment ? $expense->attachmentUrl() : null,
+                $attachment?->original_name,
+                $attachment?->path,
+                $attachment?->updated_at?->timestamp
+            ),
         ];
     }
 

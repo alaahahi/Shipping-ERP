@@ -2,6 +2,8 @@
 import AccountMovementModal from '@/Components/AccountMovementModal.vue';
 import AccountNotesPanel from '@/Components/AccountNotesPanel.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AttachmentField from '@/Components/AttachmentField.vue';
+import AttachmentPreviewModal from '@/Components/AttachmentPreviewModal.vue';
 import InputError from '@/Components/InputError.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { useActionPin } from '@/composables/useActionPin';
@@ -26,7 +28,8 @@ const { t } = useI18n();
 const { requireActionPin } = useActionPin();
 const movementOpen = ref(false);
 const movementType = ref('receipt');
-const previewUrl = ref(null);
+const preview = ref(null);
+const replacingKey = ref(null);
 const editingNoteId = ref(null);
 let filterTimer = null;
 
@@ -102,6 +105,38 @@ const exportHref = (name) => route(name, {
     account: props.account.id,
     ...exportQuery(),
 });
+
+const openPreview = (row) => {
+    const url = row?.attachment_url || row?.url;
+    if (!url) {
+        return;
+    }
+
+    preview.value = {
+        url,
+        name: row.attachment_name || row.original_name || '',
+        isImage: !!(row.attachment_is_image || row.is_image),
+        isPdf: !!(row.attachment_is_pdf || row.is_pdf),
+    };
+};
+
+const replaceLineAttachment = (line, file) => {
+    replacingKey.value = line.id;
+    router.post(route('accounts.journals.attachment.update', [props.account.id, line.journal_entry_id]), {
+        attachment: file,
+    }, {
+        forceFormData: true,
+        preserveScroll: true,
+        preserveState: true,
+        only: ['lines', 'flash', 'errors'],
+        onSuccess: () => {
+            preview.value = null;
+        },
+        onFinish: () => {
+            replacingKey.value = null;
+        },
+    });
+};
 
 const openMovement = (type) => {
     movementType.value = type;
@@ -398,15 +433,16 @@ const deleteNote = (line) => {
                                 <template v-else>
                                     <div :class="line.row_type === 'note' ? 'whitespace-pre-wrap text-sm' : ''">{{ line.description }}</div>
                                     <div v-if="line.memo" class="small text-secondary">{{ line.memo }}</div>
-                                    <button
-                                        v-if="line.attachment_url"
-                                        type="button"
-                                        :class="fbGhostButton"
-                                        class="mt-1 !px-2 !py-0.5 text-xs"
-                                        @click="previewUrl = line.attachment_url"
-                                    >
-                                        {{ t('accounts.view_image') }}
-                                    </button>
+                                    <AttachmentField
+                                        v-if="line.row_type !== 'note'"
+                                        class="mt-1"
+                                        :url="line.attachment_url"
+                                        :name="line.attachment_name"
+                                        :can-manage="canManage"
+                                        :replacing="replacingKey === line.id"
+                                        @preview="openPreview(line)"
+                                        @replace="replaceLineAttachment(line, $event)"
+                                    />
                                 </template>
                             </td>
                             <td>
@@ -535,35 +571,14 @@ const deleteNote = (line) => {
             @close="movementOpen = false"
         />
 
-        <div v-if="previewUrl" class="erp-modal-backdrop" @click.self="previewUrl = null">
-            <div
-                class="erp-modal-dialog erp-card p-0 overflow-hidden"
-                style="width: min(900px, 100%)"
-                role="dialog"
-                aria-modal="true"
-                :aria-label="t('accounts.view_image')"
-            >
-                <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom">
-                    <h3 class="h5 erp-display mb-0">{{ t('accounts.view_image') }}</h3>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a
-                            :href="previewUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :class="fbGhostButton"
-                        >
-                            {{ t('accounts.open_original') }}
-                        </a>
-                        <button type="button" :class="fbGhostButton" @click="previewUrl = null">
-                            {{ t('common.cancel') }}
-                        </button>
-                    </div>
-                </div>
-                <div class="p-3">
-                    <img :src="previewUrl" :alt="t('accounts.view_image')" class="mx-auto max-h-[75vh] w-auto max-w-full rounded-lg" />
-                </div>
-            </div>
-        </div>
+        <AttachmentPreviewModal
+            :show="!!preview"
+            :url="preview?.url || ''"
+            :name="preview?.name || ''"
+            :is-image="!!preview?.isImage"
+            :is-pdf="!!preview?.isPdf"
+            @close="preview = null"
+        />
 
         <div v-if="editingLine" class="erp-modal-backdrop" @click.self="editingLine = null">
             <div
@@ -589,12 +604,19 @@ const deleteNote = (line) => {
                         <InputError :message="editForm.errors.description" />
                     </div>
                     <div class="mb-4">
-                        <label :class="fbLabel" for="edit-file">{{ t('accounts.attach_image') }}</label>
-                        <input id="edit-file" type="file" accept="image/*" :class="fbInput" @change="onEditFile" />
+                        <label :class="fbLabel" for="edit-file">{{ t('common.attach_file') }}</label>
+                        <input
+                            id="edit-file"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                            :class="fbInput"
+                            @change="onEditFile"
+                        />
+                        <p class="mt-1 mb-0 text-xs text-gray-500 dark:text-gray-400">{{ t('common.attach_file_help') }}</p>
                         <InputError :message="editForm.errors.attachment" />
                         <div v-if="editingLine.attachment_url && !editForm.remove_attachment" class="mt-2 flex items-center gap-3">
-                            <button type="button" :class="fbLink" @click="previewUrl = editingLine.attachment_url">
-                                {{ t('accounts.view_image') }}
+                            <button type="button" :class="fbLink" @click="openPreview(editingLine)">
+                                {{ t('common.preview') }}
                             </button>
                             <button type="button" class="text-sm text-red-600 dark:text-red-400" @click="editForm.remove_attachment = true">
                                 {{ t('accounts.remove_image') }}

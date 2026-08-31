@@ -5,6 +5,7 @@ import LandDriverPaymentModal from '@/Components/LandTrips/LandDriverPaymentModa
 import LandPaymentAttachmentField from '@/Components/LandTrips/LandPaymentAttachmentField.vue';
 import PaymentChassisAssignModal from '@/Components/LandTrips/PaymentChassisAssignModal.vue';
 import PaymentChassisBadges from '@/Components/LandTrips/PaymentChassisBadges.vue';
+import AttachmentPreviewModal from '@/Components/AttachmentPreviewModal.vue';
 import MoneyAmount from '@/Components/MoneyAmount.vue';
 import { useActionPin } from '@/composables/useActionPin';
 import { router, useForm, usePage } from '@inertiajs/vue3';
@@ -464,55 +465,13 @@ const replaceAttachment = (key, url, file) => {
             @close="closeDriverModal"
         />
 
-        <div v-if="preview" class="erp-modal-backdrop" @click.self="preview = null">
-            <div
-                class="erp-modal-dialog erp-card p-0 overflow-hidden"
-                style="width: min(920px, 100%)"
-                role="dialog"
-                aria-modal="true"
-                :aria-label="t('land_trips.preview')"
-            >
-                <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom">
-                    <div>
-                        <h3 class="h5 erp-display mb-1">{{ t('land_trips.preview') }}</h3>
-                        <p v-if="preview.name" class="small text-secondary mb-0">{{ preview.name }}</p>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a
-                            :href="preview.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="btn btn-sm btn-erp-ghost"
-                        >
-                            {{ t('land_trips.view_attachment') }}
-                        </a>
-                        <button type="button" class="btn btn-sm btn-erp-ghost" @click="preview = null">
-                            {{ t('common.cancel') }}
-                        </button>
-                    </div>
-                </div>
-                <div class="p-3 bg-dark-subtle">
-                    <img
-                        v-if="preview.isImage"
-                        :src="preview.url"
-                        :alt="preview.name || t('land_trips.preview')"
-                        class="mx-auto d-block rounded"
-                        style="max-height: 75vh; max-width: 100%; width: auto;"
-                    />
-                    <iframe
-                        v-else-if="preview.isPdf"
-                        :src="preview.url"
-                        class="w-100 rounded bg-white"
-                        style="height: 75vh; border: 0;"
-                        :title="preview.name || t('land_trips.preview')"
-                    />
-                    <p v-else class="mb-0">
-                        <a :href="preview.url" target="_blank" rel="noopener noreferrer">
-                            {{ preview.name || t('land_trips.view_attachment') }}
-                        </a>
-                    </p>
-                </div>
-            </div>
-        </div>
+        <AttachmentPreviewModal
+            :show="!!preview"
+            :url="preview?.url || ''"
+            :name="preview?.name || ''"
+            :is-image="!!preview?.isImage"
+            :is-pdf="!!preview?.isPdf"
+            @close="preview = null"
+        />
     </div>
 </template>

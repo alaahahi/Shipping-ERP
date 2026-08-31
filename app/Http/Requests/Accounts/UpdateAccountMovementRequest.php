@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Accounts;
 
 use App\Enums\Permission;
+use App\Support\AttachmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateAccountMovementRequest extends FormRequest
@@ -19,7 +20,7 @@ class UpdateAccountMovementRequest extends FormRequest
     {
         return [
             'description' => ['required', 'string', 'max:255'],
-            'attachment' => ['nullable', 'image', 'max:4096'],
+            'attachment' => AttachmentRules::file(),
             'remove_attachment' => ['sometimes', 'boolean'],
         ];
     }

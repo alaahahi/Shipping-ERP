@@ -6,9 +6,11 @@ use App\Http\Requests\ShipExpenses\BulkStoreShipExpenseRequest;
 use App\Http\Requests\ShipExpenses\ImportShipExpenseLedgerRequest;
 use App\Http\Requests\ShipExpenses\PostShipExpenseRequest;
 use App\Http\Requests\ShipExpenses\StoreShipExpenseRequest;
+use App\Http\Requests\ShipExpenses\UpdateShipExpenseAttachmentRequest;
 use App\Http\Requests\ShipExpenses\UpdateShipExpenseRequest;
 use App\Models\Ship;
 use App\Models\ShipExpense;
+use App\Models\User;
 use App\Services\AttachmentService;
 use App\Services\ShipExpenseLedgerImportService;
 use App\Services\ShipExpensePostingService;
@@ -16,6 +18,7 @@ use App\Services\ShipExpenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -74,6 +77,23 @@ class ShipExpenseController extends Controller
         );
 
         return $this->backToExpenses($ship, 'Ship expense updated.');
+    }
+
+    public function updateAttachment(
+        UpdateShipExpenseAttachmentRequest $request,
+        Ship $ship,
+        ShipExpense $expense
+    ): RedirectResponse {
+        $this->assertBelongsToShip($ship, $expense);
+        Gate::authorize('updateAttachment', $expense);
+
+        $user = $request->user();
+        $file = $request->file('attachment');
+        abort_unless($user instanceof User && $file instanceof UploadedFile, 422);
+
+        $this->shipExpenseService->replaceAttachment($expense, $user, $file);
+
+        return $this->backToExpenses($ship, 'Attachment updated.');
     }
 
     public function destroy(Request $request, Ship $ship, ShipExpense $expense): RedirectResponse

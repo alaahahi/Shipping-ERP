@@ -157,7 +157,9 @@
     "attachment": "Attachment",
     "attach_file": "Attach file",
     "attach_file_help": "Image or PDF, up to 10 MB.",
-    "view_attachment": "View attachment"
+    "view_attachment": "View attachment",
+    "preview": "Preview",
+    "replace_attachment": "Replace"
   },
   "action_pin": {
     "title": "PIN confirmation",
@@ -343,7 +345,7 @@
     "select_counterpart": "Select account",
     "post_movement": "Post movement",
     "edit_movement": "Edit movement",
-    "edit_movement_help": "Amount and accounts stay locked after posting. You can edit the description and attach an image. Delete voids the voucher without erasing history.",
+    "edit_movement_help": "Amount and accounts stay locked after posting. You can edit the description and attach an image or PDF. Delete voids the voucher without erasing history.",
     "attach_image": "Attach image",
     "view_image": "View image",
     "remove_image": "Remove image",

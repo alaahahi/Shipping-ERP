@@ -139,6 +139,68 @@ class ShipExpenseAttachmentTest extends TestCase
         $this->assertSoftDeleted($attachment);
     }
 
+    public function test_manager_can_replace_expense_attachment(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->shipsManager();
+        $ship = $this->makeShip();
+
+        $this->actingAs($user)
+            ->post(route('ships.expenses.store', $ship), [
+                'expense_type' => ShipExpenseType::Fuel->value,
+                'amount' => 50,
+                'currency' => Currency::USD->value,
+                'expense_date' => '2026-08-18',
+                'attachment' => UploadedFile::fake()->image('old.jpg'),
+            ])
+            ->assertRedirect();
+
+        $expense = ShipExpense::query()->firstOrFail();
+        $oldPath = $expense->latestAttachment?->path;
+
+        $this->actingAs($user)
+            ->post(route('ships.expenses.attachment.update', [$ship, $expense]), [
+                'attachment' => UploadedFile::fake()->create('new.pdf', 20, 'application/pdf'),
+            ])
+            ->assertRedirect(route('ships.show', ['ship' => $ship, 'tab' => 'expenses']));
+
+        $expense->refresh()->load('latestAttachment');
+        $this->assertSame('new.pdf', $expense->latestAttachment?->original_name);
+        $this->assertNotSame($oldPath, $expense->latestAttachment?->path);
+        Storage::disk('public')->assertExists($expense->latestAttachment->path);
+        $this->assertEquals(50.0, (float) $expense->amount);
+    }
+
+    public function test_viewer_cannot_replace_expense_attachment(): void
+    {
+        Storage::fake('public');
+
+        $manager = $this->shipsManager();
+        $ship = $this->makeShip();
+
+        $this->actingAs($manager)
+            ->post(route('ships.expenses.store', $ship), [
+                'expense_type' => ShipExpenseType::Other->value,
+                'amount' => 12,
+                'currency' => Currency::USD->value,
+                'expense_date' => '2026-08-18',
+                'attachment' => UploadedFile::fake()->image('keep.jpg'),
+            ])
+            ->assertRedirect();
+
+        $expense = ShipExpense::query()->firstOrFail();
+        $viewer = $this->shipsViewer();
+
+        $this->actingAs($viewer)
+            ->post(route('ships.expenses.attachment.update', [$ship, $expense]), [
+                'attachment' => UploadedFile::fake()->image('hack.jpg'),
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('keep.jpg', $expense->fresh()->latestAttachment?->original_name);
+    }
+
     public function test_unauthorized_user_cannot_open_voucher_or_attachment(): void
     {
         Storage::fake('public');
