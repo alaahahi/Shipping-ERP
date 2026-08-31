@@ -11,6 +11,7 @@ const props = defineProps({
     companyId: { type: [Number, String], required: true },
     driverNames: { type: Array, default: () => [] },
     cashAccount: { type: Object, default: null },
+    payment: { type: Object, default: null },
 });
 
 const emit = defineEmits(['close']);
@@ -29,6 +30,20 @@ const form = useForm({
     attachment: null,
 });
 const fileKey = ref(0);
+const isEdit = computed(() => !!props.payment);
+
+form.transform((data) => {
+    if (!props.payment) {
+        return data;
+    }
+
+    return {
+        driver_name: data.driver_name,
+        cmr_number: data.cmr_number,
+        cars_count: data.cars_count,
+        type: data.type,
+    };
+});
 
 const typeOptions = computed(() => [
     { value: 'freight', label: t('land_trips.driver_type_freight') },
@@ -47,19 +62,30 @@ const filteredDriverNames = computed(() => {
 });
 
 watch(
-    () => props.show,
-    async (open) => {
+    () => [props.show, props.payment],
+    async ([open]) => {
         if (!open) {
             driverMenuOpen.value = false;
             return;
         }
 
         form.clearErrors();
-        form.reset();
-        form.cars_count = 1;
-        form.type = 'freight';
-        form.payment_date = new Date().toISOString().slice(0, 10);
-        driverQuery.value = '';
+        if (props.payment) {
+            form.driver_name = props.payment.driver_name || '';
+            form.cmr_number = props.payment.cmr_number || '';
+            form.cars_count = props.payment.cars_count || 1;
+            form.type = props.payment.type || 'freight';
+            form.payment_date = props.payment.payment_date || '';
+            form.amount = props.payment.amount || '';
+            form.attachment = null;
+            driverQuery.value = form.driver_name;
+        } else {
+            form.reset();
+            form.cars_count = 1;
+            form.type = 'freight';
+            form.payment_date = new Date().toISOString().slice(0, 10);
+            driverQuery.value = '';
+        }
         fileKey.value += 1;
         await nextTick();
         document.getElementById('land-driver-name')?.focus();
@@ -73,6 +99,16 @@ const pickDriver = (name) => {
 };
 
 const submit = async () => {
+    if (isEdit.value) {
+        form.put(route('land-trips.companies.driver-payments.update', [props.companyId, props.payment.id]), {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['wallet', 'flash', 'errors'],
+            onSuccess: () => emit('close'),
+        });
+        return;
+    }
+
     const ok = await requireActionPin(t('action_pin.message_driver_payment'));
     if (!ok) {
         return;
@@ -100,12 +136,16 @@ const submit = async () => {
             style="width: min(560px, 100%)"
             role="dialog"
             aria-modal="true"
-            :aria-label="t('land_trips.driver_account')"
+            :aria-label="isEdit ? t('land_trips.driver_payment_edit') : t('land_trips.driver_account')"
         >
             <div class="flex items-start justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                    <h3 class="h5 erp-display mb-1">{{ t('land_trips.driver_account') }}</h3>
-                    <p class="small text-secondary mb-0">{{ t('land_trips.driver_account_help') }}</p>
+                    <h3 class="h5 erp-display mb-1">
+                        {{ isEdit ? t('land_trips.driver_payment_edit') : t('land_trips.driver_account') }}
+                    </h3>
+                    <p class="small text-secondary mb-0">
+                        {{ isEdit ? t('land_trips.driver_payment_edit_help') : t('land_trips.driver_account_help') }}
+                    </p>
                 </div>
                 <button type="button" :class="fbGhostButton" class="cursor-pointer shrink-0" @click="emit('close')">
                     {{ t('common.cancel') }}
@@ -184,7 +224,15 @@ const submit = async () => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div>
                         <label :class="fbLabel" for="land-driver-date">{{ t('common.date') }}</label>
-                        <input id="land-driver-date" v-model="form.payment_date" type="date" :class="fbInput" required />
+                        <input
+                            id="land-driver-date"
+                            v-model="form.payment_date"
+                            type="date"
+                            :class="[fbInput, isEdit ? 'opacity-70 bg-gray-100 dark:bg-gray-700' : '']"
+                            :readonly="isEdit"
+                            :disabled="isEdit"
+                            :required="!isEdit"
+                        />
                         <InputError :message="form.errors.payment_date" />
                     </div>
                     <div>
@@ -195,14 +243,16 @@ const submit = async () => {
                             type="number"
                             min="0.01"
                             step="0.01"
-                            :class="fbInput"
-                            required
+                            :class="[fbInput, isEdit ? 'opacity-70 bg-gray-100 dark:bg-gray-700' : '']"
+                            :readonly="isEdit"
+                            :disabled="isEdit"
+                            :required="!isEdit"
                         />
                         <InputError :message="form.errors.amount" />
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div v-if="!isEdit" class="mb-3">
                     <label :class="fbLabel" for="land-driver-file">{{ t('land_trips.attach_file') }}</label>
                     <input
                         :key="fileKey"
@@ -216,7 +266,7 @@ const submit = async () => {
                     <InputError :message="form.errors.attachment" />
                 </div>
 
-                <div class="mb-1">
+                <div v-if="!isEdit" class="mb-1">
                     <label :class="fbLabel" for="land-driver-cash">{{ t('land_trips.cash_account') }}</label>
                     <input
                         id="land-driver-cash"
@@ -234,7 +284,9 @@ const submit = async () => {
                     {{ t('common.cancel') }}
                 </button>
                 <button type="button" :class="fbButton" class="cursor-pointer !w-auto" :disabled="form.processing" @click="submit">
-                    {{ form.processing ? t('common.posting') : t('land_trips.driver_payment_submit') }}
+                    {{ form.processing
+                        ? (isEdit ? t('common.saving') : t('common.posting'))
+                        : (isEdit ? t('common.save') : t('land_trips.driver_payment_submit')) }}
                 </button>
             </div>
         </div>

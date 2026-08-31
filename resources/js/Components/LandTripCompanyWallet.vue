@@ -23,6 +23,7 @@ const page = usePage();
 const deletingId = ref(null);
 const deletingPaymentId = ref(null);
 const showDriverModal = ref(false);
+const editingPayment = ref(null);
 const chassisTarget = ref(null);
 const preview = ref(null);
 const replacingKey = ref(null);
@@ -90,6 +91,21 @@ const openChassis = (kind, row) => {
         label: kind === 'driver' ? row.driver_name : row.voucher_number,
         chassis: row.chassis ?? [],
     };
+};
+
+const openDriverCreate = () => {
+    editingPayment.value = null;
+    showDriverModal.value = true;
+};
+
+const openDriverEdit = (payment) => {
+    editingPayment.value = payment;
+    showDriverModal.value = true;
+};
+
+const closeDriverModal = () => {
+    showDriverModal.value = false;
+    editingPayment.value = null;
 };
 
 const typeLabel = (type) => (type === 'withdraw' ? t('land_trips.wallet_withdraw') : t('land_trips.wallet_deposit'));
@@ -244,7 +260,7 @@ const replaceAttachment = (key, url, file) => {
                     <button type="button" class="btn btn-erp-ghost land-wallet-btn" :disabled="form.processing" @click="submit('withdraw')">
                         {{ t('land_trips.wallet_withdraw') }}
                     </button>
-                    <button type="button" class="btn btn-erp-ghost land-wallet-btn" :disabled="form.processing" @click="showDriverModal = true">
+                    <button type="button" class="btn btn-erp-ghost land-wallet-btn" :disabled="form.processing" @click="openDriverCreate">
                         {{ t('land_trips.driver_account') }}
                     </button>
                 </div>
@@ -348,7 +364,7 @@ const replaceAttachment = (key, url, file) => {
                     v-if="canManage"
                     type="button"
                     class="btn btn-sm btn-erp"
-                    @click="showDriverModal = true"
+                    @click="openDriverCreate"
                 >
                     {{ t('land_trips.driver_account') }}
                 </button>
@@ -402,6 +418,13 @@ const replaceAttachment = (key, url, file) => {
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-erp-ghost"
+                                        @click="openDriverEdit(payment)"
+                                    >
+                                        {{ t('common.edit') }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-erp-ghost"
                                         :aria-expanded="chassisTarget?.kind === 'driver' && chassisTarget?.id === payment.id"
                                         @click="openChassis('driver', payment)"
                                     >
@@ -437,7 +460,8 @@ const replaceAttachment = (key, url, file) => {
             :company-id="company.id"
             :driver-names="driverNames"
             :cash-account="cashAccount"
-            @close="showDriverModal = false"
+            :payment="editingPayment"
+            @close="closeDriverModal"
         />
 
         <div v-if="preview" class="erp-modal-backdrop" @click.self="preview = null">

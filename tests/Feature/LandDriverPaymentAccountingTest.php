@@ -295,6 +295,88 @@ class LandDriverPaymentAccountingTest extends TestCase
         $this->assertSame($payment->attachment_path, $payment->journalEntry?->attachment_path);
     }
 
+    public function test_manager_can_update_driver_payment_details_without_changing_amount_or_date(): void
+    {
+        $user = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $this->setCashAccount($this->cashAccount());
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.driver-payments.store', $company), [
+                'driver_name' => 'Ahmed Driver',
+                'cmr_number' => 'CMR-1',
+                'cars_count' => 2,
+                'type' => 'freight',
+                'payment_date' => '2026-08-18',
+                'amount' => 150.25,
+            ])
+            ->assertRedirect();
+
+        $payment = LandDriverPayment::query()->firstOrFail();
+        $journalId = $payment->journal_entry_id;
+        $oldAmount = (string) $payment->amount;
+
+        $this->actingAs($user)
+            ->put(route('land-trips.companies.driver-payments.update', [$company, $payment]), [
+                'driver_name' => 'Sami Driver',
+                'cmr_number' => 'CMR-99',
+                'cars_count' => 5,
+                'type' => 'commission',
+                'amount' => 1,
+                'payment_date' => '2020-01-01',
+            ])
+            ->assertRedirect();
+
+        $payment->refresh();
+        $entry = $payment->journalEntry()->with('lines')->firstOrFail();
+        $debit = $entry->lines->firstWhere('debit', '>', 0);
+
+        $this->assertSame('Sami Driver', $payment->driver_name);
+        $this->assertSame('CMR-99', $payment->cmr_number);
+        $this->assertSame(5, $payment->cars_count);
+        $this->assertSame('commission', $payment->type->value);
+        $this->assertSame('2026-08-18', $payment->payment_date?->toDateString());
+        $this->assertSame($oldAmount, (string) $payment->amount);
+        $this->assertSame($journalId, $payment->journal_entry_id);
+        $this->assertSame('2026-08-18', $entry->entry_date?->toDateString());
+        $this->assertEquals(150.25, (float) $entry->lines->sum('debit'));
+        $this->assertEquals(150.25, (float) $entry->lines->sum('credit'));
+        $this->assertStringContainsString('Sami Driver', (string) $entry->description);
+        $this->assertStringContainsString('150.25', (string) $entry->description);
+        $this->assertStringContainsString('Sami Driver', (string) $debit?->memo);
+    }
+
+    public function test_viewer_cannot_update_driver_payment(): void
+    {
+        $manager = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $this->setCashAccount($this->cashAccount());
+
+        $this->actingAs($manager)
+            ->post(route('land-trips.companies.driver-payments.store', $company), [
+                'driver_name' => 'Ahmed Driver',
+                'cars_count' => 1,
+                'type' => 'freight',
+                'payment_date' => '2026-08-18',
+                'amount' => 10,
+            ])
+            ->assertRedirect();
+
+        $payment = LandDriverPayment::query()->firstOrFail();
+        $viewer = User::factory()->create();
+        $viewer->givePermissionTo(Permission::LandTripsView->value);
+
+        $this->actingAs($viewer)
+            ->put(route('land-trips.companies.driver-payments.update', [$company, $payment]), [
+                'driver_name' => 'Hacked',
+                'cars_count' => 9,
+                'type' => 'other',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('Ahmed Driver', $payment->fresh()->driver_name);
+    }
+
     public function test_missing_cash_account_setting_fails_validation(): void
     {
         $user = $this->landTripsUser();

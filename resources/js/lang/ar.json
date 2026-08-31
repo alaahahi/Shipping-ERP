@@ -946,6 +946,8 @@
     "driver_type_commission": "عمولة",
     "driver_type_other": "أخرى",
     "driver_payment_submit": "ترحيل حساب السائق",
+    "driver_payment_edit": "تعديل دفعة السائق",
+    "driver_payment_edit_help": "المبلغ والتاريخ لا يُغيَّران بعد الترحيل. يمكن تعديل السائق وCMR وعدد السيارات والنوع.",
     "driver_delete_confirm": "حذف دفعة السائق {name}؟ سيُبطَل القيد المحاسبي.",
     "attachment": "مرفق",
     "attach_file": "إرفاق ملف",

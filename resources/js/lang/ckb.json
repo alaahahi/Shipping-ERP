@@ -533,6 +533,8 @@
     "driver_type_commission": "کۆمسیۆن",
     "driver_type_other": "هیتر",
     "driver_payment_submit": "پۆستکردنی پارەدانی شۆفێر",
+    "driver_payment_edit": "دەستکاری پارەدانی شۆفێر",
+    "driver_payment_edit_help": "بڕ و بەروار دوای پۆستکردن ناگۆڕدرێن. دەتوانیت شۆفێر، CMR، ژمارەی ئۆتۆمبێل و جۆر بگۆڕیت.",
     "driver_delete_confirm": "پارەدانی شۆفێر {name} بسڕیتەوە؟ ژوورناڵەکە هەڵدەوەشێت.",
     "attachment": "هاوپێچ",
     "attach_file": "هاوپێچکردنی فایل",

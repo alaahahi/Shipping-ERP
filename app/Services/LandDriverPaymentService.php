@@ -197,6 +197,53 @@ class LandDriverPaymentService
         return $payment;
     }
 
+    /**
+     * @param  array{
+     *     driver_name: string,
+     *     cmr_number?: string|null,
+     *     cars_count: int|string,
+     *     type: string
+     * }  $data
+     */
+    public function update(Company $company, LandDriverPayment $payment, array $data, User $actor): LandDriverPayment
+    {
+        if ((int) $payment->company_id !== (int) $company->id) {
+            abort(404);
+        }
+
+        $updated = DB::transaction(function () use ($company, $payment, $data, $actor): LandDriverPayment {
+            $locked = LandDriverPayment::query()
+                ->whereKey($payment->id)
+                ->where('company_id', $company->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $driverName = trim((string) $data['driver_name']);
+            $carsCount = (int) $data['cars_count'];
+            $cmr = $this->nullableString($data['cmr_number'] ?? null);
+            $type = LandDriverPaymentType::from($data['type']);
+
+            $locked->update([
+                'driver_name' => $driverName,
+                'cmr_number' => $cmr,
+                'cars_count' => $carsCount,
+                'type' => $type,
+            ]);
+
+            $this->syncJournalDescription($company, $locked);
+
+            Log::info('Land driver payment updated.', [
+                'company_id' => $company->id,
+                'payment_id' => $locked->id,
+                'user_id' => $actor->id,
+            ]);
+
+            return $locked->fresh(['journalEntry', 'cashAccount', 'creator', 'company']) ?? $locked;
+        });
+
+        return $updated;
+    }
+
     public function delete(Company $company, LandDriverPayment $payment, User $actor): void
     {
         if ((int) $payment->company_id !== (int) $company->id) {
@@ -292,6 +339,35 @@ class LandDriverPaymentService
             'created_by_name' => $payment->creator?->name,
             'chassis' => $chassis,
         ];
+    }
+
+    private function syncJournalDescription(Company $company, LandDriverPayment $payment): void
+    {
+        if (! $payment->journal_entry_id) {
+            return;
+        }
+
+        $journal = JournalEntry::query()->find($payment->journal_entry_id);
+        if (! $journal || ! $journal->isPosted()) {
+            return;
+        }
+
+        $amount = number_format((float) $payment->amount, 2, '.', '');
+        $description = sprintf(
+            'Driver payment — %s · %s · %s USD',
+            $payment->driver_name,
+            $company->name,
+            $amount
+        );
+        $memo = sprintf('Driver payment — %s · %s', $payment->driver_name, $company->name);
+
+        $this->journalService->updatePostedMeta($journal, [
+            'description' => $description,
+        ]);
+
+        $journal->lines()
+            ->where('debit', '>', 0)
+            ->update(['memo' => $memo]);
     }
 
     private function forgetChassis(LandDriverPayment $payment): void

@@ -6,6 +6,7 @@ use App\Http\Requests\LandTrips\AssignPaymentChassisRequest;
 use App\Http\Requests\LandTrips\DestroyLandDriverPaymentRequest;
 use App\Http\Requests\LandTrips\StoreLandDriverPaymentRequest;
 use App\Http\Requests\LandTrips\UpdateLandDriverPaymentAttachmentRequest;
+use App\Http\Requests\LandTrips\UpdateLandDriverPaymentRequest;
 use App\Models\Company;
 use App\Models\LandDriverPayment;
 use App\Models\User;
@@ -36,6 +37,26 @@ class LandDriverPaymentController extends Controller
         );
 
         return back()->with('success', 'Driver payment posted.');
+    }
+
+    public function update(
+        UpdateLandDriverPaymentRequest $request,
+        Company $company,
+        LandDriverPayment $payment
+    ): RedirectResponse {
+        Gate::authorize('update', $payment);
+
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        $this->driverPaymentService->update(
+            $company,
+            $payment,
+            $request->safe()->only(['driver_name', 'cmr_number', 'cars_count', 'type']),
+            $user
+        );
+
+        return back()->with('success', 'Driver payment updated.');
     }
 
     public function destroy(

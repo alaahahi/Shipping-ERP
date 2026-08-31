@@ -192,6 +192,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.wallet.attachment.update');
     Route::post('/land-trips/companies/{company}/driver-payments', [LandDriverPaymentController::class, 'store'])
         ->name('land-trips.companies.driver-payments.store');
+    Route::put('/land-trips/companies/{company}/driver-payments/{payment}', [LandDriverPaymentController::class, 'update'])
+        ->name('land-trips.companies.driver-payments.update');
     Route::delete('/land-trips/companies/{company}/driver-payments/{payment}', [LandDriverPaymentController::class, 'destroy'])
         ->name('land-trips.companies.driver-payments.destroy');
     Route::post('/land-trips/companies/{company}/driver-payments/{payment}/chassis', [LandDriverPaymentController::class, 'assignChassis'])
