@@ -29,6 +29,7 @@ const onFile = (event) => {
             type="button"
             :class="fbGhostButton"
             class="!w-auto cursor-pointer !px-2 !py-1 text-xs"
+            :title="name || t('common.preview')"
             @click="emit('preview')"
         >
             {{ t('common.preview') }}
@@ -50,6 +51,5 @@ const onFile = (event) => {
             />
         </label>
         <span v-else-if="!url">—</span>
-        <span v-if="name" class="break-all text-xs text-gray-500 dark:text-gray-400">{{ name }}</span>
     </div>
 </template>
