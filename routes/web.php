@@ -152,6 +152,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.transfer-logs');
     Route::get('/land-trips/companies/{company}/price-logs', [LandTripPriceLogController::class, 'index'])
         ->name('land-trips.companies.price-logs');
+    Route::get('/land-trips/companies/{company}/cars/{car}/location-history', [LandTripLocationLogController::class, 'carHistory'])
+        ->name('land-trips.companies.cars.location-history');
     Route::patch('/land-trips/companies/{company}/cars/{car}/price', [LandTripController::class, 'updateCompanyCarPrice'])
         ->name('land-trips.companies.cars.price');
     Route::patch('/land-trips/companies/{company}/cars/{car}', [LandTripController::class, 'updateCompanyCarDetails'])

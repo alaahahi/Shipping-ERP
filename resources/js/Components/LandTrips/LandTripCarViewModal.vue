@@ -10,7 +10,7 @@ const props = defineProps({
     car: { type: Object, default: null },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'history']);
 
 const { t } = useI18n();
 const { stationLabel } = useLandTripStation();
@@ -120,6 +120,16 @@ const display = (value) => {
                                 <dd>{{ display(row.value) }}</dd>
                             </div>
                         </dl>
+
+                        <div class="land-car-view-actions">
+                            <button
+                                type="button"
+                                :class="[fbGhostButton, '!w-auto cursor-pointer']"
+                                @click="emit('history', car)"
+                            >
+                                {{ t('land_trips.location_history') }}
+                            </button>
+                        </div>
                     </div>
                 </Transition>
             </div>

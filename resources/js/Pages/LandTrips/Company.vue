@@ -9,6 +9,7 @@ import LandTripCarCheck from '@/Components/LandTrips/LandTripCarCheck.vue';
 import LandTripCarEditModal from '@/Components/LandTrips/LandTripCarEditModal.vue';
 import LandTripCarBulkPriceModal from '@/Components/LandTrips/LandTripCarBulkPriceModal.vue';
 import LandTripCarViewModal from '@/Components/LandTrips/LandTripCarViewModal.vue';
+import LandTripCarLocationHistoryModal from '@/Components/LandTrips/LandTripCarLocationHistoryModal.vue';
 import LandTripCmrGroups from '@/Components/LandTrips/LandTripCmrGroups.vue';
 import LandTripModelGroups from '@/Components/LandTrips/LandTripModelGroups.vue';
 import LandTripSearchBar from '@/Components/LandTrips/LandTripSearchBar.vue';
@@ -46,6 +47,7 @@ const success = computed(() => page.props.flash?.success);
 const showCars = ref(false);
 const editingCar = ref(null);
 const viewingCar = ref(null);
+const historyCar = ref(null);
 const showDuplicates = ref(false);
 const duplicateGroups = ref([]);
 const duplicatesLoading = ref(false);
@@ -795,6 +797,10 @@ const openViewCar = (car) => {
     viewingCar.value = { ...car };
 };
 
+const openLocationHistory = (car) => {
+    historyCar.value = { ...car };
+};
+
 const onCarEdited = (patch) => {
     const status = props.carStatuses.find((item) => String(item.id) === String(patch.location_status_id ?? ''));
     loadedCars.value = loadedCars.value.map((row) => (
@@ -1396,20 +1402,33 @@ const duplicateCarCount = computed(() => (
                                     <span v-else>{{ integerPrice(car.price) }}</span>
                                 </td>
                                 <td>
-                                    <select
-                                        v-if="canManage"
-                                        class="form-select form-select-sm form-erp-control land-hub-row-select"
-                                        :value="car.location_status_id || ''"
-                                        :disabled="moveForm.processing || deletingSelected"
-                                        :aria-label="t('land_trips.location_status')"
-                                        @change="moveOne(car.id, $event.target.value)"
-                                    >
-                                        <option value="">{{ t('land_trips.unspecified_location') }}</option>
-                                        <option v-for="status in carStatuses" :key="status.id" :value="status.id">
-                                            {{ stationLabel(status) }}
-                                        </option>
-                                    </select>
-                                    <span v-else>{{ carStationLabel(car) }}</span>
+                                    <div class="land-hub-location-cell">
+                                        <select
+                                            v-if="canManage"
+                                            class="form-select form-select-sm form-erp-control land-hub-row-select"
+                                            :value="car.location_status_id || ''"
+                                            :disabled="moveForm.processing || deletingSelected"
+                                            :aria-label="t('land_trips.location_status')"
+                                            @change="moveOne(car.id, $event.target.value)"
+                                        >
+                                            <option value="">{{ t('land_trips.unspecified_location') }}</option>
+                                            <option v-for="status in carStatuses" :key="status.id" :value="status.id">
+                                                {{ stationLabel(status) }}
+                                            </option>
+                                        </select>
+                                        <span v-else class="land-hub-location-label">{{ carStationLabel(car) }}</span>
+                                        <button
+                                            type="button"
+                                            class="btn btn-erp-ghost btn-sm land-hub-icon-btn"
+                                            :aria-label="t('land_trips.location_history')"
+                                            :title="t('land_trips.location_history')"
+                                            @click="openLocationHistory(car)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="land-hub-edit-icon" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .192.078.384.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </td>
                                 <td class="pe-3 text-end">
                                     <div class="land-hub-row-actions">
@@ -1486,6 +1505,14 @@ const duplicateCarCount = computed(() => (
             :show="!!viewingCar"
             :car="viewingCar"
             @close="viewingCar = null"
+            @history="openLocationHistory"
+        />
+
+        <LandTripCarLocationHistoryModal
+            :show="!!historyCar"
+            :company-id="company.id"
+            :car="historyCar"
+            @close="historyCar = null"
         />
 
         <LandTripCarTransferModal

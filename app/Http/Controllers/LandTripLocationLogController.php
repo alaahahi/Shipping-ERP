@@ -6,8 +6,10 @@ use App\Enums\Permission;
 use App\Http\Requests\LandTrips\UndoCompanyLandCarLocationChangeRequest;
 use App\Models\Company;
 use App\Models\LandTrip;
+use App\Models\LandTripCar;
 use App\Services\LandTripCarLocationChangeService;
 use App\Services\LandTripService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -40,5 +42,14 @@ class LandTripLocationLogController extends Controller
         $this->locationChangeService->undoLatest($company, $request->user());
 
         return back()->with('success', 'Last location change undone.');
+    }
+
+    public function carHistory(Company $company, LandTripCar $car): JsonResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return response()->json(
+            $this->locationChangeService->timelineForCar($company, $car)
+        );
     }
 }

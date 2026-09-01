@@ -63,4 +63,9 @@ class LandTripCar extends Model
     {
         return $this->hasMany(LandTripCarDeletionItem::class);
     }
+
+    public function locationChangeItems(): HasMany
+    {
+        return $this->hasMany(LandTripCarLocationChangeItem::class);
+    }
 }
