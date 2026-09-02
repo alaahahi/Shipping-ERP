@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class CompanyWalletEntry extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'company_id',
         'voucher_number',
