@@ -955,7 +955,6 @@
     "driver_type_commission": "Commission",
     "driver_type_other": "Other",
     "driver_payment_submit": "Post driver payment",
-    "driver_amount_zero_hint": "Enter 0 to keep the driver, CMR, car count, and other details without posting a cash amount.",
     "driver_payment_edit": "Edit driver payment",
     "driver_payment_edit_help": "Amount and date stay locked after posting. You can change the driver, CMR, car count, and type.",
     "driver_delete_confirm": "Delete driver payment for {name}? The journal will be voided.",

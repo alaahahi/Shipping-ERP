@@ -274,9 +274,6 @@ const submit = async () => {
                             :disabled="isEdit"
                             :required="!isEdit"
                         />
-                        <p v-if="!isEdit" class="mt-1 mb-0 text-xs text-gray-500 dark:text-gray-400">
-                            {{ t('land_trips.driver_amount_zero_hint') }}
-                        </p>
                         <InputError :message="form.errors.amount" />
                     </div>
                 </div>
