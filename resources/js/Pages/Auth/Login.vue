@@ -1,14 +1,14 @@
 <script setup>
 import AnimatedCharacters from '@/Components/Auth/AnimatedCharacters.vue';
 import InteractiveHoverButton from '@/Components/Auth/InteractiveHoverButton.vue';
-import InputError from '@/Components/InputError.vue';
 import IntelliJCredit from '@/Components/IntelliJCredit.vue';
 import LocaleSync from '@/Components/LocaleSync.vue';
 import ThemeSync from '@/Components/ThemeSync.vue';
 import { applyDocumentLocale } from '@/i18n';
 import { useTheme } from '@/composables/useTheme';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 defineProps({
@@ -25,15 +25,38 @@ const { t, locale } = useI18n();
 const { theme, toggleTheme } = useTheme();
 const showPassword = ref(false);
 const isTyping = ref(false);
+const processing = ref(false);
+const bannerTitle = ref('');
+const bannerMessage = ref('');
 
 const locales = computed(() => page.props.appSettings?.locales ?? []);
-const currentLocale = computed(() => page.props.appSettings?.locale || locale.value || 'ar');
+const currentLocale = computed(() => locale.value || page.props.appSettings?.locale || 'ar');
 
-const form = useForm({
+const form = reactive({
     email: '',
     password: '',
     remember: false,
 });
+
+const errors = reactive({
+    email: '',
+    password: '',
+});
+
+const firstMessage = (value) => {
+    if (Array.isArray(value)) {
+        return String(value[0] || '');
+    }
+
+    return value ? String(value) : '';
+};
+
+const clearErrors = () => {
+    errors.email = '';
+    errors.password = '';
+    bannerTitle.value = '';
+    bannerMessage.value = '';
+};
 
 const setLocale = (value) => {
     if (!value) {
@@ -46,10 +69,58 @@ const setLocale = (value) => {
 
 const localeLabel = (item) => t(`language.${item.value}`) || item.label;
 
-const submit = () => {
-    form.post(route('login'), {
-        onFinish: () => form.reset('password'),
-    });
+const submit = async () => {
+    if (processing.value) {
+        return;
+    }
+
+    clearErrors();
+    processing.value = true;
+
+    try {
+        const { data } = await axios.post(route('login'), {
+            email: form.email,
+            password: form.password,
+            remember: form.remember,
+            locale: currentLocale.value,
+        }, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        window.location.assign(data.redirect || route('dashboard'));
+    } catch (error) {
+        const status = error?.response?.status;
+        const payload = error?.response?.data || {};
+        const bag = payload.errors || {};
+
+        errors.email = firstMessage(bag.email);
+        errors.password = firstMessage(bag.password);
+
+        if (status === 419) {
+            bannerTitle.value = t('auth.session_expired');
+            bannerMessage.value = t('auth.session_expired');
+        } else if (firstMessage(bag.throttle)) {
+            bannerTitle.value = firstMessage(bag.throttle);
+            bannerMessage.value = firstMessage(bag.throttle);
+        } else if (errors.email) {
+            bannerTitle.value = t('auth.problem_email');
+            bannerMessage.value = errors.email;
+        } else if (errors.password) {
+            bannerTitle.value = t('auth.problem_password');
+            bannerMessage.value = errors.password;
+        } else if (!error?.response) {
+            bannerTitle.value = t('auth.login_network');
+            bannerMessage.value = t('auth.login_network');
+        } else {
+            bannerTitle.value = payload.message || t('auth.login_network');
+            bannerMessage.value = payload.message || t('auth.login_network');
+        }
+    } finally {
+        processing.value = false;
+    }
 };
 </script>
 
@@ -136,6 +207,11 @@ const submit = () => {
                     {{ status }}
                 </div>
 
+                <div v-if="bannerMessage" class="login-alert" role="alert">
+                    <strong>{{ bannerTitle }}</strong>
+                    <p v-if="bannerMessage !== bannerTitle">{{ bannerMessage }}</p>
+                </div>
+
                 <form class="space-y-5" @submit.prevent="submit">
                     <div class="space-y-2">
                         <label class="text-sm font-medium text-slate-800 dark:text-slate-200" for="email">{{ t('auth.email') }}</label>
@@ -147,11 +223,12 @@ const submit = () => {
                             autocomplete="username"
                             required
                             autofocus
-                            class="login-input rounded-full px-5 text-sm"
+                            :aria-invalid="errors.email ? 'true' : 'false'"
+                            :class="['login-input rounded-full px-5 text-sm', errors.email ? 'is-invalid' : '']"
                             @focus="isTyping = true"
                             @blur="isTyping = false"
                         >
-                        <InputError :message="form.errors.email" />
+                        <p v-if="errors.email" class="login-field-error" role="alert">{{ errors.email }}</p>
                     </div>
 
                     <div class="space-y-2">
@@ -164,7 +241,8 @@ const submit = () => {
                                 name="password"
                                 autocomplete="current-password"
                                 required
-                                class="login-input rounded-full px-5 pe-12 text-sm"
+                                :aria-invalid="errors.password ? 'true' : 'false'"
+                                :class="['login-input rounded-full px-5 pe-12 text-sm', errors.password ? 'is-invalid' : '']"
                                 @focus="isTyping = true"
                                 @blur="isTyping = false"
                             >
@@ -179,7 +257,7 @@ const submit = () => {
                                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
-                        <InputError :message="form.errors.password" />
+                        <p v-if="errors.password" class="login-field-error" role="alert">{{ errors.password }}</p>
                     </div>
 
                     <div class="flex items-center justify-between gap-3">
@@ -198,8 +276,8 @@ const submit = () => {
 
                     <InteractiveHoverButton
                         type="submit"
-                        :text="form.processing ? t('auth.signing_in') : t('auth.sign_in')"
-                        :disabled="form.processing"
+                        :text="processing ? t('auth.signing_in') : t('auth.sign_in')"
+                        :disabled="processing"
                     />
                 </form>
 

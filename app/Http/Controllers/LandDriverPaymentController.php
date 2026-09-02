@@ -29,14 +29,16 @@ class LandDriverPaymentController extends Controller
     {
         Gate::authorize('create', LandDriverPayment::class);
 
-        $this->driverPaymentService->create(
+        $payment = $this->driverPaymentService->create(
             $company,
             $request->safe()->except('attachment'),
             $request->user(),
             $request->file('attachment')
         );
 
-        return back()->with('success', 'Driver payment posted.');
+        $posted = round((float) $payment->amount, 2) > 0;
+
+        return back()->with('success', $posted ? 'Driver payment posted.' : 'Driver details saved.');
     }
 
     public function update(

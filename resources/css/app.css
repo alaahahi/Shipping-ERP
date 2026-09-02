@@ -5080,10 +5080,52 @@ html.dark .action-pin-otp-wrap.is-error input.action-pin-digit.is-complete,
     -webkit-text-fill-color: #94a3b8;
 }
 
-.login-input:focus {
-    outline: none;
-    border-color: #0f766e;
-    box-shadow: 0 0 0 3px rgb(15 118 110 / 0.28);
+.login-input.is-invalid {
+    border-color: #dc2626;
+}
+
+.login-input.is-invalid:focus {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgb(220 38 38 / 0.22);
+}
+
+.login-alert {
+    margin-bottom: 1rem;
+    border-radius: 0.85rem;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    padding: 0.85rem 1rem;
+    color: #991b1b;
+}
+
+.login-alert strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    font-size: 0.92rem;
+}
+
+.login-alert p {
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+html.dark .login-alert,
+[data-theme='dark'] .login-alert {
+    border-color: rgb(127 29 29 / 0.7);
+    background: rgb(127 29 29 / 0.28);
+    color: #fecaca;
+}
+
+.login-field-error {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #dc2626;
+}
+
+html.dark .login-field-error,
+[data-theme='dark'] .login-field-error {
+    color: #fca5a5;
 }
 
 .login-input::-ms-reveal,

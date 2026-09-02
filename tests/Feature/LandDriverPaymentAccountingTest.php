@@ -8,6 +8,7 @@ use App\Enums\Permission;
 use App\Enums\SettingKey;
 use App\Models\Account;
 use App\Models\CompanyWalletEntry;
+use App\Models\JournalEntry;
 use App\Models\LandDriverPayment;
 use App\Models\User;
 use App\Services\CompanyService;
@@ -67,6 +68,60 @@ class LandDriverPaymentAccountingTest extends TestCase
         $this->assertSame($company->id, $debit?->company_id);
         $this->assertSame($cash->id, $credit?->account_id);
         $this->assertEquals(0.0, (float) $credit?->debit);
+    }
+
+    public function test_zero_amount_driver_record_saves_details_without_a_journal(): void
+    {
+        $user = $this->landTripsUser();
+        $company = $this->makeCompany();
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.driver-payments.store', $company), [
+                'driver_name' => 'Info Driver',
+                'cmr_number' => 'CMR-ZERO',
+                'cars_count' => 4,
+                'type' => 'freight',
+                'payment_date' => '2026-09-02',
+                'amount' => 0,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $payment = LandDriverPayment::query()->firstOrFail();
+        $this->assertSame($company->id, $payment->company_id);
+        $this->assertSame('Info Driver', $payment->driver_name);
+        $this->assertSame('CMR-ZERO', $payment->cmr_number);
+        $this->assertSame(4, $payment->cars_count);
+        $this->assertSame('2026-09-02', $payment->payment_date?->toDateString());
+        $this->assertEquals(0.0, (float) $payment->amount);
+        $this->assertNull($payment->journal_entry_id);
+        $this->assertNull($payment->cash_account_id);
+        $this->assertSame(0, JournalEntry::query()->count());
+    }
+
+    public function test_zero_amount_driver_record_skips_journal_even_when_cash_account_is_set(): void
+    {
+        $user = $this->landTripsUser();
+        $company = $this->makeCompany();
+        $cash = $this->cashAccount();
+        $this->setCashAccount($cash);
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.driver-payments.store', $company), [
+                'driver_name' => 'Memo Driver',
+                'cmr_number' => 'CMR-MEMO',
+                'cars_count' => 2,
+                'type' => 'commission',
+                'payment_date' => '2026-09-02',
+                'amount' => '0.00',
+            ])
+            ->assertRedirect();
+
+        $payment = LandDriverPayment::query()->firstOrFail();
+        $this->assertEquals(0.0, (float) $payment->amount);
+        $this->assertSame($cash->id, $payment->cash_account_id);
+        $this->assertNull($payment->journal_entry_id);
+        $this->assertSame(0, JournalEntry::query()->count());
     }
 
     public function test_wallet_deposit_posts_debit_cash_and_credit_company_ar(): void

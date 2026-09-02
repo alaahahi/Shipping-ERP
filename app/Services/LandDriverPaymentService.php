@@ -106,15 +106,18 @@ class LandDriverPaymentService
     public function create(Company $company, array $data, User $actor, ?UploadedFile $attachment = null): LandDriverPayment
     {
         $amount = round((float) $data['amount'], 2);
-        if ($amount <= 0) {
+        if ($amount < 0) {
             throw ValidationException::withMessages([
-                'amount' => 'Enter an amount greater than zero.',
+                'amount' => 'Enter an amount of zero or more.',
             ]);
         }
 
+        $isInfoOnly = $amount == 0;
         $type = LandDriverPaymentType::from($data['type']);
-        $cashAccount = $this->cashAccounts->resolve();
-        $receivable = $this->companyReceivableAccounts->resolveFor($company);
+        $cashAccount = $isInfoOnly
+            ? $this->cashAccounts->configuredAccount()
+            : $this->cashAccounts->resolve();
+        $receivable = $isInfoOnly ? null : $this->companyReceivableAccounts->resolveFor($company);
         $driverName = trim((string) $data['driver_name']);
         $carsCount = (int) $data['cars_count'];
         $cmr = $this->nullableString($data['cmr_number'] ?? null);
@@ -130,6 +133,7 @@ class LandDriverPaymentService
             $company,
             $actor,
             $amount,
+            $isInfoOnly,
             $type,
             $cashAccount,
             $receivable,
@@ -150,44 +154,47 @@ class LandDriverPaymentService
                 'payment_date' => $data['payment_date'],
                 'amount' => $amount,
                 'currency' => Currency::USD,
-                'cash_account_id' => $cashAccount->id,
+                'cash_account_id' => $cashAccount?->id,
                 'created_by' => $actor->id,
             ]);
 
-            $draft = $this->journalService->createDraft([
-                'entry_date' => $payment->payment_date?->toDateString() ?? now()->toDateString(),
-                'currency' => Currency::USD->value,
-                'reference' => sprintf('LDP-%s', $payment->id),
-                'description' => $description,
-                'lines' => [
-                    [
-                        'account_id' => $receivable->id,
-                        'company_id' => $company->id,
-                        'debit' => $amount,
-                        'credit' => 0,
-                        'memo' => $memo,
+            $journal = null;
+            if (! $isInfoOnly && $cashAccount !== null && $receivable !== null) {
+                $draft = $this->journalService->createDraft([
+                    'entry_date' => $payment->payment_date?->toDateString() ?? now()->toDateString(),
+                    'currency' => Currency::USD->value,
+                    'reference' => sprintf('LDP-%s', $payment->id),
+                    'description' => $description,
+                    'lines' => [
+                        [
+                            'account_id' => $receivable->id,
+                            'company_id' => $company->id,
+                            'debit' => $amount,
+                            'credit' => 0,
+                            'memo' => $memo,
+                        ],
+                        [
+                            'account_id' => $cashAccount->id,
+                            'debit' => 0,
+                            'credit' => $amount,
+                            'memo' => sprintf('%s · %s', $cashAccount->code, $cashAccount->name),
+                        ],
                     ],
-                    [
-                        'account_id' => $cashAccount->id,
-                        'debit' => 0,
-                        'credit' => $amount,
-                        'memo' => sprintf('%s · %s', $cashAccount->code, $cashAccount->name),
-                    ],
-                ],
-            ], $actor);
+                ], $actor);
 
-            $posted = $this->journalService->post($draft, $actor);
+                $journal = $this->journalService->post($draft, $actor);
 
-            $payment->update([
-                'journal_entry_id' => $posted->id,
-            ]);
+                $payment->update([
+                    'journal_entry_id' => $journal->id,
+                ]);
+            }
 
-            $this->attachFile($payment, $posted, $attachment);
+            $this->attachFile($payment, $journal, $attachment);
 
             return $payment->fresh(['journalEntry', 'cashAccount', 'creator', 'company']);
         });
 
-        Log::info('Land driver payment posted.', [
+        Log::info($isInfoOnly ? 'Land driver details recorded without cash posting.' : 'Land driver payment posted.', [
             'company_id' => $company->id,
             'payment_id' => $payment->id,
             'journal_entry_id' => $payment->journal_entry_id,

@@ -31,6 +31,16 @@ const form = useForm({
 });
 const fileKey = ref(0);
 const isEdit = computed(() => !!props.payment);
+const isZeroAmount = computed(() => {
+    const raw = String(form.amount ?? '').trim();
+    if (raw === '') {
+        return false;
+    }
+    const value = Number(raw);
+
+    return Number.isFinite(value) && value === 0;
+});
+const needsCashPosting = computed(() => !isEdit.value && !isZeroAmount.value);
 
 form.transform((data) => {
     if (!props.payment) {
@@ -53,12 +63,14 @@ const typeOptions = computed(() => [
 
 const filteredDriverNames = computed(() => {
     const q = driverQuery.value.trim().toLocaleLowerCase();
-    const names = (props.driverNames || []).filter(Boolean);
     if (!q) {
-        return names.slice(0, 12);
+        return [];
     }
 
-    return names.filter((name) => String(name).toLocaleLowerCase().includes(q)).slice(0, 12);
+    return (props.driverNames || [])
+        .filter(Boolean)
+        .filter((name) => String(name).toLocaleLowerCase().includes(q))
+        .slice(0, 12);
 });
 
 watch(
@@ -89,12 +101,27 @@ watch(
         fileKey.value += 1;
         await nextTick();
         document.getElementById('land-driver-name')?.focus();
+        driverMenuOpen.value = false;
     },
 );
 
 const pickDriver = (name) => {
     form.driver_name = name;
     driverQuery.value = name;
+    driverMenuOpen.value = false;
+};
+
+const onDriverInput = () => {
+    driverQuery.value = form.driver_name;
+    driverMenuOpen.value = driverQuery.value.trim() !== '';
+};
+
+const onDriverEscape = (event) => {
+    if (!driverMenuOpen.value) {
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
     driverMenuOpen.value = false;
 };
 
@@ -109,7 +136,9 @@ const submit = async () => {
         return;
     }
 
-    const ok = await requireActionPin(t('action_pin.message_driver_payment'));
+    const ok = needsCashPosting.value
+        ? await requireActionPin(t('action_pin.message_driver_payment'))
+        : true;
     if (!ok) {
         return;
     }
@@ -153,7 +182,7 @@ const submit = async () => {
             </div>
 
             <form class="p-4" @submit.prevent="submit">
-                <p v-if="!cashAccount" class="mb-3 text-sm text-amber-800 rounded-lg bg-amber-50 p-3 dark:bg-gray-800 dark:text-amber-300">
+                <p v-if="!cashAccount && needsCashPosting" class="mb-3 text-sm text-amber-800 rounded-lg bg-amber-50 p-3 dark:bg-gray-800 dark:text-amber-300">
                     {{ t('land_trips.wallet_cash_missing') }}
                 </p>
 
@@ -163,17 +192,14 @@ const submit = async () => {
                         id="land-driver-name"
                         v-model="form.driver_name"
                         type="text"
-                        list="land-driver-name-list"
                         maxlength="180"
                         :class="fbInput"
                         autocomplete="off"
                         required
-                        @focus="driverMenuOpen = true"
-                        @input="driverQuery = form.driver_name; driverMenuOpen = true"
+                        @input="onDriverInput"
+                        @keydown.escape="onDriverEscape"
+                        @blur="driverMenuOpen = false"
                     />
-                    <datalist id="land-driver-name-list">
-                        <option v-for="name in driverNames" :key="name" :value="name" />
-                    </datalist>
                     <ul
                         v-if="driverMenuOpen && filteredDriverNames.length"
                         class="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-lg border border-gray-200 bg-white text-sm shadow-lg dark:border-gray-600 dark:bg-gray-700"
@@ -241,13 +267,16 @@ const submit = async () => {
                             id="land-driver-amount"
                             v-model="form.amount"
                             type="number"
-                            min="0.01"
+                            min="0"
                             step="0.01"
                             :class="[fbInput, isEdit ? 'opacity-70 bg-gray-100 dark:bg-gray-700' : '']"
                             :readonly="isEdit"
                             :disabled="isEdit"
                             :required="!isEdit"
                         />
+                        <p v-if="!isEdit" class="mt-1 mb-0 text-xs text-gray-500 dark:text-gray-400">
+                            {{ t('land_trips.driver_amount_zero_hint') }}
+                        </p>
                         <InputError :message="form.errors.amount" />
                     </div>
                 </div>
@@ -266,7 +295,7 @@ const submit = async () => {
                     <InputError :message="form.errors.attachment" />
                 </div>
 
-                <div v-if="!isEdit" class="mb-1">
+                <div v-if="!isEdit && needsCashPosting" class="mb-1">
                     <label :class="fbLabel" for="land-driver-cash">{{ t('land_trips.cash_account') }}</label>
                     <input
                         id="land-driver-cash"
@@ -283,10 +312,10 @@ const submit = async () => {
                 <button type="button" :class="fbGhostButton" class="cursor-pointer" @click="emit('close')">
                     {{ t('common.cancel') }}
                 </button>
-                <button type="button" :class="fbButton" class="cursor-pointer !w-auto" :disabled="form.processing" @click="submit">
+                <button type="button" :class="fbButton" class="cursor-pointer !w-auto" :disabled="form.processing || (needsCashPosting && !cashAccount)" @click="submit">
                     {{ form.processing
-                        ? (isEdit ? t('common.saving') : t('common.posting'))
-                        : (isEdit ? t('common.save') : t('land_trips.driver_payment_submit')) }}
+                        ? (isEdit || isZeroAmount ? t('common.saving') : t('common.posting'))
+                        : (isEdit || isZeroAmount ? t('common.save') : t('land_trips.driver_payment_submit')) }}
                 </button>
             </div>
         </div>

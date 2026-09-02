@@ -25,7 +25,7 @@ class StoreLandDriverPaymentRequest extends FormRequest
             'cars_count' => ['required', 'integer', 'min:1'],
             'type' => ['required', 'string', Rule::enum(LandDriverPaymentType::class)],
             'payment_date' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
+            'amount' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'],
         ];
     }
