@@ -33,11 +33,19 @@ const cashAccount = computed(() => props.wallet.cash_account || null);
 const driverPayments = computed(() => props.wallet.driver_payments || []);
 const driverNames = computed(() => props.wallet.driver_names || []);
 
+const todayDate = () => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+
+    return local.toISOString().slice(0, 10);
+};
+
 const form = useForm({
     type: 'deposit',
     amount: '',
     currency: props.wallet.balances?.[0]?.currency || 'USD',
     notes: '',
+    entry_date: todayDate(),
     attachment: null,
 });
 const fileKey = ref(0);
@@ -57,6 +65,7 @@ const submit = async (type) => {
         onSuccess: () => {
             form.reset('amount', 'notes', 'attachment');
             form.currency = form.currency || 'USD';
+            form.entry_date = form.entry_date || todayDate();
             fileKey.value += 1;
         },
     });
@@ -241,6 +250,18 @@ const replaceAttachment = (key, url, file) => {
                 <div class="land-wallet-form-notes">
                     <label class="form-erp-label" for="wallet-notes">{{ t('common.notes') }}</label>
                     <input id="wallet-notes" v-model="form.notes" type="text" class="form-control form-erp-control" maxlength="255" />
+                    <InputError :message="form.errors.notes" />
+                </div>
+                <div>
+                    <label class="form-erp-label" for="wallet-date">{{ t('common.date') }}</label>
+                    <input
+                        id="wallet-date"
+                        v-model="form.entry_date"
+                        type="date"
+                        class="form-control form-erp-control"
+                        required
+                    />
+                    <InputError :message="form.errors.entry_date" />
                 </div>
                 <div class="land-wallet-form-attachment">
                     <label class="form-erp-label" for="wallet-attachment">{{ t('land_trips.attach_file') }}</label>
@@ -299,7 +320,7 @@ const replaceAttachment = (key, url, file) => {
                                     compact
                                 />
                             </td>
-                            <td class="small text-secondary text-nowrap">{{ entry.created_at }}</td>
+                            <td class="small text-nowrap">{{ entry.entry_date || entry.created_at }}</td>
                             <td>{{ typeLabel(entry.type) }}</td>
                             <td>
                                 <MoneyAmount

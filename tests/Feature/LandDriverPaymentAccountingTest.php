@@ -136,15 +136,18 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 80,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
                 'notes' => 'Company paid',
             ])
             ->assertRedirect();
 
         $wallet = CompanyWalletEntry::query()->firstOrFail();
         $this->assertNotNull($wallet->journal_entry_id);
+        $this->assertSame('2026-08-18', $wallet->entry_date?->toDateString());
 
         $entry = $wallet->journalEntry()->with('lines')->firstOrFail();
         $this->assertSame(JournalStatus::Posted, $entry->status);
+        $this->assertSame('2026-08-18', $entry->entry_date?->toDateString());
 
         $debit = $entry->lines->firstWhere('debit', '>', 0);
         $credit = $entry->lines->firstWhere('credit', '>', 0);
@@ -166,6 +169,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 100,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
             ])
             ->assertRedirect();
 
@@ -174,6 +178,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'withdraw',
                 'amount' => 40,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
             ])
             ->assertRedirect();
 
@@ -202,6 +207,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 25,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
                 'attachment' => $file,
             ])
             ->assertRedirect();
@@ -230,6 +236,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 25,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
                 'attachment' => UploadedFile::fake()->image('old.jpg'),
             ])
             ->assertRedirect();
@@ -266,6 +273,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 25,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
                 'attachment' => UploadedFile::fake()->image('keep.jpg'),
             ])
             ->assertRedirect();
@@ -454,6 +462,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 10,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
             ])
             ->assertSessionHasErrors('cash_account_id');
 
@@ -499,6 +508,7 @@ class LandDriverPaymentAccountingTest extends TestCase
                 'type' => 'deposit',
                 'amount' => 50,
                 'currency' => Currency::USD->value,
+                'entry_date' => '2026-08-18',
             ])
             ->assertRedirect();
 

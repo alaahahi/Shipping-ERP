@@ -4857,7 +4857,7 @@ body:has(.erp-print-shell) {
 
 @media (min-width: 768px) {
     .land-wallet-form {
-        grid-template-columns: minmax(8rem, 1fr) 7rem minmax(10rem, 1.4fr) minmax(16rem, 1.2fr);
+        grid-template-columns: minmax(8rem, 1fr) 7rem minmax(10rem, 1.4fr) minmax(9rem, 0.95fr);
     }
 }
 

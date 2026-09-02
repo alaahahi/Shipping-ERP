@@ -211,6 +211,7 @@ class LandPaymentChassisTest extends TestCase
             'type' => CompanyWalletEntryType::Deposit,
             'amount' => 100,
             'currency' => Currency::USD,
+            'entry_date' => '2026-08-19',
             'created_by' => $user->id,
         ]);
     }

@@ -18,6 +18,7 @@ class CompanyWalletEntry extends Model
         'type',
         'amount',
         'currency',
+        'entry_date',
         'notes',
         'attachment_path',
         'attachment_original_name',
@@ -31,6 +32,7 @@ class CompanyWalletEntry extends Model
             'type' => CompanyWalletEntryType::class,
             'currency' => Currency::class,
             'amount' => 'decimal:2',
+            'entry_date' => 'date',
         ];
     }
 

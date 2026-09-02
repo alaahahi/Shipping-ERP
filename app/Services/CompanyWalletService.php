@@ -44,7 +44,8 @@ class CompanyWalletService
         $entries = CompanyWalletEntry::query()
             ->where('company_id', $company->id)
             ->with(['creator:id,name', 'journalEntry:id,voucher_number'])
-            ->latest('id')
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id')
             ->limit(100)
             ->get();
 
@@ -147,7 +148,7 @@ class CompanyWalletService
     }
 
     /**
-     * @param  array{type: string, amount: float|string, currency: string, notes?: string|null}  $data
+     * @param  array{type: string, amount: float|string, currency: string, entry_date: string, notes?: string|null}  $data
      */
     public function create(Company $company, array $data, User $actor, ?UploadedFile $attachment = null): CompanyWalletEntry
     {
@@ -191,12 +192,14 @@ class CompanyWalletService
             }
 
             $notes = $this->nullableString($data['notes'] ?? null);
+            $entryDate = (string) $data['entry_date'];
             $entry = CompanyWalletEntry::query()->create([
                 'company_id' => $company->id,
                 'voucher_number' => $this->nextVoucherNumber($company),
                 'type' => $type,
                 'amount' => $amount,
                 'currency' => $currency,
+                'entry_date' => $entryDate,
                 'notes' => $notes,
                 'created_by' => $actor->id,
             ]);
@@ -229,7 +232,7 @@ class CompanyWalletService
             ];
 
             $draft = $this->journalService->createDraft([
-                'entry_date' => now()->toDateString(),
+                'entry_date' => $entryDate,
                 'currency' => $currency->value,
                 'reference' => $entry->voucher_number,
                 'description' => $description,
@@ -357,6 +360,7 @@ class CompanyWalletService
             'amount' => $amount,
             'currency' => $currency,
             'notes' => $entry->notes,
+            'entry_date' => $entry->entry_date?->toDateString(),
             'created_at' => ApplicationTimezone::formatDateTime($entry->created_at),
             'created_by_name' => $entry->creator?->name,
             'journal_voucher' => $entry->journalEntry?->voucher_number,

@@ -25,6 +25,7 @@ class StoreCompanyWalletEntryRequest extends FormRequest
             'amount' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
             'currency' => ['required', 'string', Rule::enum(Currency::class)],
             'notes' => ['nullable', 'string', 'max:255'],
+            'entry_date' => ['required', 'date'],
             'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'],
         ];
     }

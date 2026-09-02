@@ -24,7 +24,7 @@ const notes = computed(() => {
 
     return parts.join(' · ');
 });
-const voucherDate = computed(() => props.printedAt || String(props.entry.created_at || ''));
+const voucherDate = computed(() => props.entry.entry_date || props.printedAt || String(props.entry.created_at || ''));
 
 const printPage = () => window.print();
 </script>
