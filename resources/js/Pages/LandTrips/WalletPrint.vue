@@ -19,11 +19,8 @@ const titleAr = computed(() => (isWithdraw.value ? t('journals.cash_payment_ar')
 const currencySymbols = { USD: '$', AED: 'د.إ', IQD: 'د.ع', EUR: '€' };
 const currencySymbol = computed(() => currencySymbols[props.entry.currency] || props.entry.currency);
 const amountDisplay = computed(() => formatMoney(props.entry.amount));
-const notes = computed(() => {
-    const parts = [props.entry.notes, props.entry.created_by_name].filter(Boolean);
-
-    return parts.join(' · ');
-});
+const notes = computed(() => String(props.entry.notes || ''));
+const userName = computed(() => String(props.entry.created_by_name || '').trim());
 const voucherDate = computed(() => props.entry.entry_date || props.printedAt || String(props.entry.created_at || ''));
 
 const printPage = () => window.print();
@@ -55,6 +52,7 @@ const printPage = () => window.print();
             :currency-symbol="currencySymbol"
             :amount-in-words="entry.amount_words_ar"
             :notes="notes"
+            :user-name="userName"
             :chassis-nos="entry.chassis || []"
         />
     </PrintLayout>

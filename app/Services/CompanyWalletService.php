@@ -16,7 +16,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CompanyWalletService
 {
@@ -395,6 +399,123 @@ class CompanyWalletService
             'entry' => $this->transform($entry, $this->chassisService->forPayable($entry)),
             'printed_at' => ApplicationTimezone::formatNow(),
         ];
+    }
+
+    /**
+     * @return array{
+     *     company: array{id: int, name: string},
+     *     summary: array{currency: string, cars_count: int, cars_total: string, paid: string, remaining: string},
+     *     entries: list<array<string, mixed>>,
+     *     printed_at: string
+     * }
+     */
+    public function listPrintPayload(Company $company): array
+    {
+        $entries = $this->allEntries($company);
+        $chassisMap = $this->chassisService->mapForPayables($entries);
+
+        return [
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+            ],
+            'summary' => $this->freightSummary($company),
+            'entries' => $entries->map(fn (CompanyWalletEntry $entry) => $this->transform(
+                $entry,
+                $chassisMap[$entry->getMorphClass().':'.$entry->id] ?? []
+            ))->values()->all(),
+            'printed_at' => ApplicationTimezone::formatNow(),
+        ];
+    }
+
+    public function exportExcel(Company $company): StreamedResponse
+    {
+        $entries = $this->allEntries($company);
+        $chassisMap = $this->chassisService->mapForPayables($entries);
+        $summary = $this->freightSummary($company);
+        $slug = Str::slug($company->name) ?: 'company-'.$company->id;
+        $filename = 'wallet-payments-'.$slug.'-'.now()->format('Ymd-His').'.xlsx';
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Payments');
+
+        $sheet->setCellValue('A1', $company->name);
+        $sheet->getStyle('A1')->getFont()->setBold(true);
+        $sheet->setCellValue('A2', 'Cars total');
+        $sheet->setCellValue('B2', $summary['cars_total']);
+        $sheet->setCellValue('A3', 'Paid');
+        $sheet->setCellValue('B3', $summary['paid']);
+        $sheet->setCellValue('A4', 'Remaining');
+        $sheet->setCellValue('B4', $summary['remaining']);
+        $sheet->setCellValue('C2', $summary['currency']);
+        $sheet->setCellValue('C3', $summary['currency']);
+        $sheet->setCellValue('C4', $summary['currency']);
+
+        $sheet->fromArray([
+            '#',
+            'Voucher',
+            'Date',
+            'Type',
+            'Amount',
+            'Currency',
+            'Notes',
+            'Journal',
+            'Created by',
+            'Chassis',
+        ], null, 'A6');
+        $sheet->getStyle('A6:J6')->getFont()->setBold(true);
+
+        $line = 7;
+        $serial = 1;
+        foreach ($entries as $entry) {
+            $chassis = $chassisMap[$entry->getMorphClass().':'.$entry->id] ?? [];
+            $chassisList = collect($chassis)
+                ->pluck('chassis_no')
+                ->filter()
+                ->implode(', ');
+
+            $sheet->setCellValue("A{$line}", $serial);
+            $sheet->setCellValue("B{$line}", (string) $entry->voucher_number);
+            $sheet->setCellValue("C{$line}", $entry->entry_date?->toDateString() ?? '');
+            $sheet->setCellValue("D{$line}", $entry->type instanceof CompanyWalletEntryType
+                ? $entry->type->value
+                : (string) $entry->type);
+            $sheet->setCellValue("E{$line}", (float) $entry->amount);
+            $sheet->setCellValue("F{$line}", $entry->currency instanceof Currency
+                ? $entry->currency->value
+                : (string) $entry->currency);
+            $sheet->setCellValue("G{$line}", (string) ($entry->notes ?? ''));
+            $sheet->setCellValue("H{$line}", (string) ($entry->journalEntry?->voucher_number ?? ''));
+            $sheet->setCellValue("I{$line}", (string) ($entry->creator?->name ?? ''));
+            $sheet->setCellValue("J{$line}", $chassisList);
+            $line++;
+            $serial++;
+        }
+
+        foreach (range('A', 'J') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        return response()->streamDownload(function () use ($spreadsheet): void {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, CompanyWalletEntry>
+     */
+    private function allEntries(Company $company)
+    {
+        return CompanyWalletEntry::query()
+            ->where('company_id', $company->id)
+            ->with(['creator:id,name', 'journalEntry:id,voucher_number'])
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id')
+            ->get();
     }
 
     private function nextVoucherNumber(Company $company): string

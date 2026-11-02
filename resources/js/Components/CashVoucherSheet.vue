@@ -13,6 +13,8 @@ const props = defineProps({
     currency: { type: String, default: '' },
     currencySymbol: { type: String, default: '' },
     amountInWords: { type: String, default: '—' },
+    notes: { type: String, default: '' },
+    userName: { type: String, default: '' },
     chassisNos: { type: Array, default: () => [] },
 });
 
@@ -23,6 +25,9 @@ const companyName = computed(() => page.props.appSettings?.companyName || t('app
 const companyPhone = computed(() => page.props.appSettings?.companyPhone || '');
 const companyAddress = computed(() => page.props.appSettings?.companyAddress || '');
 const companyLogoUrl = computed(() => page.props.appSettings?.companyLogoUrl || null);
+const signerName = computed(
+    () => String(props.userName || page.props.auth?.user?.name || '').trim()
+);
 
 const isPayment = computed(() => props.type === 'payment');
 const titleAr = computed(() => (isPayment.value ? 'سند صرف' : 'سند قبض'));
@@ -288,17 +293,11 @@ onBeforeUnmount(() => {
 
                 <footer class="cv-signs" dir="ltr">
                     <div class="cv-sign">
+                        <div class="cv-sign-name">{{ signerName || '—' }}</div>
                         <div class="cv-sign-line"></div>
                         <div class="cv-sign-labels" dir="ltr">
                             <span>Receiver</span>
                             <span>المستلم</span>
-                        </div>
-                    </div>
-                    <div class="cv-sign">
-                        <div class="cv-sign-line"></div>
-                        <div class="cv-sign-labels" dir="ltr">
-                            <span>Accountant</span>
-                            <span>المحاسب</span>
                         </div>
                     </div>
                 </footer>

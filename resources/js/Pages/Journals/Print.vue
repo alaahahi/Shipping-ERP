@@ -15,6 +15,9 @@ const { t } = useI18n();
 const isPayment = computed(() => props.voucher.type === 'payment');
 const titleAr = computed(() => (isPayment.value ? t('journals.cash_payment_ar') : t('journals.cash_receipt_ar')));
 const datetimeLabel = computed(() => props.printedAt || props.entry.entry_date || '');
+const userName = computed(() =>
+    String(props.entry.posted_by || props.entry.created_by || '').trim()
+);
 
 const printPage = () => window.print();
 </script>
@@ -45,6 +48,7 @@ const printPage = () => window.print();
             :currency-symbol="voucher.currency_symbol"
             :amount-in-words="voucher.amount_in_words"
             :notes="voucher.notes"
+            :user-name="userName"
         />
     </PrintLayout>
 </template>

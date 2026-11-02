@@ -4619,18 +4619,27 @@ body:has(.erp-print-shell) {
 .cv-signs {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 2rem;
     padding: 0.95rem 1.5rem 0.85rem;
     direction: ltr;
 }
 
 .cv-sign {
-    width: 36%;
+    width: 42%;
+}
+
+.cv-sign-name {
+    min-height: 1.35rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--cv-ink);
+    text-align: center;
+    line-height: 1.35;
 }
 
 .cv-sign-line {
-    height: 2.1rem;
+    height: 1.35rem;
     border-bottom: 1px solid var(--cv-soft);
 }
 

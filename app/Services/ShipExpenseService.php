@@ -242,7 +242,6 @@ class ShipExpenseService
             $expense->notes,
             $expense->reference,
             $expense->paidByOwner?->name,
-            $expense->creator?->name,
         ], fn ($value) => filled($value))));
 
         return [
@@ -262,6 +261,7 @@ class ShipExpenseService
                 'currency' => $currency,
                 'currency_symbol' => AmountInWords::currencySymbol($currency),
                 'notes' => $notes,
+                'created_by_name' => $expense->creator?->name,
                 'expense_date' => $expense->expense_date?->format('Y-m-d') ?: '',
             ],
             'printedAt' => ApplicationTimezone::formatNow(),

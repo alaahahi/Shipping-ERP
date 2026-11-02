@@ -368,6 +368,7 @@ class LandDriverPaymentAccountingTest extends TestCase
             ->post(route('land-trips.companies.driver-payments.store', $company), [
                 'driver_name' => 'Ahmed Driver',
                 'cmr_number' => 'CMR-1',
+                'notes' => 'First note',
                 'cars_count' => 2,
                 'type' => 'freight',
                 'payment_date' => '2026-08-18',
@@ -376,6 +377,7 @@ class LandDriverPaymentAccountingTest extends TestCase
             ->assertRedirect();
 
         $payment = LandDriverPayment::query()->firstOrFail();
+        $this->assertSame('First note', $payment->notes);
         $journalId = $payment->journal_entry_id;
         $oldAmount = (string) $payment->amount;
 
@@ -383,6 +385,7 @@ class LandDriverPaymentAccountingTest extends TestCase
             ->put(route('land-trips.companies.driver-payments.update', [$company, $payment]), [
                 'driver_name' => 'Sami Driver',
                 'cmr_number' => 'CMR-99',
+                'notes' => 'Updated CMR note',
                 'cars_count' => 5,
                 'type' => 'commission',
                 'amount' => 1,
@@ -396,6 +399,7 @@ class LandDriverPaymentAccountingTest extends TestCase
 
         $this->assertSame('Sami Driver', $payment->driver_name);
         $this->assertSame('CMR-99', $payment->cmr_number);
+        $this->assertSame('Updated CMR note', $payment->notes);
         $this->assertSame(5, $payment->cars_count);
         $this->assertSame('commission', $payment->type->value);
         $this->assertSame('2026-08-18', $payment->payment_date?->toDateString());

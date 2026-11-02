@@ -97,6 +97,7 @@ class LandDriverPaymentService
      * @param  array{
      *     driver_name: string,
      *     cmr_number?: string|null,
+     *     notes?: string|null,
      *     cars_count: int|string,
      *     type: string,
      *     payment_date: string,
@@ -121,6 +122,7 @@ class LandDriverPaymentService
         $driverName = trim((string) $data['driver_name']);
         $carsCount = (int) $data['cars_count'];
         $cmr = $this->nullableString($data['cmr_number'] ?? null);
+        $notes = $this->nullableString($data['notes'] ?? null);
         $memo = sprintf('Driver payment — %s · %s', $driverName, $company->name);
         $description = sprintf(
             'Driver payment — %s · %s · %s USD',
@@ -140,6 +142,7 @@ class LandDriverPaymentService
             $driverName,
             $carsCount,
             $cmr,
+            $notes,
             $data,
             $memo,
             $description,
@@ -149,6 +152,7 @@ class LandDriverPaymentService
                 'company_id' => $company->id,
                 'driver_name' => $driverName,
                 'cmr_number' => $cmr,
+                'notes' => $notes,
                 'cars_count' => $carsCount,
                 'type' => $type,
                 'payment_date' => $data['payment_date'],
@@ -209,6 +213,7 @@ class LandDriverPaymentService
      * @param  array{
      *     driver_name: string,
      *     cmr_number?: string|null,
+     *     notes?: string|null,
      *     cars_count: int|string,
      *     type: string
      * }  $data
@@ -229,11 +234,13 @@ class LandDriverPaymentService
             $driverName = trim((string) $data['driver_name']);
             $carsCount = (int) $data['cars_count'];
             $cmr = $this->nullableString($data['cmr_number'] ?? null);
+            $notes = $this->nullableString($data['notes'] ?? null);
             $type = LandDriverPaymentType::from($data['type']);
 
             $locked->update([
                 'driver_name' => $driverName,
                 'cmr_number' => $cmr,
+                'notes' => $notes,
                 'cars_count' => $carsCount,
                 'type' => $type,
             ]);
@@ -331,6 +338,7 @@ class LandDriverPaymentService
             'id' => $payment->id,
             'driver_name' => $payment->driver_name,
             'cmr_number' => $payment->cmr_number,
+            'notes' => $payment->notes,
             'cars_count' => $payment->cars_count,
             'type' => $type,
             'payment_date' => $payment->payment_date?->toDateString(),

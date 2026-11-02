@@ -84,6 +84,20 @@ class CompanyWalletController extends Controller
         return Inertia::render('LandTrips/WalletPrint', $payload);
     }
 
+    public function printAll(Company $company): Response
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return Inertia::render('LandTrips/WalletPaymentsPrint', $this->walletService->listPrintPayload($company));
+    }
+
+    public function export(Company $company): StreamedResponse
+    {
+        Gate::authorize('viewAny', LandTrip::class);
+
+        return $this->walletService->exportExcel($company);
+    }
+
     public function updateAttachment(
         UpdateCompanyWalletAttachmentRequest $request,
         Company $company,

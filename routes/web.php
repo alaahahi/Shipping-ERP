@@ -184,6 +184,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('land-trips.companies.print');
     Route::post('/land-trips/companies/{company}/wallet', [CompanyWalletController::class, 'store'])
         ->name('land-trips.companies.wallet.store');
+    Route::get('/land-trips/companies/{company}/wallet/print', [CompanyWalletController::class, 'printAll'])
+        ->name('land-trips.companies.wallet.print-all');
+    Route::get('/land-trips/companies/{company}/wallet/export', [CompanyWalletController::class, 'export'])
+        ->name('land-trips.companies.wallet.export');
     Route::delete('/land-trips/companies/{company}/wallet/{entry}', [CompanyWalletController::class, 'destroy'])
         ->name('land-trips.companies.wallet.destroy');
     Route::post('/land-trips/companies/{company}/wallet/{entry}/chassis', [CompanyWalletController::class, 'assignChassis'])

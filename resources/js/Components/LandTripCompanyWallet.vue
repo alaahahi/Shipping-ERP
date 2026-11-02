@@ -293,6 +293,25 @@ const replaceAttachment = (key, url, file) => {
         </form>
 
         <div class="erp-card p-0 overflow-hidden mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-3 border-bottom">
+                <h3 class="h6 mb-0">{{ t('land_trips.wallet_payments') }}</h3>
+                <div class="d-inline-flex flex-wrap gap-2">
+                    <a
+                        class="btn btn-sm btn-erp-ghost"
+                        :href="route('land-trips.companies.wallet.print-all', company.id)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ t('land_trips.wallet_print_all') }}
+                    </a>
+                    <a
+                        class="btn btn-sm btn-erp-ghost"
+                        :href="route('land-trips.companies.wallet.export', company.id)"
+                    >
+                        {{ t('land_trips.wallet_export_excel') }}
+                    </a>
+                </div>
+            </div>
             <InputError class="px-3 pt-3" :message="deleteError" />
             <EmptyState v-if="!wallet.entries?.length" icon="W">{{ t('land_trips.wallet_empty') }}</EmptyState>
             <div v-else class="table-responsive">
@@ -398,6 +417,7 @@ const replaceAttachment = (key, url, file) => {
                         <tr>
                             <th class="ps-3">{{ t('land_trips.driver_name') }}</th>
                             <th>{{ t('land_trips.cmr') }}</th>
+                            <th>{{ t('common.notes') }}</th>
                             <th>{{ t('land_trips.cars') }}</th>
                             <th>{{ t('common.type') }}</th>
                             <th>{{ t('common.date') }}</th>
@@ -416,6 +436,7 @@ const replaceAttachment = (key, url, file) => {
                                 <PaymentChassisBadges class="mt-2" :items="payment.chassis" compact />
                             </td>
                             <td>{{ payment.cmr_number || '—' }}</td>
+                            <td class="max-w-[14rem] whitespace-pre-wrap break-words">{{ payment.notes || '—' }}</td>
                             <td>{{ payment.cars_count }}</td>
                             <td>{{ driverTypeLabel(payment.type) }}</td>
                             <td class="small text-nowrap">{{ payment.payment_date }}</td>

@@ -44,6 +44,7 @@ const printPage = () => window.print();
             :currency-symbol="expense.currency_symbol"
             :amount-in-words="expense.amount_in_words"
             :notes="expense.notes"
+            :user-name="expense.created_by_name || ''"
         />
     </PrintLayout>
 </template>

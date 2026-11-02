@@ -22,6 +22,7 @@ class StoreLandDriverPaymentRequest extends FormRequest
         return [
             'driver_name' => ['required', 'string', 'max:180'],
             'cmr_number' => ['nullable', 'string', 'max:80'],
+            'notes' => ['nullable', 'string', 'max:1000'],
             'cars_count' => ['required', 'integer', 'min:1'],
             'type' => ['required', 'string', Rule::enum(LandDriverPaymentType::class)],
             'payment_date' => ['required', 'date'],

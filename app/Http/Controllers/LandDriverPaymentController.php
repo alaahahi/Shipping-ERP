@@ -54,7 +54,7 @@ class LandDriverPaymentController extends Controller
         $this->driverPaymentService->update(
             $company,
             $payment,
-            $request->safe()->only(['driver_name', 'cmr_number', 'cars_count', 'type']),
+            $request->safe()->only(['driver_name', 'cmr_number', 'notes', 'cars_count', 'type']),
             $user
         );
 

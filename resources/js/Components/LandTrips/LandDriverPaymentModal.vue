@@ -23,6 +23,7 @@ const driverQuery = ref('');
 const form = useForm({
     driver_name: '',
     cmr_number: '',
+    notes: '',
     cars_count: 1,
     type: 'freight',
     payment_date: new Date().toISOString().slice(0, 10),
@@ -50,6 +51,7 @@ form.transform((data) => {
     return {
         driver_name: data.driver_name,
         cmr_number: data.cmr_number,
+        notes: data.notes,
         cars_count: data.cars_count,
         type: data.type,
     };
@@ -85,6 +87,7 @@ watch(
         if (props.payment) {
             form.driver_name = props.payment.driver_name || '';
             form.cmr_number = props.payment.cmr_number || '';
+            form.notes = props.payment.notes || '';
             form.cars_count = props.payment.cars_count || 1;
             form.type = props.payment.type || 'freight';
             form.payment_date = props.payment.payment_date || '';
@@ -220,6 +223,18 @@ const submit = async () => {
                     <label :class="fbLabel" for="land-driver-cmr">{{ t('land_trips.cmr') }}</label>
                     <input id="land-driver-cmr" v-model="form.cmr_number" type="text" maxlength="80" :class="fbInput" autocomplete="off" />
                     <InputError :message="form.errors.cmr_number" />
+                </div>
+
+                <div class="mb-3">
+                    <label :class="fbLabel" for="land-driver-notes">{{ t('common.notes') }}</label>
+                    <textarea
+                        id="land-driver-notes"
+                        v-model="form.notes"
+                        rows="3"
+                        maxlength="1000"
+                        :class="fbInput"
+                    />
+                    <InputError :message="form.errors.notes" />
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">

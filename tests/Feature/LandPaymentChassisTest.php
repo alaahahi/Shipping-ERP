@@ -112,6 +112,48 @@ class LandPaymentChassisTest extends TestCase
             );
     }
 
+    public function test_wallet_print_all_lists_company_payments(): void
+    {
+        $user = $this->manager();
+        $company = $this->makeCompany('All Pay Co');
+        $entry = $this->makeWalletEntry($company, $user);
+        $this->addCar($this->makeTrip($company, $user, 'CMR-ALL'), 'WVWZZZ3CZWE999999')->update([
+            'price' => 250,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('land-trips.companies.wallet.print-all', $company))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('LandTrips/WalletPaymentsPrint')
+                ->where('company.id', $company->id)
+                ->where('entries.0.voucher_number', $entry->voucher_number)
+                ->where('summary.paid', '100.00')
+                ->where('summary.cars_total', '250.00')
+                ->where('summary.remaining', '150.00')
+            );
+    }
+
+    public function test_wallet_export_excel_downloads_xlsx(): void
+    {
+        $user = $this->manager();
+        $company = $this->makeCompany('Excel Pay Co');
+        $this->makeWalletEntry($company, $user);
+
+        $response = $this->actingAs($user)
+            ->get(route('land-trips.companies.wallet.export', $company));
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'spreadsheetml.sheet',
+            (string) $response->headers->get('content-type')
+        );
+        $this->assertStringContainsString(
+            'wallet-payments-',
+            (string) $response->headers->get('content-disposition')
+        );
+    }
+
     public function test_viewer_cannot_assign_chassis(): void
     {
         $viewer = User::factory()->create();

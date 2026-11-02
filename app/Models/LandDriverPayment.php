@@ -17,6 +17,7 @@ class LandDriverPayment extends Model
         'company_id',
         'driver_name',
         'cmr_number',
+        'notes',
         'cars_count',
         'type',
         'payment_date',
