@@ -14,8 +14,9 @@ const mapEl = ref(null);
 let map = null;
 let layerGroup = null;
 
-const CARTO_DARK_NOLABELS = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
-const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// CARTO basemaps now require an API key; use Esri dark gray (no key) to keep the dark map look.
+const BASEMAP_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const BASEMAP_ATTRIBUTION = 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ';
 
 const mappable = (rows) => rows.filter((row) => row.latitude != null && row.longitude != null && Number(row.cars_count) > 0);
 
@@ -149,10 +150,9 @@ onMounted(() => {
     }
 
     map = L.map(mapEl.value, { scrollWheelZoom: false, attributionControl: true }).setView([32.4, 53.7], 4);
-    L.tileLayer(CARTO_DARK_NOLABELS, {
-        attribution: CARTO_ATTRIBUTION,
-        subdomains: 'abcd',
-        maxZoom: 19,
+    L.tileLayer(BASEMAP_URL, {
+        attribution: BASEMAP_ATTRIBUTION,
+        maxZoom: 16,
     }).addTo(map);
     layerGroup = L.layerGroup().addTo(map);
     renderMarkers();
