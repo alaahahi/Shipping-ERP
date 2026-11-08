@@ -1036,9 +1036,14 @@ class LandTripService
                 $notes
             );
 
+            $ids = $requested->pluck('id')->all();
+
             LandTripCar::query()
-                ->whereIn('id', $requested->pluck('id'))
+                ->whereIn('id', $ids)
                 ->update(['land_trip_id' => $targetTrip->id]);
+
+            // Consignee often stores the trader name; keep it aligned after ownership moves.
+            $this->syncTransferredConsignees($ids, $fromCompany, $toCompany);
 
             return $requested->count();
         });
@@ -1229,6 +1234,11 @@ class LandTripService
                     collect([$car]),
                     $targetTrip
                 );
+
+                if (! array_key_exists('consignee_name', $data)
+                    && $this->consigneeLooksLikeCompany($car->consignee_name, $company)) {
+                    $data['consignee_name'] = $targetCompany->name;
+                }
             }
 
             $seenChassis = [];
@@ -2030,6 +2040,41 @@ class LandTripService
         }
 
         return null;
+    }
+
+    /**
+     * @param  list<int>  $carIds
+     */
+    private function syncTransferredConsignees(array $carIds, Company $fromCompany, Company $toCompany): void
+    {
+        if ($carIds === []) {
+            return;
+        }
+
+        $fromName = trim((string) $fromCompany->name);
+        $toName = trim((string) $toCompany->name);
+        if ($toName === '') {
+            return;
+        }
+
+        LandTripCar::query()
+            ->whereIn('id', $carIds)
+            ->where(function ($query) use ($fromName): void {
+                $query->whereNull('consignee_name')
+                    ->orWhere('consignee_name', '')
+                    ->orWhereRaw('LOWER(TRIM(consignee_name)) = ?', [mb_strtolower($fromName)]);
+            })
+            ->update(['consignee_name' => $toName]);
+    }
+
+    private function consigneeLooksLikeCompany(?string $consignee, Company $company): bool
+    {
+        $current = trim((string) ($consignee ?? ''));
+        if ($current === '') {
+            return true;
+        }
+
+        return mb_strtolower($current) === mb_strtolower(trim((string) $company->name));
     }
 
     private function nullableString(mixed $value): ?string

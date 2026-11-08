@@ -55,6 +55,46 @@ class LandTripCarTransferTest extends TestCase
         $this->assertSame('WVWZZZ3CZWE123456', $transfer->items()->value('chassis_no'));
     }
 
+    public function test_transfer_updates_consignee_when_it_was_the_old_trader(): void
+    {
+        $user = $this->manager();
+        $from = $this->makeCompany('Old Trader');
+        $to = $this->makeCompany('New Trader');
+        $trip = $this->makeTrip($from, $user, 'CMR-TR');
+        $car = $this->addCar($trip, 'WVWZZZ3CZWE555555');
+        $car->update(['consignee_name' => 'Old Trader']);
+        $kept = $this->addCar($trip, 'WVWZZZ3CZWE666666');
+        $kept->update(['consignee_name' => 'Custom Consignee']);
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.cars.transfer', $from), [
+                'to_company_id' => $to->id,
+                'car_ids' => [$car->id, $kept->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('New Trader', $car->fresh()->consignee_name);
+        $this->assertSame('Custom Consignee', $kept->fresh()->consignee_name);
+        $this->assertSame($to->id, $car->fresh()->landTrip()->value('company_id'));
+
+        $this->actingAs($user)
+            ->get(route('land-trips.companies.car-check', $to))
+            ->assertOk()
+            ->assertJsonFragment([
+                'chassis_no' => 'WVWZZZ3CZWE555555',
+                'consignee_name' => 'New Trader',
+            ])
+            ->assertJsonFragment([
+                'chassis_no' => 'WVWZZZ3CZWE666666',
+                'consignee_name' => 'Custom Consignee',
+            ]);
+
+        $this->actingAs($user)
+            ->get(route('land-trips.companies.car-check', $from))
+            ->assertOk()
+            ->assertJsonPath('own', []);
+    }
+
     public function test_cannot_transfer_cars_that_belong_to_another_company(): void
     {
         $user = $this->manager();

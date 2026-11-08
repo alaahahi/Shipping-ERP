@@ -35,8 +35,8 @@ const missingCount = computed(() => results.value.filter((item) => item.status =
 const missingVins = computed(() => results.value.filter((item) => item.status === 'missing').map((item) => item.vin));
 const busy = computed(() => loading.value || indexLoading.value);
 
-const loadIndex = async () => {
-    if (loaded.value || indexLoading.value) {
+const loadIndex = async ({ force = false } = {}) => {
+    if ((!force && loaded.value) || indexLoading.value) {
         return;
     }
     indexLoading.value = true;
@@ -54,9 +54,20 @@ const loadIndex = async () => {
 
 watch(() => props.active, (on) => {
     if (on) {
-        loadIndex();
+        // Always refresh so transfers between traders are visible immediately.
+        loadIndex({ force: true });
     }
 }, { immediate: true });
+
+watch(() => props.companyId, () => {
+    loaded.value = false;
+    ownCars.value = [];
+    elsewhere.value = {};
+    results.value = [];
+    if (props.active) {
+        loadIndex({ force: true });
+    }
+});
 
 const matchOwn = (needle) => {
     const exact = ownCars.value.filter((car) => normalize(car.chassis_no) === needle);
