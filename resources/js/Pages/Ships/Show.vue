@@ -267,17 +267,29 @@ const startEditExpense = (expense) => {
 };
 
 const submitExpense = () => {
+    const hasAttachment = expenseForm.attachment instanceof File;
     if (editingExpenseId.value) {
-        expenseForm.put(route('ships.expenses.update', [props.ship.id, editingExpenseId.value]), {
+        expenseForm.transform((data) => {
+            const payload = { ...data };
+            if (!hasAttachment) {
+                delete payload.attachment;
+            }
+
+            return payload;
+        }).put(route('ships.expenses.update', [props.ship.id, editingExpenseId.value]), {
             preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => resetExpenseForm(),
+            forceFormData: hasAttachment,
+            onSuccess: () => {
+                expenseForm.transform((data) => data);
+                resetExpenseForm();
+            },
+            onFinish: () => expenseForm.transform((data) => data),
         });
         return;
     }
     expenseForm.post(route('ships.expenses.store', props.ship.id), {
         preserveScroll: true,
-        forceFormData: true,
+        forceFormData: hasAttachment,
         onSuccess: () => resetExpenseForm(),
     });
 };

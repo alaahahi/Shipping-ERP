@@ -230,6 +230,59 @@ class ShipExpenseAttachmentTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_manager_can_update_expense_description_and_print_reflects_it(): void
+    {
+        $user = $this->shipsManager();
+        $ship = $this->makeShip();
+
+        $this->actingAs($user)
+            ->post(route('ships.expenses.store', $ship), [
+                'expense_type' => ShipExpenseType::Other->value,
+                'amount' => 120,
+                'currency' => Currency::USD->value,
+                'expense_date' => '2026-08-18',
+                'vendor' => 'Old reason',
+                'reference' => 'REF-1',
+            ])
+            ->assertRedirect();
+
+        $expense = ShipExpense::query()->firstOrFail();
+
+        $this->actingAs($user)
+            ->put(route('ships.expenses.update', [$ship, $expense]), [
+                'expense_type' => ShipExpenseType::Other->value,
+                'amount' => 120,
+                'currency' => Currency::USD->value,
+                'expense_date' => '2026-08-18',
+                'vendor' => 'Updated port fees',
+                'reference' => 'REF-2',
+                'notes' => 'Urgent',
+            ])
+            ->assertRedirect(route('ships.show', ['ship' => $ship, 'tab' => 'expenses']));
+
+        $expense->refresh();
+        $this->assertSame('Updated port fees', $expense->vendor);
+        $this->assertSame('REF-2', $expense->reference);
+        $this->assertSame('Urgent', $expense->notes);
+
+        $this->actingAs($user)
+            ->get(route('ships.expenses.voucher', [$ship, $expense]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Ships/ExpenseVoucherPrint')
+                ->where('expense.party_name', 'Updated port fees')
+                ->where('expense.notes', 'Updated port fees · Urgent · REF-2')
+            );
+
+        $this->actingAs($user)
+            ->get(route('ships.show', ['ship' => $ship, 'tab' => 'expenses']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Ships/Show')
+                ->where('expenses.0.vendor', 'Updated port fees')
+            );
+    }
+
     private function shipsManager(): User
     {
         $user = User::factory()->create();

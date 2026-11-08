@@ -237,8 +237,9 @@ class ShipExpenseService
         $amount = (float) $expense->amount;
         $voucherNumber = $expense->journalEntry?->voucher_number
             ?: 'SE-'.$ship->id.'-'.str_pad((string) $expense->id, 4, '0', STR_PAD_LEFT);
+        $description = trim((string) ($expense->vendor ?: ''));
         $notes = trim(implode(' · ', array_filter([
-            $expense->expense_type->label(),
+            $description !== '' ? $description : $expense->expense_type->label(),
             $expense->notes,
             $expense->reference,
             $expense->paidByOwner?->name,
