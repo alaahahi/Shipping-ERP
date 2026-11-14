@@ -54,12 +54,13 @@ class LandTripCarTransferService
             'to_company_id' => $toCompany->id,
             'transfer_id' => $transfer->id,
             'user_id' => $actor->id,
+            'transferred_at' => optional($transfer->created_at)?->toDateTimeString(),
             'car_ids' => $cars->pluck('id')->all(),
             'chassis_nos' => $cars->pluck('chassis_no')->all(),
             'to_land_trip_id' => $toTrip->id,
         ]);
 
-        return $transfer;
+        return $transfer->fresh(['user:id,name', 'fromCompany:id,name', 'toCompany:id,name', 'items']);
     }
 
     public function paginateForCompany(Company $company, int $perPage = 20): LengthAwarePaginator
@@ -94,6 +95,8 @@ class LandTripCarTransferService
         return [
             'id' => $transfer->id,
             'created_at' => ApplicationTimezone::formatDateTime($transfer->created_at),
+            'transferred_at' => ApplicationTimezone::formatDateTime($transfer->created_at),
+            'user_id' => $transfer->user_id,
             'user_name' => $transfer->user?->name,
             'from_company_id' => $transfer->from_company_id,
             'from_company_name' => $transfer->fromCompany?->name,

@@ -40,6 +40,17 @@ final class ApplicationTimezone
         return Carbon::parse($value)->timezone($timezone)->format('Y-m-d H:i');
     }
 
+    public static function formatDate(CarbonInterface|string|null $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $timezone = self::resolve();
+
+        return Carbon::parse($value)->timezone($timezone)->format('Y-m-d');
+    }
+
     public static function formatNow(): string
     {
         return now(self::resolve())->format('Y-m-d H:i');

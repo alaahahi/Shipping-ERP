@@ -13,6 +13,7 @@ use App\Models\LandTripCar;
 use App\Models\User;
 use App\Models\Voyage;
 use App\Models\VoyageCar;
+use App\Support\ApplicationTimezone;
 use App\Support\AttachmentMeta;
 use App\Support\ChassisLetterO;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -1037,10 +1038,16 @@ class LandTripService
             );
 
             $ids = $requested->pluck('id')->all();
+            $enteredAt = now();
 
+            // Re-stamp entry date for the destination company inventory ("تاريخ الإدخال").
             LandTripCar::query()
                 ->whereIn('id', $ids)
-                ->update(['land_trip_id' => $targetTrip->id]);
+                ->update([
+                    'land_trip_id' => $targetTrip->id,
+                    'created_at' => $enteredAt,
+                    'updated_at' => $enteredAt,
+                ]);
 
             // Consignee often stores the trader name; keep it aligned after ownership moves.
             $this->syncTransferredConsignees($ids, $fromCompany, $toCompany);
@@ -1222,8 +1229,14 @@ class LandTripService
             $targetCompany = $company;
             $targetTripId = (int) $car->land_trip_id;
 
-            if ($targetCompanyId !== (int) $company->id) {
+            $companyChanged = $targetCompanyId !== (int) $company->id;
+            if ($companyChanged) {
                 $targetCompany = Company::query()->findOrFail($targetCompanyId);
+                if (! $targetCompany->is_active) {
+                    throw ValidationException::withMessages([
+                        'company_id' => 'The destination company is not active.',
+                    ]);
+                }
                 $targetTrip = $this->workingTripForCompany($targetCompany, $actor);
                 $this->assertEditable($targetTrip);
                 $targetTripId = (int) $targetTrip->id;
@@ -1286,10 +1299,15 @@ class LandTripService
 
             $this->locationChangeService->record($targetCompany, $actor, collect([$car]), $newStatusId);
 
-            $car->update([
+            $update = [
                 ...$payload,
                 'land_trip_id' => $targetTripId,
-            ]);
+            ];
+            if ($companyChanged) {
+                $update['created_at'] = now();
+            }
+
+            $car->update($update);
 
             return $car->fresh();
         });
@@ -1845,8 +1863,8 @@ class LandTripService
             'location_status_color' => $car->locationStatus?->resolvedColor(),
             'land_trip_id' => $car->land_trip_id,
             'sort_order' => $car->sort_order,
-            'created_at' => optional($car->created_at)?->format('Y-m-d'),
-            'created_at_label' => optional($car->created_at)?->format('Y-m-d H:i'),
+            'created_at' => $car->created_at ? ApplicationTimezone::formatDate($car->created_at) : null,
+            'created_at_label' => $car->created_at ? ApplicationTimezone::formatDateTime($car->created_at) : null,
         ];
     }
 

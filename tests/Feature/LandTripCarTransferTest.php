@@ -49,10 +49,102 @@ class LandTripCarTransferTest extends TestCase
         $transfer = LandTripCarCompanyTransfer::query()->firstOrFail();
         $this->assertSame($from->id, $transfer->from_company_id);
         $this->assertSame($to->id, $transfer->to_company_id);
+        $this->assertSame($user->id, $transfer->user_id);
         $this->assertSame(1, $transfer->cars_count);
         $this->assertSame('Ops move', $transfer->notes);
+        $this->assertNotNull($transfer->created_at);
         $this->assertSame($car->id, $transfer->items()->value('land_trip_car_id'));
         $this->assertSame('WVWZZZ3CZWE123456', $transfer->items()->value('chassis_no'));
+    }
+
+    public function test_transfer_restamps_entry_date_and_stores_actor_and_transfer_time(): void
+    {
+        $this->travelTo('2026-11-14 12:00:00');
+
+        $user = $this->manager();
+        $from = $this->makeCompany('Source Co');
+        $to = $this->makeCompany('Dest Co');
+        $trip = $this->makeTrip($from, $user, 'CMR-DATE');
+        $car = $this->addCar($trip, 'WVWZZZ3CZWE777777');
+
+        // Simulate car entered about a month earlier on the source account.
+        $oldEntry = now()->copy()->subMonth()->setTime(9, 15, 0);
+        LandTripCar::query()->whereKey($car->id)->update([
+            'created_at' => $oldEntry,
+            'updated_at' => $oldEntry,
+        ]);
+        $car->refresh();
+        $this->assertSame($oldEntry->toDateTimeString(), $car->created_at->toDateTimeString());
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.cars.transfer', $from), [
+                'to_company_id' => $to->id,
+                'car_ids' => [$car->id],
+                'notes' => 'Date check',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $car->refresh();
+        $transfer = LandTripCarCompanyTransfer::query()->latest('id')->firstOrFail();
+
+        $this->assertSame($to->id, $car->landTrip()->value('company_id'));
+        $this->assertSame(now()->toDateTimeString(), $car->created_at->toDateTimeString());
+        $this->assertTrue($car->created_at->greaterThan($oldEntry));
+        $this->assertSame($user->id, $transfer->user_id);
+        $this->assertSame(now()->toDateTimeString(), $transfer->created_at->toDateTimeString());
+        $this->assertSame('Date check', $transfer->notes);
+
+        $this->actingAs($user)
+            ->get(route('land-trips.companies.transfer-logs', $to))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('LandTrips/TransferLogs')
+                ->where('transfers.data.0.user_id', $user->id)
+                ->where('transfers.data.0.user_name', $user->name)
+                ->where('transfers.data.0.from_company_id', $from->id)
+                ->where('transfers.data.0.to_company_id', $to->id)
+                ->where('transfers.data.0.cars_count', 1)
+            );
+    }
+
+    public function test_cannot_transfer_to_inactive_company(): void
+    {
+        $user = $this->manager();
+        $from = $this->makeCompany('Active From');
+        $to = $this->makeCompany('Inactive To');
+        $to->update(['is_active' => false]);
+        $car = $this->addCar($this->makeTrip($from, $user, 'CMR-INACT'), 'WVWZZZ3CZWE888888');
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.cars.transfer', $from), [
+                'to_company_id' => $to->id,
+                'car_ids' => [$car->id],
+            ])
+            ->assertSessionHasErrors('to_company_id');
+
+        $this->assertSame($from->id, $car->fresh()->landTrip()->value('company_id'));
+        $this->assertSame(0, LandTripCarCompanyTransfer::query()->count());
+    }
+
+    public function test_cannot_transfer_cars_from_posted_or_closed_trip(): void
+    {
+        $user = $this->manager();
+        $from = $this->makeCompany('Posted From');
+        $to = $this->makeCompany('Posted To');
+        $trip = $this->makeTrip($from, $user, 'CMR-POSTED');
+        $trip->update(['status' => LandTripStatus::Closed]);
+        $car = $this->addCar($trip, 'WVWZZZ3CZWE999999');
+
+        $this->actingAs($user)
+            ->post(route('land-trips.companies.cars.transfer', $from), [
+                'to_company_id' => $to->id,
+                'car_ids' => [$car->id],
+            ])
+            ->assertSessionHasErrors('car_ids');
+
+        $this->assertSame($from->id, $car->fresh()->landTrip()->value('company_id'));
+        $this->assertSame(0, LandTripCarCompanyTransfer::query()->count());
     }
 
     public function test_transfer_updates_consignee_when_it_was_the_old_trader(): void

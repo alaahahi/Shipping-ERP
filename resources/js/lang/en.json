@@ -1001,6 +1001,7 @@
     "confirm_transfer": "Confirm transfer",
     "cars_transferred": "Cars moved to the other company.",
     "transfer_log": "Transfer log",
+    "transfer_date": "Transfer date",
     "transfer_log_help": "Every company-to-company car move is stored so you can see where each chassis came from.",
     "transfer_log_empty": "No company transfers recorded yet.",
     "price_log": "Price log",

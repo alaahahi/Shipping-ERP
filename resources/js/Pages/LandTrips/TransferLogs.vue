@@ -56,7 +56,7 @@ const directionLabel = (row) => {
                 <table class="table erp-table align-middle mb-0">
                     <thead>
                         <tr>
-                            <th class="ps-3">{{ t('common.date') }}</th>
+                            <th class="ps-3">{{ t('land_trips.transfer_date') }}</th>
                             <th>{{ t('land_trips.changed_by') }}</th>
                             <th>{{ t('land_trips.from_company') }}</th>
                             <th>{{ t('land_trips.to_company') }}</th>
